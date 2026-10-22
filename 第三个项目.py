@@ -101,16 +101,55 @@ def move_above(obj_pos, offset_z=0.15):
     move_to(target_pos)
 
 
-def move_down(grasp_z=0.03):
-    """阶段 2：从上方垂直下探到抓取高度
+def move_down(block_id, grasp_z, step=0.01, tol=0.005, steps_per_step=40):
+    """阶段 2：带感知地下探到抓取高度：边走边确认木块还在不在
 
-    注意：grasp_z 是世界坐标里的绝对高度，不是"往下走多少"。
+    每一轮都是一次 感知 → 决策 → 执行：
+
+      1. 感知：读取木块当前位姿。
+         仿真里可以直接读真值；真实系统里这里换成相机 + 目标检测。
+      2. 决策：木块水平偏移超过 tol 就认为目标跑了，中止抓取；
+         否则把下一步定在当前末端下方 step 米处（但不低于 grasp_z）。
+      3. 执行：IK + 位置控制走一小步，然后重新感知。
+
+    参数：
+      block_id      ：木块刚体编号
+      grasp_z       ：最终抓取高度（世界坐标的绝对高度）
+      step          ：每次下降的距离，默认 1cm
+      tol           ：允许的木块水平偏移，超过就中止，默认 5mm
+      steps_per_step：每下降一小步推进多少仿真步
+    返回：
+      True  = 到达抓取高度
+      False = 木块移动，已取消抓取
     """
-    # [4] 是连杆坐标系原点（worldLinkFramePosition），也是 IK 的目标参考点；
-    # [0] 是连杆质心，两者有偏移，混用会让目标点算歪。
-    current_pos = p.getLinkState(panda, ee_idx)[4]
-    target_pos = [current_pos[0], current_pos[1], grasp_z]
-    move_to(target_pos)
+    start_xyz = p.getBasePositionAndOrientation(block_id)[0]
+    print("开始带感知下探，木块初始位置:", [round(v, 4) for v in start_xyz])
+
+    while True:
+        # 1.【感知】末端位置 + 木块当前位置
+        cur_ee = p.getLinkState(panda, ee_idx)[4]  # [4]：连杆坐标系原点，和 IK 一致
+        block_xyz = p.getBasePositionAndOrientation(block_id)[0]
+
+        # 木块相对下探开始时移动了多少（只看水平方向）
+        drift = ((block_xyz[0] - start_xyz[0]) ** 2 +
+                 (block_xyz[1] - start_xyz[1]) ** 2) ** 0.5
+        if drift > tol:
+            print("感知到木块偏移 %.3f m，超过阈值 %.3f m，中止下探" % (drift, tol))
+            return False
+
+        # 2.【决策】下一步往下走 step，但不低于最终抓取高度
+        next_z = max(cur_ee[2] - step, grasp_z)
+        target_pos = [start_xyz[0], start_xyz[1], next_z]
+
+        # 3.【执行】走一小步（move_to 内部仍然每步重解 IK）
+        move_to(target_pos, steps=steps_per_step)
+        print("下探到 z=%.3f（木块偏移 %.4f m）" % (next_z, drift))
+
+        if next_z <= grasp_z + 1e-6:
+            ee = p.getLinkState(panda, ee_idx)[4]
+            err = abs(ee[2] - grasp_z)
+            print("到达抓取高度，末端误差 %.4f m" % err)
+            return err < 0.005
 
 
 def grasp():
@@ -143,17 +182,20 @@ print("阶段 1：移动到木块正上方")
 move_above(block_xyz, offset_z=0.15)
 report("上方")
 
-print("阶段 2：下探到抓取高度")
-move_down(grasp_z=block_xyz[2] + 0.0075)
-report("下降后")
+print("阶段 2：带感知地下探到抓取高度")
+grasped = move_down(block_id, grasp_z=block_xyz[2] + 0.0075)
+if grasped:
+    report("下降后")
 
-print("阶段 3：闭合夹爪")
-grasp()
-report("闭合后")
+    print("阶段 3：闭合夹爪")
+    grasp()
+    report("闭合后")
 
-print("阶段 4：抬起")
-lift(height=block_xyz[2] + 0.26)
-report("抬起后")
+    print("阶段 4：抬起")
+    lift(height=block_xyz[2] + 0.26)
+    report("抬起后")
+else:
+    print("下探中止：木块位置发生变化，取消抓取")
 
 # 保持 1 秒，方便观察
 for _ in range(240):
@@ -161,5 +203,8 @@ for _ in range(240):
     time.sleep(1.0 / 240.0)
 
 lifted = p.getBasePositionAndOrientation(block_id)[0]
-print("抓取完成，木块最终高度: %.3f m" % lifted[2])
+if grasped:
+    print("抓取完成，木块最终高度: %.3f m" % lifted[2])
+else:
+    print("未抓取，木块最终高度: %.3f m" % lifted[2])
 p.disconnect()
