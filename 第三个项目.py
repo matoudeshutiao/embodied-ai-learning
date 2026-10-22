@@ -101,55 +101,60 @@ def move_above(obj_pos, offset_z=0.15):
     move_to(target_pos)
 
 
-def move_down(block_id, grasp_z, step=0.01, tol=0.005, steps_per_step=40):
-    """阶段 2：带感知地下探到抓取高度：边走边确认木块还在不在
+def move_down(block_id, grasp_z, tol=0.005, steps=200):
+    """阶段 2：带感知的连续下探：边走边确认木块还在不在
 
-    每一轮都是一次 感知 → 决策 → 执行：
+    这里把"运动"和"感知"解耦：
 
-      1. 感知：读取木块当前位姿。
-         仿真里可以直接读真值；真实系统里这里换成相机 + 目标检测。
-      2. 决策：木块水平偏移超过 tol 就认为目标跑了，中止抓取；
-         否则把下一步定在当前末端下方 step 米处（但不低于 grasp_z）。
-      3. 执行：IK + 位置控制走一小步，然后重新感知。
+      - 运动：末端连续地朝 grasp_z 移动，每一步重解 IK，和普通 move_to 一样平滑；
+      - 感知：同样每一步检查一次木块位置，发现偏移超过 tol 立即中止。
+
+    为什么不再按 1cm 分段：
+      分段会让机械臂"走一步、停一下"，15 段 × 40 步 = 600 步（约 2.5 秒）。
+      连续版本 200 步（约 0.83 秒）就能走完，感知频率反而更高（每步都查）。
 
     参数：
-      block_id      ：木块刚体编号
-      grasp_z       ：最终抓取高度（世界坐标的绝对高度）
-      step          ：每次下降的距离，默认 1cm
-      tol           ：允许的木块水平偏移，超过就中止，默认 5mm
-      steps_per_step：每下降一小步推进多少仿真步
+      block_id：木块刚体编号
+      grasp_z ：最终抓取高度（世界坐标的绝对高度）
+      tol     ：允许的木块水平偏移，超过就中止，默认 5mm
+      steps   ：下探阶段最多推进多少仿真步，默认 200（约 0.83 秒）
     返回：
       True  = 到达抓取高度
-      False = 木块移动，已取消抓取
+      False = 木块移动，或末端没有收敛到目标
     """
     start_xyz = p.getBasePositionAndOrientation(block_id)[0]
+    target_pos = [start_xyz[0], start_xyz[1], grasp_z]
     print("开始带感知下探，木块初始位置:", [round(v, 4) for v in start_xyz])
 
-    while True:
-        # 1.【感知】末端位置 + 木块当前位置
-        cur_ee = p.getLinkState(panda, ee_idx)[4]  # [4]：连杆坐标系原点，和 IK 一致
+    for step_i in range(steps):
+        # 1.【感知】木块相对下探开始时移动了多少（只看水平方向）
         block_xyz = p.getBasePositionAndOrientation(block_id)[0]
-
-        # 木块相对下探开始时移动了多少（只看水平方向）
         drift = ((block_xyz[0] - start_xyz[0]) ** 2 +
                  (block_xyz[1] - start_xyz[1]) ** 2) ** 0.5
         if drift > tol:
             print("感知到木块偏移 %.3f m，超过阈值 %.3f m，中止下探" % (drift, tol))
             return False
 
-        # 2.【决策】下一步往下走 step，但不低于最终抓取高度
-        next_z = max(cur_ee[2] - step, grasp_z)
-        target_pos = [start_xyz[0], start_xyz[1], next_z]
+        # 2.【决策】木块位置没变，继续朝固定的抓取点下降
 
-        # 3.【执行】走一小步（move_to 内部仍然每步重解 IK）
-        move_to(target_pos, steps=steps_per_step)
-        print("下探到 z=%.3f（木块偏移 %.4f m）" % (next_z, drift))
+        # 3.【执行】IK + 位置控制，走一小步
+        joint_pose = p.calculateInverseKinematics(
+            panda, ee_idx, target_pos, target_orn,
+            maxNumIterations=200, residualThreshold=1e-8,
+        )
+        for i in range(7):
+            p.setJointMotorControl2(panda, i, p.POSITION_CONTROL, joint_pose[i], force=200)
+        p.stepSimulation()
+        time.sleep(1.0 / 240.0)
 
-        if next_z <= grasp_z + 1e-6:
+        if step_i % 40 == 0:  # 每 1/6 秒打印一次，避免刷屏
             ee = p.getLinkState(panda, ee_idx)[4]
-            err = abs(ee[2] - grasp_z)
-            print("到达抓取高度，末端误差 %.4f m" % err)
-            return err < 0.005
+            print("下探中 z=%.3f（木块偏移 %.4f m）" % (ee[2], drift))
+
+    ee = p.getLinkState(panda, ee_idx)[4]
+    err = abs(ee[2] - grasp_z)
+    print("下探结束 z=%.3f，末端误差 %.4f m" % (ee[2], err))
+    return err < 0.005
 
 
 def grasp():
@@ -195,7 +200,7 @@ if grasped:
     lift(height=block_xyz[2] + 0.26)
     report("抬起后")
 else:
-    print("下探中止：木块位置发生变化，取消抓取")
+    print("下探失败：木块移动或末端未到位，取消抓取")
 
 # 保持 1 秒，方便观察
 for _ in range(240):
