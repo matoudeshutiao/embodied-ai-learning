@@ -208,6 +208,106 @@ def perceive(tag):
     return info
 
 
+# ---------------- 3. 触觉：读取指尖接触力 ----------------
+CONTACT_FORCE_MIN = 5.0   # 法向力超过 5N 认为该手指确实压住了物体
+
+
+def tactile_read():
+    """读取左右手指与方块的接触力
+
+    返回：
+      per_finger：每个手指关节的接触法向力之和（N）
+      total：两指总接触力
+      count：接触点数量
+      both：两指是否都超过了 CONTACT_FORCE_MIN
+    """
+    contacts = p.getContactPoints(bodyA=panda, bodyB=cube)
+    per_finger = {f: 0.0 for f in finger_joints}
+    count = 0
+    for c in contacts:
+        link_a = c[3]      # bodyA（机械臂）上的连杆索引
+        force = c[9]       # 接触法向力
+        if link_a in per_finger:
+            per_finger[link_a] += force
+            count += 1
+    total = sum(per_finger.values())
+    both = all(per_finger[f] > CONTACT_FORCE_MIN for f in finger_joints)
+    return per_finger, total, count, both
+
+
+# ---------------- 4. 边走边看的地下探 ----------------
+XY_UPDATE_Z_MIN = 0.12   # 低于这个高度，夹爪遮挡会让 xy 估计偏，停止更新 xy
+
+
+def visual_servo_descend(cube_half, check_every=20, max_steps=300):
+    """下探过程中每隔 check_every 步重新感知，更新目标 xy 和抓取高度
+
+    分两段：
+      - 高度 > 12cm：视觉可信，xy 和抓取高度都用最新感知更新；
+      - 高度 <= 12cm：夹爪开始遮挡方块，xy 冻结在最后一次可靠估计，
+        但仍然继续感知，用顶面高度更新 z，并检查方块是否还在视野里。
+
+    返回 (是否成功, 最后估计的顶面, 抓取高度, 最终使用的 xy)
+    """
+    last_top = None
+    target_xy = None
+    grasp_z = None
+    lost = 0
+    frozen_announced = False
+
+    for step in range(max_steps):
+        ee_now = p.getLinkState(panda, ee_idx)[4]
+
+        if step % check_every == 0:
+            info = perceive("servo %d" % step)
+            if info is None:
+                lost += 1
+                if lost >= 3:
+                    print("连续 3 次丢失目标，停止下探")
+                    return False, last_top, grasp_z, target_xy
+            else:
+                lost = 0
+                last_top = info["top"]
+                grasp_z = float(np.clip(
+                    last_top[2] - cube_half + 0.0075, 0.02, 0.06))
+
+                if target_xy is None or ee_now[2] > XY_UPDATE_Z_MIN:
+                    target_xy = [float(last_top[0]), float(last_top[1])]
+                elif not frozen_announced:
+                    print("末端低于 %.2fm，夹爪遮挡增大，xy 冻结在最后可靠估计"
+                          % XY_UPDATE_Z_MIN)
+                    frozen_announced = True
+
+        if target_xy is None or grasp_z is None:
+            continue
+
+        target = [target_xy[0], target_xy[1], grasp_z]
+        joint_pose = p.calculateInverseKinematics(
+            panda, ee_idx, target, target_orn,
+            maxNumIterations=200, residualThreshold=1e-8,
+        )
+        for i in range(7):
+            p.setJointMotorControl2(panda, i, p.POSITION_CONTROL,
+                                    joint_pose[i], force=200)
+        p.stepSimulation()
+        time.sleep(1.0 / 240.0)
+
+        ee = p.getLinkState(panda, ee_idx)[4]
+        if step > 60 and abs(ee[2] - grasp_z) < 0.002:
+            info = perceive("servo final")
+            if info is not None:
+                last_top = info["top"]
+                grasp_z = float(np.clip(
+                    last_top[2] - cube_half + 0.0075, 0.02, 0.06))
+                if ee[2] > XY_UPDATE_Z_MIN:
+                    target_xy = [float(last_top[0]), float(last_top[1])]
+            print("视觉伺服下降结束：末端 z=%.3f，抓取高度=%.3f"
+                  % (ee[2], grasp_z))
+            return True, last_top, grasp_z, target_xy
+
+    return False, last_top, grasp_z, target_xy
+
+
 # ---------------- 3. 视觉伺服闭环 ----------------
 LOOK_POSE = [0.40, 0.0, 0.42]   # 观察位
 HOVER_Z = 0.30                  # 对准时的悬停高度
@@ -249,14 +349,24 @@ print("末端与目标水平偏差: %.4f m" % align_err)
 print("视觉估计顶面: (%.3f, %.3f, %.3f) | 真值中心: (%.3f, %.3f, %.3f) | 水平误差: %.4f m"
       % (top[0], top[1], top[2], truth[0], truth[1], truth[2], vision_err))
 
-# 由感知到的顶面高度推算指尖目标：方块中心上方 7.5mm
-grasp_z = float(np.clip(top[2] - CUBE_HALF + 0.0075, 0.02, 0.06))
-print("由视觉高度推出抓取高度: %.3f m" % grasp_z)
-
-print("下降到抓取高度...")
-move_to([hand[0], hand[1], grasp_z], steps=240)
+print("视觉伺服下降（边走边看）...")
+ok, top, grasp_z, target_xy = visual_servo_descend(
+    CUBE_HALF, check_every=20, max_steps=300)
+if not ok:
+    print("视觉伺服下降失败，退出")
+    cv2.destroyAllWindows()
+    p.disconnect()
+    raise SystemExit
 
 descended = p.getLinkState(panda, ee_idx)[4]
+# 最后一次感知后可能还有几毫米偏差，做一次最终校正（用冻结的可靠 xy）
+if (abs(descended[2] - grasp_z) > 0.003 or
+        ((descended[0] - target_xy[0]) ** 2 +
+         (descended[1] - target_xy[1]) ** 2) ** 0.5 > 0.003):
+    print("最终校正到冻结的感知位置...")
+    move_to([target_xy[0], target_xy[1], grasp_z], steps=80)
+    descended = p.getLinkState(panda, ee_idx)[4]
+
 cube_now = p.getBasePositionAndOrientation(cube)[0]
 fingers_now = [round(p.getJointState(panda, f)[0], 4) for f in finger_joints]
 print("下降后末端位置: (%.3f, %.3f, %.3f)，目标 z=%.3f"
@@ -272,22 +382,59 @@ for _ in range(200):
     time.sleep(1.0 / 240.0)
 
 fingers_closed = [round(p.getJointState(panda, f)[0], 4) for f in finger_joints]
-contacts = len(p.getContactPoints(bodyA=panda, bodyB=cube))
-print("闭合后手指 %s，手指与方块接触点数 %d" % (fingers_closed, contacts))
+per_finger, total_force, contact_count, both_contact = tactile_read()
+print("闭合后手指 %s" % fingers_closed)
+print("触觉读数：左指 %.1f N，右指 %.1f N，总 %.1f N，接触点 %d"
+      % (per_finger[finger_joints[0]], per_finger[finger_joints[1]],
+         total_force, contact_count))
 
-print("抬起...")
-move_to([hand[0], hand[1], grasp_z + 0.25], steps=200)
+if not both_contact:
+    print("触觉反馈：两指没有形成稳定夹持，取消抬起")
+    cv2.destroyAllWindows()
+    p.disconnect()
+    raise SystemExit
+print("触觉反馈：两指均已接触，形成稳定夹持，开始抬起")
 
-# 保持 1 秒并判断结果（仿真里可以用真值；真实系统要靠相机或触觉）
+print("抬起（同时监测触觉）...")
+lift_target = [descended[0], descended[1], grasp_z + 0.25]
+slipped = False
+for step in range(240):
+    joint_pose = p.calculateInverseKinematics(
+        panda, ee_idx, lift_target, target_orn,
+        maxNumIterations=200, residualThreshold=1e-8,
+    )
+    for i in range(7):
+        p.setJointMotorControl2(panda, i, p.POSITION_CONTROL,
+                                joint_pose[i], force=200)
+    p.stepSimulation()
+    time.sleep(1.0 / 240.0)
+
+    if step % 20 == 0 and step > 20:
+        _, _, _, still_both = tactile_read()
+        if not still_both:
+            print("触觉反馈：抬升过程中夹持丢失（可能滑落）")
+            slipped = True
+            break
+
+per_finger, total_force, contact_count, both_contact = tactile_read()
+print("抬起后触觉：左指 %.1f N，右指 %.1f N，总 %.1f N，接触点 %d"
+      % (per_finger[finger_joints[0]], per_finger[finger_joints[1]],
+         total_force, contact_count))
+if both_contact and not slipped:
+    print("触觉反馈：抬起过程中夹持保持稳定")
+else:
+    print("触觉反馈：夹持可能已失效")
+
+# 保持 1 秒并判断结果（仿真里可以用真值做最终验证）
 for _ in range(240):
     p.stepSimulation()
     time.sleep(1.0 / 240.0)
 
 final_z = p.getBasePositionAndOrientation(cube)[0][2]
 if final_z > 0.15:
-    print("视觉伺服抓取成功，方块高度: %.3f m" % final_z)
+    print("视觉伺服 + 触觉反馈抓取成功，方块高度: %.3f m" % final_z)
 else:
-    print("视觉伺服抓取失败，方块高度: %.3f m" % final_z)
+    print("视觉伺服 + 触觉反馈抓取失败，方块高度: %.3f m" % final_z)
 
 cv2.destroyAllWindows()
 p.disconnect()
