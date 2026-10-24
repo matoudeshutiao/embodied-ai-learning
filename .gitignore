@@ -3,3 +3,15 @@ __pycache__/
 .vscode/
 .venv/
 venv/
+
+# 第七个项目：生成的数据、训练输出、权重和测试集不入库
+yolo_lesson/dataset/
+yolo_lesson/runs/
+yolo_lesson/test_unseen/
+yolo_lesson/step2/
+yolo_lesson/step3/
+yolo_lesson/step7_validate/
+yolo_lesson/project7/
+runs/
+yolov8n.pt
+yolo26n.pt
