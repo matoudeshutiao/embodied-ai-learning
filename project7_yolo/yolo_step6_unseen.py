@@ -15,14 +15,15 @@ from ultralytics import YOLO
 # ============================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEST_ROOT = os.path.join(BASE_DIR, "yolo_lesson", "test_unseen")
+ROOT_DIR = os.path.dirname(BASE_DIR)
+TEST_ROOT = os.path.join(ROOT_DIR, "yolo_lesson", "test_unseen")
 IMG_DIR = os.path.join(TEST_ROOT, "images")
 LBL_DIR = os.path.join(TEST_ROOT, "labels")
 AUDIT_DIR = os.path.join(TEST_ROOT, "audit")
 for d in (IMG_DIR, LBL_DIR, AUDIT_DIR):
     os.makedirs(d, exist_ok=True)
 
-BEST = os.path.join(BASE_DIR, "yolo_lesson", "runs", "full30", "weights", "best.pt")
+BEST = os.path.join(ROOT_DIR, "yolo_lesson", "runs", "full30", "weights", "best.pt")
 SEED = 606
 random.seed(SEED)
 np.random.seed(SEED)
@@ -277,7 +278,7 @@ print("预测拼图:", montage_path)
 # 再用 val 跑一次 mAP
 metrics = model.val(data=yaml_path, split="val", conf=0.001, iou=0.5,
                     plots=True,
-                    project=os.path.abspath(os.path.join(BASE_DIR, "yolo_lesson", "runs")),
+                    project=os.path.abspath(os.path.join(ROOT_DIR, "yolo_lesson", "runs")),
                     name="test_unseen_val", exist_ok=True)
 print("\n测试集 mAP50: %.4f | mAP50-95: %.4f"
       % (float(metrics.box.map50), float(metrics.box.map)))

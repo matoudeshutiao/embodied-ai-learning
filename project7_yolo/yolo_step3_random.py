@@ -12,7 +12,8 @@ from math import pi, tan, radians
 # ============================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-OUT_DIR = os.path.join(BASE_DIR, "yolo_lesson", "step3")
+ROOT_DIR = os.path.dirname(BASE_DIR)
+OUT_DIR = os.path.join(ROOT_DIR, "yolo_lesson", "step3")
 IMG_DIR = os.path.join(OUT_DIR, "images")
 LBL_DIR = os.path.join(OUT_DIR, "labels")
 ANN_DIR = os.path.join(OUT_DIR, "annotated")

@@ -16,9 +16,10 @@ from ultralytics import YOLO
 # ============================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-OUT_DIR = os.path.join(BASE_DIR, "yolo_lesson", "step7_validate")
+ROOT_DIR = os.path.dirname(BASE_DIR)
+OUT_DIR = os.path.join(ROOT_DIR, "yolo_lesson", "step7_validate")
 os.makedirs(OUT_DIR, exist_ok=True)
-BEST = os.path.join(BASE_DIR, "yolo_lesson", "runs", "full30", "weights", "best.pt")
+BEST = os.path.join(ROOT_DIR, "yolo_lesson", "runs", "full30", "weights", "best.pt")
 
 random.seed(7)
 np.random.seed(7)

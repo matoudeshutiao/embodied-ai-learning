@@ -9,7 +9,8 @@ from ultralytics import YOLO
 # ============================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-data_yaml = os.path.join(BASE_DIR, "yolo_lesson", "dataset", "data.yaml")
+ROOT_DIR = os.path.dirname(BASE_DIR)
+data_yaml = os.path.join(ROOT_DIR, "yolo_lesson", "dataset", "data.yaml")
 if not os.path.exists(data_yaml):
     raise SystemExit("找不到数据集，请先运行: python yolo_step4_dataset.py")
 
@@ -18,10 +19,9 @@ print("使用设备:", device)
 if device == "cpu":
     print("警告：当前 PyTorch 是 CPU 版，训练会慢很多。")
 
-# 如果本目录有 yolov8n.pt 就用本地的；否则 Ultralytics 会自动下载
-model = YOLO(os.path.join(BASE_DIR, "yolov8n.pt")
-             if os.path.exists(os.path.join(BASE_DIR, "yolov8n.pt"))
-             else "yolov8n.pt")
+# 如果项目根目录有 yolov8n.pt 就用本地的；否则 Ultralytics 会自动下载
+yolo_model = os.path.join(ROOT_DIR, "yolov8n.pt")
+model = YOLO(yolo_model if os.path.exists(yolo_model) else "yolov8n.pt")
 
 model.train(
     data=data_yaml,
@@ -32,7 +32,7 @@ model.train(
     device=device,
     workers=0,         # Windows 下避免 dataloader 卡住
     amp=False,         # 避开 AMP 检查下载新模型的问题
-    project=os.path.abspath(os.path.join(BASE_DIR, "yolo_lesson", "runs")),
+    project=os.path.abspath(os.path.join(ROOT_DIR, "yolo_lesson", "runs")),
     name="full30",
     exist_ok=True,
     plots=True,

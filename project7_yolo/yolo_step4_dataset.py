@@ -14,7 +14,8 @@ from math import pi, tan, radians
 # ============================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.join(BASE_DIR, "yolo_lesson", "dataset")
+ROOT_DIR = os.path.dirname(BASE_DIR)
+ROOT = os.path.join(ROOT_DIR, "yolo_lesson", "dataset")
 TRAIN_IMG = os.path.join(ROOT, "images", "train")
 VAL_IMG = os.path.join(ROOT, "images", "val")
 TRAIN_LBL = os.path.join(ROOT, "labels", "train")

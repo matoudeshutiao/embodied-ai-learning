@@ -27,10 +27,12 @@
 ├── 第四个项目.py    # RGB-D 相机：深度反投影与红色方块三维定位
 ├── 第五个项目.py    # 视觉伺服闭环：看见 → 对准 → 下降 → 抓取
 ├── 第六个项目.py    # 三色分拣：HSV 分类 + 固定俯视 RGB-D 相机
-├── 第七个项目.py    # YOLO 检测 + 深度估 yaw 的视觉抓取
-├── yolo_train.py    # 训练 YOLOv8n（30 epochs，早停）
-├── yolo_step2~7_*.py # 数据生成、标注审计、泛化测试、离线验证
-├── assets/          # 结果展示图
+├── project7_yolo/   # 第七个项目：YOLO 数据集、训练、测试与抓取
+│   ├── 第七个项目.py
+│   ├── yolo_train.py
+│   ├── yolo_step2~7_*.py
+│   └── assets/
+├── assets/          # 第四天的结果展示图
 ├── 抓娃娃机.py      # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
 └── README.md
@@ -48,9 +50,9 @@ python 第五个项目.py   # 视觉伺服
 python 第六个项目.py   # 三色分拣
 
 # 第七个项目：数据 → 训练 → YOLO 抓取
-python yolo_step4_dataset.py
-python yolo_train.py
-python 第七个项目.py
+python project7_yolo/yolo_step4_dataset.py
+python project7_yolo/yolo_train.py
+python project7_yolo/第七个项目.py
 
 python 抓娃娃机.py    # 彩蛋
 ```
@@ -276,7 +278,7 @@ python 抓娃娃机.py    # 彩蛋
 
 > 这一节主要记录我搞懂的概念、踩过的坑和真正的学习收获，指标放在最后备查。
 
-![第七个项目的训练曲线、验证预测和未见测试结果](assets/project7_yolo_summary.png)
+![第七个项目的训练曲线、验证预测和未见测试结果](project7_yolo/assets/project7_yolo_summary.png)
 
 ### 我做了什么
 
@@ -284,7 +286,7 @@ python 抓娃娃机.py    # 彩蛋
 - 用方块 3D 角点投影自动生成 YOLO 标注 `class cx cy w h`，并做三层审计：txt 反算画框、颜色掩码覆盖率、训练批次图；
 - 用 COCO 预训练的 `yolov8n.pt` 微调 **30 epochs**（早停、640、RTX 4060）；
 - 在 **60 张训练时没见过的**、条件更极端的测试集上评估；
-- 最后写 `第七个项目.py`：YOLO 出类别和框，深度点云估 yaw，转腕对准后抓取。
+- 最后写 `project7_yolo/第七个项目.py`：YOLO 出类别和框，深度点云估 yaw，转腕对准后抓取。
 
 ### 我原来最困惑的概念
 
@@ -361,19 +363,19 @@ mAP 是按置信度**排序**算的，所以 1 epoch 时“mAP50 = 0.33，但 co
 
 ```bash
 # 1) 生成 200 张图和 YOLO 标签
-python yolo_step4_dataset.py
+python project7_yolo/yolo_step4_dataset.py
 
 # 2) 训练（30 epochs，早停；GPU 可用时自动用 GPU）
-python yolo_train.py
+python project7_yolo/yolo_train.py
 
 # 3) 未见测试集评估（可选）
-python yolo_step6_unseen.py
+python project7_yolo/yolo_step6_unseen.py
 
 # 4) 离线验证检测/三维/yaw（可选）
-python yolo_step7_validate.py
+python project7_yolo/yolo_step7_validate.py
 
 # 5) 完整抓取
-python 第七个项目.py
+python project7_yolo/第七个项目.py
 ```
 
 训练输出在 `yolo_lesson/runs/full30/weights/best.pt`。数据、训练输出和测试集没有提交到仓库，按上面步骤在本机生成即可。
