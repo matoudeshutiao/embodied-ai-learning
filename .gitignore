@@ -15,3 +15,6 @@ yolo_lesson/project7/
 runs/
 yolov8n.pt
 yolo26n.pt
+
+# 第五天：只提交筛选后的 assets 图片，不提交每次运行的输出
+project8_trajectory/output/

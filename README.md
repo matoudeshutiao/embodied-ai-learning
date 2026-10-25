@@ -32,6 +32,17 @@
 │   ├── yolo_train.py
 │   ├── yolo_step2~7_*.py
 │   └── assets/
+├── project8_trajectory/  # 第五天：轨迹、时间参数化、奇异位形与 DLS
+│   ├── README.md         # 五个小项目的详细记录与总结
+│   ├── step1_trace.py
+│   ├── step2_profiles.py
+│   ├── step2_5_limits.py
+│   ├── step2_visual_compare.py
+│   ├── step3_interpolation.py
+│   ├── step4_ellipsoid_concept.py
+│   ├── step4_singularity.py
+│   ├── step5_dls.py
+│   └── assets/
 ├── assets/          # 第四天的结果展示图
 ├── 抓娃娃机.py      # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
@@ -54,6 +65,16 @@ python project7_yolo/yolo_step4_dataset.py
 python project7_yolo/yolo_train.py
 python project7_yolo/第七个项目.py
 
+# 第五天：轨迹、时间参数化、奇异位形与 DLS
+python project8_trajectory/step1_trace.py --gui
+python project8_trajectory/step2_profiles.py
+python project8_trajectory/step2_5_limits.py
+python project8_trajectory/step2_visual_compare.py
+python project8_trajectory/step3_interpolation.py
+python project8_trajectory/step4_singularity.py
+python project8_trajectory/step4_ellipsoid_concept.py
+python project8_trajectory/step5_dls.py
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -69,6 +90,7 @@ python 抓娃娃机.py    # 彩蛋
 | 第 2 天 | 2026.10.22 | 把抓取流程拆成四个阶段函数，理解 IK 与关节位置控制，并加入感知式下探 |
 | 第 3 天 | 2026.10.23 | RGB-D 相机、深度反投影，以及视觉伺服闭环抓取 |
 | 第 4 天 | 2026.10.24 | 三色方块分拣：HSV 分类、固定俯视相机与同色盒子放置 |
+| 第 5 天 | 2026.10.25 | 轨迹可视化、时间参数化与 jerk、插值空间、奇异位形与 DLS |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -379,6 +401,25 @@ python project7_yolo/第七个项目.py
 ```
 
 训练输出在 `yolo_lesson/runs/full30/weights/best.pt`。数据、训练输出和测试集没有提交到仓库，按上面步骤在本机生成即可。
+
+### 2026.10.25 ｜ 第 5 天 · 轨迹、时间参数化与奇异位形
+
+今天从“能抓到”推进到“轨迹可测量、可解释、可安全执行”。五个小项目分别研究：
+
+| 项目 | 研究的问题 | 关键结论 |
+| --- | --- | --- |
+| 项目 1 | 指令轨迹和实际轨迹差多少？ | 动态跟踪有约 37 ms 滞后；静态精度 ≠ 动态精度 |
+| 项目 2 | 速度/加速度/jerk 怎么安排？ | 平滑不免费；峰值速度决定跟踪误差 |
+| 项目 2.5 | 轨迹是否可执行？ | 速度没超限 ≠ 安全；constant/trapezoid 被加速度/jerk 拒绝 |
+| 项目 3 | Cartesian 还是 joint-space？ | 关节空间直线会让末端走弯、姿态偏移 |
+| 项目 4 | 当前构型安全吗？ | near 路径 sigma_min 更低，关节速度约 2 倍 |
+| 项目 5 | 接近奇异怎么办？ | 标准伪逆失效；DLS 用精度换稳定性，λ 要取合适值 |
+
+详细实验过程、每步的图和名词总结见：
+
+**[project8_trajectory/README.md](project8_trajectory/README.md)**
+
+---
 
 ## 彩蛋：键盘遥控抓娃娃机
 
