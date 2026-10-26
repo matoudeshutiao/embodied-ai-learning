@@ -43,6 +43,15 @@
 │   ├── step4_singularity.py
 │   ├── step5_dls.py
 │   └── assets/
+├── project9_draw_circle/  # 第六天：画圆、可操作度地图与自适应调速
+│   ├── README.md
+│   ├── step1_circle.py
+│   ├── step2_circle_timing.py
+│   ├── step3_adaptive_circle.py
+│   ├── step5_three_arms_gui.py
+│   ├── step6_trails_only_gui.py
+│   ├── screenshot_util.py
+│   └── assets/
 ├── assets/          # 第四天的结果展示图
 ├── 抓娃娃机.py      # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
@@ -75,6 +84,13 @@ python project8_trajectory/step4_singularity.py
 python project8_trajectory/step4_ellipsoid_concept.py
 python project8_trajectory/step5_dls.py
 
+# 第六天：画圆、可操作度地图与自适应调速
+python project9_draw_circle/step1_circle.py --gui
+python project9_draw_circle/step2_circle_timing.py
+python project9_draw_circle/step3_adaptive_circle.py
+python project9_draw_circle/step5_three_arms_gui.py
+python project9_draw_circle/step6_trails_only_gui.py
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -91,6 +107,7 @@ python 抓娃娃机.py    # 彩蛋
 | 第 3 天 | 2026.10.23 | RGB-D 相机、深度反投影，以及视觉伺服闭环抓取 |
 | 第 4 天 | 2026.10.24 | 三色方块分拣：HSV 分类、固定俯视相机与同色盒子放置 |
 | 第 5 天 | 2026.10.25 | 轨迹可视化、时间参数化与 jerk、插值空间、奇异位形与 DLS |
+| 第 6 天 | 2026.10.26 | 画圆小项目：可操作度地图、自适应调速与三种速度分配对比 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -418,6 +435,24 @@ python project7_yolo/第七个项目.py
 详细实验过程、每步的图和名词总结见：
 
 **[project8_trajectory/README.md](project8_trajectory/README.md)**
+
+---
+
+### 2026.10.26 ｜ 第 6 天 · 画圆、可操作度地图与自适应调速
+
+用一小时把前几天的 IK、时间规划、Jacobian 和可操作度串成一个小项目：让 Panda 在空中画圆，并比较三种速度分配。
+
+| 方法 | 最大误差 | 平均误差 | 最大关节速度 |
+| --- | ---: | ---: | ---: |
+| constant | 4.23 mm | 2.45 mm | 0.72 rad/s |
+| min-jerk | 5.12 mm | 2.45 mm | 0.88 rad/s |
+| adaptive | 4.06 mm | 2.45 mm | **0.38 rad/s** |
+
+三种方法总时间都是 8 s。adaptive 在 `sigma_min` 低的扇区自动减速，弱区关节速度从 0.72 降到 0.28 rad/s，弱区误差从 4.2 mm 降到 1.9 mm；代价是强区被加速、误差转移。
+
+完整实验、图和“为什么 min-jerk 看起来最快但并没有提前到达”的解释见：
+
+**[project9_draw_circle/README.md](project9_draw_circle/README.md)**
 
 ---
 
