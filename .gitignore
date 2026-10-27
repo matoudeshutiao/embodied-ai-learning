@@ -21,3 +21,8 @@ project8_trajectory/output/
 
 # 第六天：只提交精选图片
 project9_draw_circle/output/
+
+# 第七天：ROS2 编译输出不入库
+project10_ros2/ros2_ws/build/
+project10_ros2/ros2_ws/install/
+project10_ros2/ros2_ws/log/

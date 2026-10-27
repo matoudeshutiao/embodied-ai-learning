@@ -52,6 +52,9 @@
 │   ├── step6_trails_only_gui.py
 │   ├── screenshot_util.py
 │   └── assets/
+├── project10_ros2/        # 第七天：ROS2 Humble 入门
+│   ├── README.md
+│   └── ros2_ws/src/turtle_control/
 ├── assets/          # 第四天的结果展示图
 ├── 抓娃娃机.py      # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
@@ -91,6 +94,16 @@ python project9_draw_circle/step3_adaptive_circle.py
 python project9_draw_circle/step5_three_arms_gui.py
 python project9_draw_circle/step6_trails_only_gui.py
 
+# 第七天：ROS2 入门（在 Ubuntu 22.04 + ROS2 Humble 中运行）
+cd project10_ros2/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+# 另开终端先运行 turtlesim，再分别运行：
+# ros2 run turtle_control turtle_circle
+# ros2 run turtle_control pose_listener
+cd ../..
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -108,6 +121,7 @@ python 抓娃娃机.py    # 彩蛋
 | 第 4 天 | 2026.10.24 | 三色方块分拣：HSV 分类、固定俯视相机与同色盒子放置 |
 | 第 5 天 | 2026.10.25 | 轨迹可视化、时间参数化与 jerk、插值空间、奇异位形与 DLS |
 | 第 6 天 | 2026.10.26 | 画圆小项目：可操作度地图、自适应调速与三种速度分配对比 |
+| 第 7 天 | 2026.10.27 | ROS2 入门：Ubuntu 22.04 虚拟机、Humble 环境与首个发布/订阅节点 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -453,6 +467,24 @@ python project7_yolo/第七个项目.py
 完整实验、图和“为什么 min-jerk 看起来最快但并没有提前到达”的解释见：
 
 **[project9_draw_circle/README.md](project9_draw_circle/README.md)**
+
+---
+
+### 2026.10.27 ｜ 第 7 天 · ROS2 入门
+
+从 PyBullet 单脚本转向 ROS2 机器人系统。今天完成：
+
+- 选择 **Ubuntu 22.04 + ROS2 Humble + VMware** 的入门环境；
+- 规划虚拟机、Ubuntu、VMware Tools 与快照流程；
+- 新建 `turtle_control` ROS2 Python 包骨架，准备第一个发布/订阅实验：
+  - 发布 `/turtle1/cmd_vel` 控制海龟画圆；
+  - 订阅 `/turtle1/pose` 打印位姿。
+
+> 当前状态：Ubuntu 环境安装中，ROS2 Humble 与 turtlesim 还需要在虚拟机里实际跑通后补充验证记录。
+
+详细环境方案和代码见：
+
+**[project10_ros2/README.md](project10_ros2/README.md)**
 
 ---
 
