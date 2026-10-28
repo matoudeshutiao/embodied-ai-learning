@@ -1,8 +1,10 @@
 # 项目 10：ROS2 Humble 入门与第一个发布/订阅节点
 
-> 状态：🚧 环境搭建进行中。  
-> 已完成路线选择、虚拟机/Ubuntu 安装规划与 `turtle_control` 包骨架；  
-> ROS2 Humble 安装和 turtlesim 运行还需要在 Ubuntu 虚拟机里验证。
+> 状态：✅ 已跑通。  
+> Ubuntu 22.04、ROS2 Humble、talker/listener、turtlesim，以及自己的
+> `turtle_control` 发布/订阅节点都已在 VMware 虚拟机中验证。
+>
+> 虚拟机实际配置：Ubuntu 22.04.5 LTS、7.7 GB 内存、4 核 CPU、59 GB 磁盘（剩余约 45 GB）。
 
 ## 为什么先学 ROS2，而不是 π0？
 
@@ -44,12 +46,72 @@ Kali 虚拟机保留，不用于 ROS2；新建一台 Ubuntu 虚拟机。
 - [x] 确定 ROS2 优先于 π0 的路线；
 - [x] 选择 Ubuntu 22.04 + ROS2 Humble；
 - [x] 准备 VMware 虚拟机配置和安装步骤；
-- [ ] 完成 Ubuntu 安装；
-- [ ] 安装 VMware Tools、更新系统、打快照；
-- [ ] 安装 ROS2 Humble；
-- [ ] 跑通 talker/listener；
-- [ ] 跑通 turtlesim；
-- [ ] 运行自己的 `turtle_control` 发布/订阅节点。
+- [x] 完成 Ubuntu 安装；
+- [x] 安装 VMware Tools、更新系统、打快照；
+- [x] 安装 ROS2 Humble；
+- [x] 跑通 talker/listener；
+- [x] 跑通 turtlesim；
+- [x] 运行自己的 `turtle_control` 发布/订阅节点。
+
+## 实际验证结果
+
+### 1. 官方 talker / listener
+
+两个终端分别运行 `demo_nodes_cpp talker` 和 `demo_nodes_py listener`，
+listener 持续打印 `I heard: [Hello World: ...]`，说明 ROS2 安装与 DDS 通信正常。
+
+![ROS2 talker/listener](assets/talker_listener.png)
+
+### 2. turtlesim + 自己的节点
+
+- `turtle_control/turtle_circle` 发布 `/turtle1/cmd_vel`；
+- 海龟持续画圆；
+- `turtle_control/pose_listener` 订阅 `/turtle1/pose`，持续打印 `x/y/theta`。
+
+![turtlesim 与自定义发布/订阅节点](assets/turtle_custom_nodes.png)
+
+## 踩过的坑
+
+### 1. raw.githubusercontent.com 被拒绝
+
+最开始按官方命令下载 ROS 密钥时报：
+
+```text
+curl: (7) Failed to connect to raw.githubusercontent.com port 443
+Connection refused
+```
+
+解决方式：
+
+- 从 `keyserver.ubuntu.com` 获取 ROS 公钥；
+- 使用清华大学的 ROS2 apt 镜像：
+
+```text
+https://mirrors.tuna.tsinghua.edu.cn/ros2/ubuntu
+```
+
+然后 `sudo apt update` 和 `sudo apt install ros-humble-desktop` 正常完成。
+
+### 2. 海龟键盘遥操作按太快会刷警告
+
+快速按方向键时，turtlesim 会打印：
+
+```text
+Rotation goal received before a previous goal finished. Aborting previous goal
+```
+
+这是 turtlesim 在上一个旋转目标还没完成时收到新目标，主动取消旧目标；
+不是程序崩溃。慢一点按键即可，或者让自定义节点用固定频率发布速度。
+
+### 3. Wayland 警告
+
+启动 turtlesim 时可能看到：
+
+```text
+Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome.
+```
+
+这是 Qt 在 Wayland 下的提示，不影响海龟和 ROS2 话题通信。
 
 ## 第一个 ROS2 节点目标
 

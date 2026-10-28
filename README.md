@@ -475,14 +475,28 @@ python project7_yolo/第七个项目.py
 从 PyBullet 单脚本转向 ROS2 机器人系统。今天完成：
 
 - 选择 **Ubuntu 22.04 + ROS2 Humble + VMware** 的入门环境；
-- 规划虚拟机、Ubuntu、VMware Tools 与快照流程；
-- 新建 `turtle_control` ROS2 Python 包骨架，准备第一个发布/订阅实验：
+- 完成虚拟机、Ubuntu、VMware Tools 和快照；
+- 安装 ROS2 Humble，跑通官方 talker/listener；
+- 跑通 turtlesim；
+- 编写 `turtle_control` 发布/订阅节点：
   - 发布 `/turtle1/cmd_vel` 控制海龟画圆；
   - 订阅 `/turtle1/pose` 打印位姿。
 
-> 当前状态：Ubuntu 环境安装中，ROS2 Humble 与 turtlesim 还需要在虚拟机里实际跑通后补充验证记录。
+### 官方 talker / listener 验证
 
-详细环境方案和代码见：
+![ROS2 talker/listener](project10_ros2/assets/talker_listener.png)
+
+### turtlesim + 自己的节点
+
+![turtlesim 与自定义发布/订阅节点](project10_ros2/assets/turtle_custom_nodes.png)
+
+### 遇到的坑
+
+- `raw.githubusercontent.com` 被拒绝：改用 `keyserver.ubuntu.com` 下载密钥，并切换到清华 ROS2 镜像；
+- `turtle_teleop_key` 快速按键会触发 turtlesim 的 `Rotation goal received before a previous goal finished` 警告，不影响运行；
+- 启动 turtlesim 时的 Wayland 提示是环境警告，不影响话题通信。
+
+详细环境方案、代码和错误记录见：
 
 **[project10_ros2/README.md](project10_ros2/README.md)**
 
