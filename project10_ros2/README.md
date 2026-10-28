@@ -1,6 +1,7 @@
 # 项目 10：ROS2 Humble 入门与第一个发布/订阅节点
 
 > 状态：✅ 已跑通。  
+> 时间线：第 7 天完成环境选型、VM/Ubuntu 方案和包骨架；第 8 天完成安装与验证。  
 > Ubuntu 22.04、ROS2 Humble、talker/listener、turtlesim，以及自己的
 > `turtle_control` 发布/订阅节点都已在 VMware 虚拟机中验证。
 >

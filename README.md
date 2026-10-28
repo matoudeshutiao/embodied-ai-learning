@@ -121,7 +121,8 @@ python 抓娃娃机.py    # 彩蛋
 | 第 4 天 | 2026.10.24 | 三色方块分拣：HSV 分类、固定俯视相机与同色盒子放置 |
 | 第 5 天 | 2026.10.25 | 轨迹可视化、时间参数化与 jerk、插值空间、奇异位形与 DLS |
 | 第 6 天 | 2026.10.26 | 画圆小项目：可操作度地图、自适应调速与三种速度分配对比 |
-| 第 7 天 | 2026.10.27 | ROS2 入门：Ubuntu 22.04 虚拟机、Humble 环境与首个发布/订阅节点 |
+| 第 7 天 | 2026.10.27 | ROS2 环境选型、VMware/Ubuntu 方案与 `turtle_control` 包骨架（进行中） |
+| 第 8 天 | 2026.10.28 | 完成 ROS2 Humble、talker/listener、turtlesim 与自定义发布/订阅节点 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -470,16 +471,33 @@ python project7_yolo/第七个项目.py
 
 ---
 
-### 2026.10.27 ｜ 第 7 天 · ROS2 入门
+### 2026.10.27 ｜ 第 7 天 · ROS2 环境选型与项目骨架
 
-从 PyBullet 单脚本转向 ROS2 机器人系统。今天完成：
+从 PyBullet 单脚本转向 ROS2 机器人系统，今天主要定路线和搭骨架：
 
 - 选择 **Ubuntu 22.04 + ROS2 Humble + VMware** 的入门环境；
-- 完成虚拟机、Ubuntu、VMware Tools 和快照；
-- 安装 ROS2 Humble，跑通官方 talker/listener；
+- 规划虚拟机、Ubuntu 安装、VMware Tools 和快照流程；
+- 新建 `turtle_control` ROS2 Python 包骨架；
+- 设定下一步目标：发布 `/turtle1/cmd_vel`、订阅 `/turtle1/pose`。
+
+> 当时状态：环境搭建进行中；ROS2 安装和 turtlesim 验证留到第 8 天。
+
+详细环境方案和代码见：
+
+**[project10_ros2/README.md](project10_ros2/README.md)**
+
+---
+
+### 2026.10.28 ｜ 第 8 天 · 完成 ROS2 环境与第一个节点
+
+今天没有开新的大块内容，任务就是把第 7 天清单里剩下的部分做完：
+
+- 完成 Ubuntu 22.04.5 虚拟机、VMware Tools 和快照；
+- 安装 ROS2 Humble；
+- 跑通官方 talker/listener；
 - 跑通 turtlesim；
-- 编写 `turtle_control` 发布/订阅节点：
-  - 发布 `/turtle1/cmd_vel` 控制海龟画圆；
+- 编译并运行 `turtle_control`：
+  - 发布 `/turtle1/cmd_vel` 让海龟画圆；
   - 订阅 `/turtle1/pose` 打印位姿。
 
 ### 官方 talker / listener 验证
@@ -495,6 +513,8 @@ python project7_yolo/第七个项目.py
 - `raw.githubusercontent.com` 被拒绝：改用 `keyserver.ubuntu.com` 下载密钥，并切换到清华 ROS2 镜像；
 - `turtle_teleop_key` 快速按键会触发 turtlesim 的 `Rotation goal received before a previous goal finished` 警告，不影响运行；
 - 启动 turtlesim 时的 Wayland 提示是环境警告，不影响话题通信。
+
+> 状态：✅ ROS2 通信、turtlesim 和自定义发布/订阅节点全部跑通。
 
 详细环境方案、代码和错误记录见：
 
