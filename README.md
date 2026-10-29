@@ -27,13 +27,13 @@
 ├── 第四个项目.py    # RGB-D 相机：深度反投影与红色方块三维定位
 ├── 第五个项目.py    # 视觉伺服闭环：看见 → 对准 → 下降 → 抓取
 ├── 第六个项目.py    # 三色分拣：HSV 分类 + 固定俯视 RGB-D 相机
-├── project7_yolo/   # 第七个项目：YOLO 数据集、训练、测试与抓取
+├── project7_yolo/         # 第七个项目：YOLO 数据集、训练、测试与抓取
 │   ├── 第七个项目.py
 │   ├── yolo_train.py
 │   ├── yolo_step2~7_*.py
 │   └── assets/
-├── project8_trajectory/  # 第五天：轨迹、时间参数化、奇异位形与 DLS
-│   ├── README.md         # 五个小项目的详细记录与总结
+├── project8_trajectory/   # 第五天：轨迹、时间参数化、奇异位形与 DLS
+│   ├── README.md
 │   ├── step1_trace.py
 │   ├── step2_profiles.py
 │   ├── step2_5_limits.py
@@ -48,15 +48,26 @@
 │   ├── step1_circle.py
 │   ├── step2_circle_timing.py
 │   ├── step3_adaptive_circle.py
+│   ├── step4_gui_compare.py
 │   ├── step5_three_arms_gui.py
 │   ├── step6_trails_only_gui.py
 │   ├── screenshot_util.py
 │   └── assets/
-├── project10_ros2/        # 第七天：ROS2 Humble 入门
+├── project10_ros2/        # 第七~九天：ROS2 Humble 环境、节点与工程化
 │   ├── README.md
+│   ├── assets/
 │   └── ros2_ws/src/turtle_control/
-├── assets/          # 第四天的结果展示图
-├── 抓娃娃机.py      # 彩蛋：键盘遥控机械臂去夹方块
+│       ├── package.xml
+│       ├── setup.py
+│       ├── setup.cfg
+│       ├── resource/turtle_control
+│       ├── launch/turtle_demo.launch.py
+│       └── turtle_control/
+│           ├── __init__.py
+│           ├── turtle_circle.py
+│           └── pose_listener.py
+├── assets/                # 第四天的结果展示图
+├── 抓娃娃机.py           # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
 └── README.md
 ```
@@ -64,13 +75,16 @@
 ## 快速开始
 
 ```bash
+# 0) Python 3.10 环境
 pip install -r requirements.txt
+
+# 第 1~4 天：PyBullet / RGB-D / 视觉伺服 / 三色分拣
 python 第一个项目.py
 python 第二个项目.py
 python 第三个项目.py
-python 第四个项目.py   # RGB-D 相机
-python 第五个项目.py   # 视觉伺服
-python 第六个项目.py   # 三色分拣
+python 第四个项目.py
+python 第五个项目.py
+python 第六个项目.py
 
 # 第七个项目：数据 → 训练 → YOLO 抓取
 python project7_yolo/yolo_step4_dataset.py
@@ -80,7 +94,7 @@ python project7_yolo/第七个项目.py
 # 第五天：轨迹、时间参数化、奇异位形与 DLS
 python project8_trajectory/step1_trace.py --gui
 python project8_trajectory/step2_profiles.py
-python project8_trajectory/step2_5_limits.py
+python project8_trajectory/step2_5_limits.py   # 依赖 step2 生成的 summary
 python project8_trajectory/step2_visual_compare.py
 python project8_trajectory/step3_interpolation.py
 python project8_trajectory/step4_singularity.py
@@ -91,23 +105,32 @@ python project8_trajectory/step5_dls.py
 python project9_draw_circle/step1_circle.py --gui
 python project9_draw_circle/step2_circle_timing.py
 python project9_draw_circle/step3_adaptive_circle.py
+python project9_draw_circle/step4_gui_compare.py
 python project9_draw_circle/step5_three_arms_gui.py
 python project9_draw_circle/step6_trails_only_gui.py
 
-# 第七天：ROS2 入门（在 Ubuntu 22.04 + ROS2 Humble 中运行）
+# 第七~九天：ROS2（在 Ubuntu 22.04 + ROS2 Humble 虚拟机中运行）
 cd project10_ros2/ros2_ws
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 source install/setup.bash
-# 另开终端先运行 turtlesim，再分别运行：
-# ros2 run turtle_control turtle_circle
-# ros2 run turtle_control pose_listener
+ros2 launch turtle_control turtle_demo.launch.py
+
+# 另开终端进入 project10_ros2/ros2_ws 后，再 source install/setup.bash，
+# 然后可以继续测试参数和服务：
+# ros2 param set /turtle_circle linear_speed 1.0
+# ros2 service call /turtle_circle/set_enabled std_srvs/srv/SetBool "{data: false}"
+# ros2 service call /turtle_circle/set_enabled std_srvs/srv/SetBool "{data: true}"
 cd ../..
 
 python 抓娃娃机.py    # 彩蛋
 ```
 
+> ROS2 部分需要在 Ubuntu 22.04 + ROS2 Humble 虚拟机中运行；Windows 端主要负责 PyBullet 实验。
+>
 > 第七个项目的数据集、训练输出和 `best.pt` 没有放进仓库（`.gitignore` 已排除），按上面的步骤在本机生成和训练即可。
+>
+> `personal journal/`、`yolo_lesson/`、`runs/` 和训练权重属于本机实验素材/生成物，不进入仓库。
 
 第二个项目保留了学习时的实验参数（重力 `-1.6`、木块初始高度 `5m`），便于观察缓慢下落的过程。想恢复标准设置，把 `p.setGravity(0, 0, -1.6)` 改为 `-9.8`、`block_pos` 的 z 改为 `0.05` 即可。
 
