@@ -556,6 +556,28 @@ python project7_yolo/第七个项目.py
 - 用 `ros2 param`、`ros2 service`、`ros2 node list`、`rqt_graph` 观察系统；
 - 排查了服务名 `/set_enabled` 与 `/turtle_circle/set_enabled` 的区别，以及“海龟停了但位姿监听还在打印”的状态流现象。
 
+#### rqt_graph 看什么？
+
+![rqt_graph 界面](project10_ros2/assets/rqt_graph.png)
+
+`rqt_graph` 是 ROS2 的**计算图查看器**，不是数据查看器：
+
+- 椭圆/节点：ROS2 节点；
+- 节点之间的连线：话题；
+- 箭头方向：谁发布、谁订阅；
+- 可以用过滤器和刷新，快速看命名空间、话题名是否接错。
+
+这张截图里 Node Graph 还没显示出节点（截图时 launch 可能已经停了，或者没有点刷新）。  
+正常启动 `turtle_demo.launch.py` 后，应该能看到类似：
+
+```text
+/turtle_circle  --/turtle1/cmd_vel-->  /turtlesim
+/turtlesim      --/turtle1/pose----->  /pose_listener
+```
+
+它适合排查“节点有没有起来、话题名字对不对、谁在订阅”，
+但看不到消息内容；看内容要用 `ros2 topic echo`，看频率用 `ros2 topic hz`。
+
 #### 今天和前两天有什么进展？
 
 | 天数 | 重点 | 能力变化 |

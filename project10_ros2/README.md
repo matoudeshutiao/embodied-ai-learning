@@ -149,6 +149,21 @@ ros2 service list
 ros2 run rqt_graph rqt_graph
 ```
 
+![rqt_graph 界面](assets/rqt_graph.png)
+
+`rqt_graph` 显示的是**节点和话题的连接关系**：
+
+- 节点是椭圆；
+- 话题是边；
+- 箭头表示发布者 → 订阅者；
+- 适合排查节点是否启动、话题名/命名空间是否接错。
+
+它不显示消息内容；消息内容用 `ros2 topic echo`，频率用 `ros2 topic hz`。
+
+> 截图时 Node Graph 是空的：截图时 launch 可能已经停了，或者没有刷新。
+> 正常运行时应看到 `/turtle_circle → /turtle1/cmd_vel → /turtlesim`
+> 和 `/turtlesim → /turtle1/pose → /pose_listener`。
+
 ### 5. 为什么暂停后监听还在打印？
 
 `/turtle1/pose` 是**状态流**，不是动作事件：
