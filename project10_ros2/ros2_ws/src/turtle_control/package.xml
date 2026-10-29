@@ -3,13 +3,14 @@
 <package format="3">
   <name>turtle_control</name>
   <version>0.0.0</version>
-  <description>First ROS2 package: publish turtle velocity and subscribe to pose.</description>
-  <maintainer email="student@example.com">embodied student</maintainer>
+  <description>ROS2 turtle publisher, service and launch demo.</description>
+  <maintainer email="wsq@example.com">wsq</maintainer>
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
   <depend>turtlesim</depend>
+  <depend>std_srvs</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

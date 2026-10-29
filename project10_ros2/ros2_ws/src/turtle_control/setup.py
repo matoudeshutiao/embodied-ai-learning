@@ -1,3 +1,5 @@
+import os
+from glob import glob
 from setuptools import setup
 
 package_name = "turtle_control"
@@ -10,12 +12,14 @@ setup(
         ("share/ament_index/resource_index/packages",
          ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
+        (os.path.join("share", package_name, "launch"),
+         glob("launch/*.launch.py")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
-    maintainer="embodied student",
-    maintainer_email="student@example.com",
-    description="First ROS2 package: publish turtle velocity and subscribe to pose.",
+    maintainer="wsq",
+    maintainer_email="wsq@example.com",
+    description="ROS2 turtle publisher, service and launch demo",
     license="Apache-2.0",
     tests_require=["pytest"],
     entry_points={

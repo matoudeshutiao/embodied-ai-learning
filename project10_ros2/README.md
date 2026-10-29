@@ -1,7 +1,8 @@
 # 项目 10：ROS2 Humble 入门与第一个发布/订阅节点
 
 > 状态：✅ 已跑通。  
-> 时间线：第 7 天完成环境选型、VM/Ubuntu 方案和包骨架；第 8 天完成安装与验证。  
+> 时间线：第 7 天完成环境选型、VM/Ubuntu 方案和包骨架；第 8 天完成安装与验证；
+> 第 9 天把节点升级为带参数、服务和 launch 的 ROS2 应用。  
 > Ubuntu 22.04、ROS2 Humble、talker/listener、turtlesim，以及自己的
 > `turtle_control` 发布/订阅节点都已在 VMware 虚拟机中验证。
 >
@@ -70,6 +71,101 @@ listener 持续打印 `I heard: [Hello World: ...]`，说明 ROS2 安装与 DDS 
 - `turtle_control/pose_listener` 订阅 `/turtle1/pose`，持续打印 `x/y/theta`。
 
 ![turtlesim 与自定义发布/订阅节点](assets/turtle_custom_nodes.png)
+
+## 第 9 天：从“能通信”升级到“可配置、可控、可一键启动”
+
+第 8 天只是两个节点互相发消息；第 9 天加入了 ROS2 工程化能力：
+
+### 1. 参数
+
+`turtle_circle` 现在声明了：
+
+```text
+linear_speed
+angular_speed
+publish_rate
+```
+
+运行时可以直接修改，不用改代码：
+
+```bash
+ros2 param list /turtle_circle
+```
+
+```bash
+ros2 param set /turtle_circle linear_speed 1.0
+```
+
+海龟会立刻变慢。
+
+### 2. 服务
+
+新增 `std_srvs/srv/SetBool` 服务：
+
+```text
+~/set_enabled
+```
+
+暂停画圆：
+
+```bash
+ros2 service call /turtle_circle/set_enabled std_srvs/srv/SetBool "{data: false}"
+```
+
+恢复：
+
+```bash
+ros2 service call /turtle_circle/set_enabled std_srvs/srv/SetBool "{data: true}"
+```
+
+> 实际踩坑：一开始写成相对名 `set_enabled`，服务出现在 `/set_enabled`；
+> 改成私有名 `~/set_enabled` 后才归到 `/turtle_circle/set_enabled`。
+
+### 3. Launch
+
+一个命令同时启动：
+
+```bash
+ros2 launch turtle_control turtle_demo.launch.py
+```
+
+会启动：
+
+- `turtlesim_node`
+- `turtle_circle`
+- `pose_listener`
+
+### 4. 观察系统
+
+```bash
+ros2 node list
+```
+
+```bash
+ros2 service list
+```
+
+```bash
+ros2 run rqt_graph rqt_graph
+```
+
+### 5. 为什么暂停后监听还在打印？
+
+`/turtle1/pose` 是**状态流**，不是动作事件：
+
+- 海龟停止运动后，turtlesim 仍然持续发布当前位姿；
+- `pose_listener` 仍然不断收到相同数值；
+- 这是节点解耦的正常现象。
+
+### 未来应用
+
+| 今天学的 | 真机/VLA 中的用途 |
+| --- | --- |
+| 参数 | 调速度、限位、控制增益、模型路径，而不改代码 |
+| 服务 | 使能/急停/校准/模式切换 |
+| launch | 一键启动相机、感知、策略、控制器 |
+| rqt_graph / 参数查询 | 查清系统连接和运行时状态 |
+| 状态话题 | VLA 需要持续获得机器人状态，即使机器人静止 |
 
 ## 踩过的坑
 
@@ -142,15 +238,18 @@ project10_ros2/
             ├── setup.py
             ├── setup.cfg
             ├── resource/turtle_control
+            ├── launch/
+            │   └── turtle_demo.launch.py
             └── turtle_control/
                 ├── __init__.py
                 ├── turtle_circle.py
                 └── pose_listener.py
 ```
 
-- `turtle_circle.py`：发布 `geometry_msgs/Twist`；
+- `turtle_circle.py`：发布 `geometry_msgs/Twist`，支持参数和服务；
 - `pose_listener.py`：订阅 `turtlesim/Pose`；
-- `setup.py`：注册两个命令行入口。
+- `launch/turtle_demo.launch.py`：一次启动 turtlesim、发布节点和订阅节点；
+- `setup.py`：注册两个命令行入口，并安装 launch 文件。
 
 ## 复现步骤（ROS2 装好后）
 
@@ -172,6 +271,16 @@ ros2 run turtle_control turtle_circle
 
 # 5. 终端 3：订阅位姿
 ros2 run turtle_control pose_listener
+
+# 第 9 天：也可以一条 launch 启动全部
+ros2 launch turtle_control turtle_demo.launch.py
+
+# 运行时改参数
+ros2 param set /turtle_circle linear_speed 1.0
+
+# 暂停 / 恢复
+ros2 service call /turtle_circle/set_enabled std_srvs/srv/SetBool "{data: false}"
+ros2 service call /turtle_circle/set_enabled std_srvs/srv/SetBool "{data: true}"
 ```
 
 ## 完成标准
