@@ -311,7 +311,7 @@ ROS2 基础跑通后，再继续：
 
 1. 自定义消息接口；
 2. launch 文件与参数；
-3. TF2 / URDF / RViz；
+3. ✅ TF2 / URDF / RViz（第 10 天，见 [`../project11_ros2_tf/README.md`](../project11_ros2_tf/README.md)）；
 4. Gazebo + ros2_control；
 5. MoveIt2 机械臂抓取；
 6. 最后再考虑 π0/OpenPI 这类 VLA 模型。

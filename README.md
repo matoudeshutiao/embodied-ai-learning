@@ -1,6 +1,6 @@
 # 具身智能学习记录
 
-从零开始学习具身智能的代码与笔记，当前使用 **PyBullet + Franka Panda 七自由度机械臂** 做仿真练习。
+从零开始学习具身智能的代码与笔记，当前使用 **PyBullet + Franka Panda 七自由度机械臂** 做仿真练习；第 7 天起进入 **ROS2 Humble + Ubuntu 22.04**，学习机器人系统、TF 和控制器。
 
 ## 环境
 
@@ -66,6 +66,14 @@
 │           ├── __init__.py
 │           ├── turtle_circle.py
 │           └── pose_listener.py
+├── project11_ros2_tf/      # 第 10 天：TF2、URDF 与 RViz
+│   ├── README.md
+│   ├── assets/
+│   └── ros2_ws/src/arm_description/
+│       ├── package.xml
+│       ├── CMakeLists.txt
+│       ├── launch/display.launch.py
+│       └── urdf/simple_arm.urdf.xacro
 ├── assets/                # 第四天的结果展示图
 ├── 抓娃娃机.py           # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
@@ -123,6 +131,20 @@ ros2 launch turtle_control turtle_demo.launch.py
 # ros2 service call /turtle_circle/set_enabled std_srvs/srv/SetBool "{data: true}"
 cd ../..
 
+# 第 10 天：TF2 / URDF / RViz（Ubuntu 22.04 + ROS2 Humble）
+cd project11_ros2_tf/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+ros2 launch arm_description display.launch.py
+
+# 首次打开 RViz：
+# Fixed Frame 改成 base_link
+# Add → RobotModel
+# Add → TF
+# Description Topic = /robot_description，Durability Policy = Transient Local
+cd ../..
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -147,6 +169,7 @@ python 抓娃娃机.py    # 彩蛋
 | 第 7 天 | 2026.10.27 | ROS2 环境选型、VMware/Ubuntu 方案与 `turtle_control` 包骨架（进行中） |
 | 第 8 天 | 2026.10.28 | 完成 ROS2 Humble、talker/listener、turtlesim 与自定义发布/订阅节点 |
 | 第 9 天 | 2026.10.29 | ROS2 工程化：参数、服务和 launch；面试理论补充 SLAM/TF/多传感器/FK-IK |
+| 第 10 天 | 2026.10.30 | ROS2 周 Day 2：TF2、URDF/xacro、robot_state_publisher、RViz 与完整 TF 树 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -597,6 +620,207 @@ python project7_yolo/第七个项目.py
 详细实验和代码：
 
 **[project10_ros2/README.md](project10_ros2/README.md)**
+
+---
+
+### 2026.10.30 ｜ 第 10 天 · ROS2 周 Day 2：TF2、URDF 与 RViz
+
+第 9 天解决的是“节点之间怎么传消息”；今天解决的是“消息里的位置到底在哪个坐标系”。
+
+今天的机械臂不再靠 PyBullet 引擎直接摆姿态，而是：
+
+```text
+URDF/xacro 描述结构
++ /joint_states 提供关节角
++ robot_state_publisher 做正运动学
+= TF2 中一棵实时更新的坐标树
+```
+
+#### 今天搭的 TF 树
+
+```text
+base_link
+  └── joint1（revolute，绕 z）
+        link1
+          └── joint2（revolute，绕 y）
+                link2
+                  └── tool_joint（fixed）
+                        tool0
+                          └── camera_joint（fixed）
+                                camera_link
+                                  └── camera_optical_joint（fixed）
+                                        camera_optical_frame
+```
+
+- 前两段是动态关节，关节角一变，TF 就变；
+- 后面三段是固定关节，局部变换不变，但会跟着整条手臂运动；
+- `camera_link` 是 ROS 机体坐标系，`camera_optical_frame` 是相机光学坐标系。
+
+#### 1. 先手动造一条 TF 边
+
+先不写 URDF，用 `static_transform_publisher` 手动发布：
+
+```text
+base_link → camera_link
+```
+
+再用 `tf2_echo` 查询：
+
+```bash
+ros2 run tf2_ros tf2_echo base_link camera_link
+```
+
+![静态 TF 与 view_frames](project11_ros2_tf/assets/tf.png)
+
+这一步理解了：
+
+- translation 是相对坐标；
+- `tf2_echo A B` 查的是 **B 相对 A** 的位姿；
+- `view_frames` 生成的 PDF 是静态拓扑图，不会显示实时运动。
+
+#### 2. URDF + robot_state_publisher + RViz
+
+用 `arm_description` 包描述一个简化机械臂：
+
+```text
+base_link → link1 → link2 → tool0 → camera_link → camera_optical_frame
+```
+
+启动：
+
+```bash
+ros2 launch arm_description display.launch.py
+```
+
+![RViz 中的 simple_arm 与 TF](project11_ros2_tf/assets/rviz_model.png)
+
+在 RViz 里：
+
+- `Fixed Frame` 改成 `base_link`；
+- Add → RobotModel；
+- Add → TF，勾选 Show Names / Show Axes；
+- 拖动 `joint1`、`joint2`，模型和坐标轴一起动。
+
+这一步看懂了：
+
+- `robot_state_publisher` 的本质就是正运动学；
+- 滑条窗口的 `/joint_states` 是输入，`/tf` 是输出；
+- 相机 frame 固定在 `tool0` 上，所以局部变换不变，全局变换随关节变化。
+
+#### 3. 完整 TF 树
+
+![完整 TF 树](project11_ros2_tf/assets/tf_tree.png)
+
+`view_frames` 生成：
+
+```text
+base_link
+  └── link1
+        └── link2
+              └── tool0
+                    └── camera_link
+                          └── camera_optical_frame
+```
+
+#### 4. 一条真实的 `tf2_echo` 输出
+
+查询 `base_link → camera_optical_frame`，会看到：
+
+```text
+At time 1793354463.198479610
+- Translation: [0.380, 0.000, 0.510]
+- Rotation: in Quaternion (xyzw) [-0.500, 0.500, -0.500, 0.500]
+- Rotation: in RPY (radian) [-1.571, 0.000, -1.571]
+- Rotation: in RPY (degree) [-90.000, 0.000, -90.000]
+- Matrix:
+  0.000  0.000  1.000  0.380
+ -1.000  0.000  0.000  0.000
+ -0.000 -1.000  0.000  0.510
+  0.000  0.000  0.000  1.000
+```
+
+这条输出同时给了三种旋转表示：
+
+```text
+Quaternion：适合存储和插值
+RPY：适合人看
+4×4 Matrix：适合做乘法
+```
+
+矩阵的前三列是相机光学坐标系的三个轴在 `base_link` 中的方向：
+
+```text
+光学 x → base 的 -y
+光学 y → base 的 -z
+光学 z → base 的 +x
+```
+
+最后一列是相机原点在 base 中的位置：
+
+```text
+(0.380, 0.000, 0.510) 米
+```
+
+所以相机正前方 1 米的点：
+
+```text
+p_optical = (0, 0, 1)
+p_base    = (1.380, 0, 0.510)
+```
+
+这就是 RGB-D 反投影后，把目标点从相机坐标转成机器人坐标的那一步。
+
+#### 5. 为什么拖关节时坐标这样变？
+
+- `joint1` 绕 z 轴，是水平面内的 yaw，所以 x/y 变化，z 不变；
+- `joint2` 绕 y 轴，是 x-z 平面内的 pitch，所以 z 变化最明显，x 也会变化；
+- 相机固定在 `tool0` 上：`tool0 → camera_link` 永远不变，`base_link → camera_link` 随关节变化。
+
+#### 今天遇到的坑
+
+1. **`file not found: 'xacro'`**
+   launch 调用了 `xacro`，但没装包。解决：
+   ```bash
+   sudo apt install -y ros-humble-xacro
+   ```
+
+2. **RViz 的 Fixed Frame 默认是 `map`**
+   我们的树根是 `base_link`，所以报 `Fixed Frame [map] does not exist`。
+
+3. **RobotModel 报 `Error subscribing: Empty topic name`**
+   只设置 `Description Source: Topic` 不够，还要明确填：
+   ```text
+   Description Topic: /robot_description
+   ```
+
+4. **QoS 不匹配**
+   `robot_state_publisher` 用 **Transient Local** 发布 `/robot_description`；RViz 如果用默认 `Volatile`，就会错过启动时只发一次的 URDF。
+
+5. **RViz 里什么都看不到**
+   RViz 第一次打开是空场景，需要手动 Add RobotModel 和 TF；机械臂只有约 0.5 米，还要把 `Distance` 从 10 调到 1.5。
+
+#### 和真机、VLA 的关系
+
+| 今天学的 | 真机/VLA 中的用途 |
+| --- | --- |
+| URDF/xacro | 描述真实机械臂、夹爪、相机安装位置 |
+| `robot_state_publisher` | 用编码器关节角计算所有 link 的实时位姿 |
+| TF2 | 查询相机、末端、底座之间的变换 |
+| `camera_optical_frame` | 真实相机驱动和手眼标定的标准坐标约定 |
+| `tf2_echo` | 排查“相机看到的目标到底在机器人哪个位置” |
+
+真实相机装在夹爪上时：
+
+```text
+camera → hand：固定，来自手眼标定
+hand → base：随关节运动变化
+```
+
+VLA 模型看到的是图像坐标系，输出的动作要在机器人坐标系执行，中间必须靠 TF 做翻译。
+
+详细代码、完整复现步骤和 4×4 矩阵解释见：
+
+**[project11_ros2_tf/README.md](project11_ros2_tf/README.md)**
 
 ---
 
