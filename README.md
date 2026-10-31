@@ -1,6 +1,6 @@
 # 具身智能学习记录
 
-从零开始学习具身智能的代码与笔记，当前使用 **PyBullet + Franka Panda 七自由度机械臂** 做仿真练习；第 7 天起进入 **ROS2 Humble + Ubuntu 22.04**，学习机器人系统、TF 和控制器。
+从零开始学习具身智能的代码与笔记，当前使用 **PyBullet + Franka Panda 七自由度机械臂** 做仿真练习；第 7 天起进入 **ROS2 Humble + Ubuntu 22.04**，学习机器人系统、TF、Gazebo 和控制器。
 
 ## 环境
 
@@ -74,6 +74,14 @@
 │       ├── CMakeLists.txt
 │       ├── launch/display.launch.py
 │       └── urdf/simple_arm.urdf.xacro
+├── project12_ros2_gazebo/ # 第 11 天：Gazebo + ros2_control
+│   ├── README.md
+│   ├── assets/
+│   └── ros2_ws/src/arm_description/
+│       ├── package.xml
+│       ├── CMakeLists.txt
+│       ├── config/controllers.yaml
+│       └── urdf/simple_arm.urdf.xacro
 ├── assets/                # 第四天的结果展示图
 ├── 抓娃娃机.py           # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
@@ -145,6 +153,14 @@ ros2 launch arm_description display.launch.py
 # Description Topic = /robot_description，Durability Policy = Transient Local
 cd ../..
 
+# 第 11 天：Gazebo + ros2_control（Ubuntu 22.04 + ROS2 Humble）
+# 完整多终端步骤见 project12_ros2_gazebo/README.md
+cd project12_ros2_gazebo/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+cd ../..
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -170,6 +186,7 @@ python 抓娃娃机.py    # 彩蛋
 | 第 8 天 | 2026.10.28 | 完成 ROS2 Humble、talker/listener、turtlesim 与自定义发布/订阅节点 |
 | 第 9 天 | 2026.10.29 | ROS2 工程化：参数、服务和 launch；面试理论补充 SLAM/TF/多传感器/FK-IK |
 | 第 10 天 | 2026.10.30 | ROS2 周 Day 2：TF2、URDF/xacro、robot_state_publisher、RViz 与完整 TF 树 |
+| 第 11 天 | 2026.10.31 | ROS2 周 Day 3：Gazebo 物理仿真、ros2_control 硬件接口、轨迹控制器与 RViz 同步 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -821,6 +838,200 @@ VLA 模型看到的是图像坐标系，输出的动作要在机器人坐标系�
 详细代码、完整复现步骤和 4×4 矩阵解释见：
 
 **[project11_ros2_tf/README.md](project11_ros2_tf/README.md)**
+
+---
+
+### 2026.10.31 ｜ 第 11 天 · ROS2 周 Day 3：Gazebo + ros2_control
+
+第 10 天解决的是“机器人在哪”：
+
+```text
+URDF + /joint_states  →  TF 树  →  RViz
+```
+
+今天解决的是“机器人怎么被控制”：
+
+```text
+轨迹控制器 → ros2_control → Gazebo 物理引擎 → 关节状态 → TF/RViz
+```
+
+#### 今天的数据流
+
+```text
+joint_trajectory_controller
+        │ 位置命令
+        ▼
+controller_manager
+        │
+        ▼
+ros2_control hardware interface
+        │
+        ▼
+Gazebo joints（重力、碰撞、惯性）
+        │ 实际状态
+        ▼
+joint_state_broadcaster
+        │ /joint_states
+        ▼
+robot_state_publisher
+        │ /tf
+        ▼
+RViz
+```
+
+#### 1. 模型进入 Gazebo
+
+先给 `simple_arm` 补上 Gazebo 需要的物理属性：
+
+- 每个 link 的 `inertial`：质量、质心、转动惯量；
+- `world → base_link` 固定关节：防止整条手臂被重力推倒；
+- 关节阻尼：减少无控制器时的剧烈摆动；
+- `ros2_control` 硬件接口：`joint1`、`joint2` 的位置命令和位置/速度状态；
+- `gazebo_ros2_control` 插件：把 Gazebo 关节接到 `ros2_control`。
+
+把模型生成到 Gazebo 用：
+
+```text
+spawn_entity.py
+```
+
+它读取 `/robot_description`，再调用 Gazebo 的 `/spawn_entity` 服务，把 URDF 变成仿真世界里的模型。
+
+![Gazebo 中的 simple_arm](project12_ros2_gazebo/assets/gazebo.png)
+
+截图里确认到：
+
+```text
+ros2 node list        → /gazebo, /robot_state_publisher
+ros2 service list     → /spawn_entity
+spawn_entity.py       → Successfully spawned entity [simple_arm]
+GazeboSystem          → 初始化、配置、激活成功
+```
+
+#### 2. 两个控制器让关节动起来
+
+今天的两个控制器分工：
+
+| 控制器 | 作用 |
+| --- | --- |
+| `joint_state_broadcaster` | 读取 Gazebo 关节状态，发布 `/joint_states` |
+| `joint_trajectory_controller` | 接收轨迹，向关节写位置命令 |
+
+它们必须分别启动。`controllers.yaml` 只是声明，不会自动启动所有控制器。
+
+发一条轨迹：
+
+```bash
+ros2 action send_goal /joint_trajectory_controller/follow_joint_trajectory control_msgs/action/FollowJointTrajectory "
+trajectory:
+  joint_names: [joint1, joint2]
+  points:
+    - positions: [0.0, 0.0]
+      time_from_start: {sec: 0, nanosec: 0}
+    - positions: [0.8, -0.5]
+      time_from_start: {sec: 3, nanosec: 0}
+"
+```
+
+![轨迹执行与控制输出](project12_ros2_gazebo/assets/control.png)
+
+截图里确认到：
+
+```text
+Goal finished with status: SUCCEEDED
+/joint_states:
+  joint1 ≈ 0.7999999
+  joint2 ≈ -0.4999973
+```
+
+说明从 action → controller → hardware interface → Gazebo 的命令链是通的。
+
+#### 3. Gazebo 与 RViz 同步
+
+![Gazebo 与 RViz 同步](project12_ros2_gazebo/assets/gazebo_rviz.png)
+
+RViz 里机械臂的姿态和 Gazebo 一致，说明状态链也通了：
+
+```text
+Gazebo 实际关节状态
+→ joint_state_broadcaster
+→ /joint_states
+→ robot_state_publisher
+→ /tf
+→ RViz
+```
+
+这一步验证的不只是“关节有没有名字”，还包括：
+
+- `/joint_states` 的关节名和 URDF 一致；
+- `joint1` 的 yaw、`joint2` 的 pitch 方向一致；
+- `base_link → link1 → link2 → tool0 → camera_link` 的 TF 完整；
+- 相机 frame 跟着末端运动；
+- 仿真时间和 TF 时间戳同步。
+
+#### 今天踩过的坑
+
+1. **`spawn_entity.py` 一直等 `/robot_description`**
+   RSP 没启动，或者没有正确发布话题。先检查：
+   ```bash
+   ros2 topic list | grep robot_description
+   ```
+
+2. **一直等 `/spawn_entity`**
+   Gazebo 的 ROS factory 插件没加载，或者连接到了残留的 Gazebo 实例。
+   正常 `ros2 node list` 必须有 `/gazebo`。
+
+3. **只有一个控制器 active**
+   `spawner` 一次只启动一个控制器。`joint_state_broadcaster` 和 `joint_trajectory_controller` 要分别 spawn。
+
+4. **`/dynamic_joint_states` 多出来**
+   ros2_control 的通用关节状态格式，不是错误；TF/RViz 使用 `/joint_states`。
+
+5. **`effort: nan`**
+   Gazebo 硬件接口没有提供 effort 状态接口，位置控制不需要它。
+
+6. **控制器更新周期警告**
+   控制器 100 Hz、Gazebo 1000 Hz，属于正常警告。
+
+7. **RViz 关闭后配置丢失**
+   关闭时如果提示保存 `default.rviz`，点 Save，下次启动会自动恢复布局。
+
+#### 三天进展对比
+
+| 天数 | 重点 | 能力变化 |
+| --- | --- | --- |
+| 第 9 天 | 参数、服务、launch | 节点可配置、可控制、可一键启动 |
+| 第 10 天 | TF2、URDF、RViz | 机器人知道每个零件在哪个坐标系 |
+| 第 11 天 | Gazebo、ros2_control、轨迹控制器 | 关节能被物理仿真和控制器真正驱动 |
+
+#### 和真机、VLA 的关系
+
+今天最重要的抽象是：
+
+```text
+控制器不变
+硬件接口可替换
+```
+
+以后换真机时：
+
+```text
+GazeboSystem 插件
+        ↓ 替换
+厂商硬件接口 / ros2_control 驱动
+```
+
+`joint_trajectory_controller`、`/joint_states`、TF 和 `/tf` 的结构尽量保持不变。
+
+VLA 输出的是高层动作或动作块，最终仍然要经过：
+
+```text
+动作 → 轨迹/控制器 → ros2_control → 真实关节
+```
+
+详细代码、多终端复现步骤和踩坑记录见：
+
+**[project12_ros2_gazebo/README.md](project12_ros2_gazebo/README.md)**
 
 ---
 

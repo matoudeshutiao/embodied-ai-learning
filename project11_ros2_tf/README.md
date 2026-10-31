@@ -526,3 +526,5 @@ Gazebo + ros2_control
 - 用 `ros2_control` 配置关节控制器；
 - 让关节轨迹控制器真正驱动仿真关节；
 - 理解“控制器接口”和“硬件接口”的抽象。
+
+> 第 11 天已完成这部分，见 [`../project12_ros2_gazebo/README.md`](../project12_ros2_gazebo/README.md)。

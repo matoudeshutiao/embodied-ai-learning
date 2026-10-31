@@ -32,5 +32,10 @@ project11_ros2_tf/ros2_ws/build/
 project11_ros2_tf/ros2_ws/install/
 project11_ros2_tf/ros2_ws/log/
 
+# 第 11 天：Gazebo/ros2_control 的 ROS2 编译输出不入库
+project12_ros2_gazebo/ros2_ws/build/
+project12_ros2_gazebo/ros2_ws/install/
+project12_ros2_gazebo/ros2_ws/log/
+
 # 本机素材，不进入仓库
 personal journal/
