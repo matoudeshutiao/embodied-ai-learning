@@ -578,3 +578,5 @@ MoveIt2
 - Panda/简化机械臂的运动规划；
 - 避障、碰撞检测、轨迹执行；
 - 把今天的 `joint_trajectory_controller` 接到 MoveIt2 的执行层。
+
+> 第 12 天已完成 MoveIt2 规划与避障实验，见 [`../project13_ros2_moveit/README.md`](../project13_ros2_moveit/README.md)。

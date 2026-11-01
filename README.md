@@ -1,6 +1,6 @@
 # 具身智能学习记录
 
-从零开始学习具身智能的代码与笔记，当前使用 **PyBullet + Franka Panda 七自由度机械臂** 做仿真练习；第 7 天起进入 **ROS2 Humble + Ubuntu 22.04**，学习机器人系统、TF、Gazebo 和控制器。
+从零开始学习具身智能的代码与笔记，当前使用 **PyBullet + Franka Panda 七自由度机械臂** 做仿真练习；第 7 天起进入 **ROS2 Humble + Ubuntu 22.04**，学习机器人系统、TF、Gazebo、MoveIt2 和控制器。
 
 ## 环境
 
@@ -82,6 +82,9 @@
 │       ├── CMakeLists.txt
 │       ├── config/controllers.yaml
 │       └── urdf/simple_arm.urdf.xacro
+├── project13_ros2_moveit/ # 第 12 天：MoveIt2 规划、避障与接口
+│   ├── README.md
+│   └── assets/
 ├── assets/                # 第四天的结果展示图
 ├── 抓娃娃机.py           # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
@@ -161,6 +164,12 @@ colcon build --symlink-install
 source install/setup.bash
 cd ../..
 
+# 第 12 天：MoveIt2（Ubuntu 22.04 + ROS2 Humble）
+sudo apt install -y ros-humble-moveit ros-humble-moveit-resources-panda-moveit-config
+source /opt/ros/humble/setup.bash
+ros2 launch moveit_resources_panda_moveit_config demo.launch.py
+# RViz: Displays → Add → MotionPlanning（它是 Display，不是 Panel）
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -187,6 +196,7 @@ python 抓娃娃机.py    # 彩蛋
 | 第 9 天 | 2026.10.29 | ROS2 工程化：参数、服务和 launch；面试理论补充 SLAM/TF/多传感器/FK-IK |
 | 第 10 天 | 2026.10.30 | ROS2 周 Day 2：TF2、URDF/xacro、robot_state_publisher、RViz 与完整 TF 树 |
 | 第 11 天 | 2026.10.31 | ROS2 周 Day 3：Gazebo 物理仿真、ros2_control 硬件接口、轨迹控制器与 RViz 同步 |
+| 第 12 天 | 2026.11.01 | ROS2 周 Day 4：MoveIt2 规划与执行、碰撞盒避障、PlanningScene 与 action/service/topic 接口 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -1032,6 +1042,189 @@ VLA 输出的是高层动作或动作块，最终仍然要经过：
 详细代码、多终端复现步骤和踩坑记录见：
 
 **[project12_ros2_gazebo/README.md](project12_ros2_gazebo/README.md)**
+
+---
+
+### 2026.11.01 ｜ 第 12 天 · ROS2 周 Day 4：MoveIt2 规划与避障
+
+第 11 天解决的是：
+
+```text
+给定一条关节轨迹，怎么让 Gazebo 里的关节执行
+```
+
+今天解决的是：
+
+```text
+给定一个目标，机器人应该走哪条轨迹才安全、不碰撞、关节不超限
+```
+
+#### MoveIt2 不是控制器
+
+```text
+IK：知道目标位姿
+MoveIt2：规划一条无碰撞路径
+joint_trajectory_controller：执行轨迹
+Gazebo / 真机：物理世界
+```
+
+今天用官方 Panda demo，执行器是 fake controller，所以机械臂只在 RViz 里动；规划概念和接口与后面接 Gazebo/真机一致。
+
+#### 数据和接口链路
+
+```text
+RViz 设置目标
+        ↓
+/move_action（moveit_msgs/action/MoveGroup）
+        ↓
+move_group 规划、避障、检查关节限位
+        ↓
+/panda_arm_controller/follow_joint_trajectory
+        ↓
+控制器执行
+```
+
+添加障碍物：
+
+```text
+RViz Scene Objects
+        ↓
+/apply_planning_scene
+        ↓
+/monitored_planning_scene
+        ↓
+碰撞检测 + 重新规划
+```
+
+#### 1. 第一次规划与执行
+
+![Panda 与 MotionPlanning](project13_ros2_moveit/assets/moveit_rviz.png)
+
+关键操作：
+
+```text
+Planning Group: panda_arm
+Start State: Current
+Goal State: <random valid>
+Plan → 预览轨迹
+Execute → 执行
+```
+
+`Plan` 只计算轨迹，`Execute` 才把轨迹交给控制器。
+
+#### 2. 加障碍物后的避障规划
+
+![规划轨迹与执行](project13_ros2_moveit/assets/moveit_plan.png)
+
+在 `Scene Objects` 里加一个 Box，它会成为 PlanningScene 中的 Collision Object。先 Plan 看路径，再 Execute。
+
+#### 3. 碰撞盒与避障结果
+
+![碰撞盒与避障轨迹](project13_ros2_moveit/assets/moveit_avoidance.png)
+
+截图里：
+
+```text
+绿色/橙色盒子 = Collision Objects
+机械臂绕开盒子
+Execute request success
+```
+
+`Maybe failed to update robot state, time diff 0.011s` 是 RViz 时序警告，不是执行失败。
+
+#### 4. 为什么避障路径很扭曲
+
+默认 OMPL 采样规划器（如 RRTConnect）只保证：
+
+```text
+无碰撞 + 满足关节限位
+```
+
+Panda 是 7 自由度冗余机械臂，同一末端位姿有多组关节解；加上规划是在关节空间里进行的，所以末端路径可能弯曲、绕行甚至看起来别扭。
+
+```text
+路径扭曲 ≠ 失败
+路径穿模 = 失败
+```
+
+想更自然可以换 RRT*、PRM、CHOMP/STOMP、Pilz LIN/PTP，或使用 Cartesian Path。
+
+#### 5. 今天确认的接口
+
+Actions：
+
+```text
+/move_action
+/execute_trajectory
+/panda_arm_controller/follow_joint_trajectory
+/panda_hand_controller/gripper_cmd
+```
+
+Services：
+
+```text
+/compute_ik
+/apply_planning_scene
+/get_planning_scene
+```
+
+Topics：
+
+```text
+/monitored_planning_scene
+/planning_scene
+/planning_scene_world
+/joint_states
+/dynamic_joint_states
+/robot_description
+```
+
+`ros2 action info /move_action` 显示：
+
+```text
+Action clients: /rviz2
+Action servers: /move_group
+```
+
+说明 RViz 发 goal，`move_group` 负责规划；规划结果再通过 `follow_joint_trajectory` 交给控制器。
+
+#### 6. 今天踩的坑
+
+1. **MotionPlanning 找不到**
+   在 Humble 里它是 `rviz_common::Display`，不是 Panel。
+   正确入口：`Displays → Add → MotionPlanning`，不是 `Panels → Add New Panel`。
+
+2. **`ros2 action info` 不显示 Action type**
+   类型用 `ros2 action list -t` 看。
+
+3. **规划失败**
+   常见原因是 Start State 与障碍物碰撞、目标在障碍物内部或不可达。
+
+4. **路径扭曲**
+   采样规划器 + 7 自由度冗余，属于正常；只检查是否碰撞。
+
+5. **这个 demo 没有物理**
+   MoveIt demo 用 fake controller，只在 RViz 动；接 Gazebo 是后续工作。
+
+#### 和真机、VLA 的关系
+
+```text
+VLA 高层目标
+        ↓
+MoveIt2 规划
+        ↓
+轨迹
+        ↓
+控制器
+        ↓
+真机
+```
+
+`/apply_planning_scene` 是感知系统把障碍物送进规划场景的入口；`/compute_ik` 是目标位姿到关节角的入口；`/move_action` 是高层任务到运动规划的入口。
+
+详细安装、规划步骤、接口表和踩坑记录见：
+
+**[project13_ros2_moveit/README.md](project13_ros2_moveit/README.md)**
 
 ---
 
