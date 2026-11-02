@@ -211,19 +211,19 @@ python 抓娃娃机.py    # 彩蛋
 
 | 天数 | 日期 | 主题 |
 | --- | --- | --- |
-| 第1天 | 2026.10.21 | SDK 环境搭建、Panda 机械臂仿真、逆运动学与抓取初体验 |
-| 第2天 | 2026.10.22 | 把抓取流程拆成四个阶段函数，理解 IK 与关节位置控制，并加入感知式下探 |
-| 第3天 | 2026.10.23 | RGB-D 相机、深度反投影，以及视觉伺服闭环抓取 |
-| 第4天 | 2026.10.24 | 三色方块分拣：HSV 分类、固定俯视相机与同色盒子放置 |
-| 第5天 | 2026.10.25 | 轨迹可视化、时间参数化与 jerk、插值空间、奇异位形与 DLS |
-| 第6天 | 2026.10.26 | 画圆小项目：可操作度地图、自适应调速与三种速度分配对比 |
-| 第7天 | 2026.10.27 | ROS2 环境选型、VMware/Ubuntu 方案与 `turtle_control` 包骨架（进行中） |
-| 第8天 | 2026.10.28 | 完成 ROS2 Humble、talker/listener、turtlesim 与自定义发布/订阅节点 |
-| 第9天 | 2026.10.29 | ROS2 工程化：参数、服务和 launch；面试理论补充 SLAM/TF/多传感器/FK-IK |
-| 第10天 | 2026.10.30 | ROS2 周 Day 2：TF2、URDF/xacro、robot_state_publisher、RViz 与完整 TF 树 |
-| 第11天 | 2026.10.31 | ROS2 周 Day 3：Gazebo 物理仿真、ros2_control 硬件接口、轨迹控制器与 RViz 同步 |
-| 第12天 | 2026.11.01 | ROS2 周 Day 4：MoveIt2 规划与执行、碰撞盒避障、PlanningScene 与 action/service/topic 接口 |
-| 第13天 | 2026.11.02 | ROS2 周 Day 5：虚拟 RGB-D 相机、cv_bridge、message_filters、目标检测、TF 与 RViz 3D marker |
+| 1 | 2026.10.21 | SDK 环境搭建、Panda 机械臂仿真、逆运动学与抓取初体验 |
+| 2 | 2026.10.22 | 把抓取流程拆成四个阶段函数，理解 IK 与关节位置控制，并加入感知式下探 |
+| 3 | 2026.10.23 | RGB-D 相机、深度反投影，以及视觉伺服闭环抓取 |
+| 4 | 2026.10.24 | 三色方块分拣：HSV 分类、固定俯视相机与同色盒子放置 |
+| 5 | 2026.10.25 | 轨迹可视化、时间参数化与 jerk、插值空间、奇异位形与 DLS |
+| 6 | 2026.10.26 | 画圆小项目：可操作度地图、自适应调速与三种速度分配对比 |
+| 7 | 2026.10.27 | ROS2 环境选型、VMware/Ubuntu 方案与 `turtle_control` 包骨架（进行中） |
+| 8 | 2026.10.28 | 完成 ROS2 Humble、talker/listener、turtlesim 与自定义发布/订阅节点 |
+| 9 | 2026.10.29 | ROS2 工程化：参数、服务和 launch；面试理论补充 SLAM/TF/多传感器/FK-IK |
+| 10 | 2026.10.30 | ROS2 周 Day 2：TF2、URDF/xacro、robot_state_publisher、RViz 与完整 TF 树 |
+| 11 | 2026.10.31 | ROS2 周 Day 3：Gazebo 物理仿真、ros2_control 硬件接口、轨迹控制器与 RViz 同步 |
+| 12 | 2026.11.01 | ROS2 周 Day 4：MoveIt2 规划与执行、碰撞盒避障、PlanningScene 与 action/service/topic 接口 |
+| 13 | 2026.11.02 | ROS2 周 Day 5：虚拟 RGB-D 相机、cv_bridge、message_filters、目标检测、TF 与 RViz 3D marker |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
