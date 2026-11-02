@@ -414,3 +414,5 @@ VLA 目标 → MoveIt2 规划 → 轨迹 → 控制器 → 真机
         ↓
 做感知 → 规划 → 抓取的闭环
 ```
+
+> 第 13 天已完成感知接入部分，见 [`../project14_ros2_perception/README.md`](../project14_ros2_perception/README.md)。

@@ -37,5 +37,10 @@ project12_ros2_gazebo/ros2_ws/build/
 project12_ros2_gazebo/ros2_ws/install/
 project12_ros2_gazebo/ros2_ws/log/
 
+# 第 13 天：感知包的 ROS2 编译输出不入库
+project14_ros2_perception/ros2_ws/build/
+project14_ros2_perception/ros2_ws/install/
+project14_ros2_perception/ros2_ws/log/
+
 # 本机素材，不进入仓库
 personal journal/

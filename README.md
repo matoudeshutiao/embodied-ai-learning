@@ -85,6 +85,18 @@
 ├── project13_ros2_moveit/ # 第 12 天：MoveIt2 规划、避障与接口
 │   ├── README.md
 │   └── assets/
+├── project14_ros2_perception/ # 第 13 天：虚拟 RGB-D 相机与 ROS2 视觉检测
+│   ├── README.md
+│   ├── assets/
+│   └── ros2_ws/src/vision_demo/
+│       ├── package.xml
+│       ├── setup.py
+│       ├── setup.cfg
+│       ├── resource/vision_demo
+│       └── vision_demo/
+│           ├── __init__.py
+│           ├── synthetic_camera.py
+│           └── detector_node.py
 ├── assets/                # 第四天的结果展示图
 ├── 抓娃娃机.py           # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
@@ -170,6 +182,20 @@ source /opt/ros/humble/setup.bash
 ros2 launch moveit_resources_panda_moveit_config demo.launch.py
 # RViz: Displays → Add → MotionPlanning（它是 Display，不是 Panel）
 
+# 第 13 天：ROS2 感知（完整多终端步骤见 project14_ros2_perception/README.md）
+cd project14_ros2_perception/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+# 终端 1
+ros2 run vision_demo synthetic_camera
+# 终端 2
+ros2 run vision_demo detector_node
+# 终端 3
+ros2 run tf2_ros static_transform_publisher --x 0.5 --y 0.0 --z 0.5 --roll -1.5708 --pitch 0.0 --yaw -1.5708 --frame-id base_link --child-frame-id camera_optical_frame
+# 可视化：rqt_image_view + rviz2
+cd ../..
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -197,7 +223,7 @@ python 抓娃娃机.py    # 彩蛋
 | 第 10 天 | 2026.10.30 | ROS2 周 Day 2：TF2、URDF/xacro、robot_state_publisher、RViz 与完整 TF 树 |
 | 第 11 天 | 2026.10.31 | ROS2 周 Day 3：Gazebo 物理仿真、ros2_control 硬件接口、轨迹控制器与 RViz 同步 |
 | 第 12 天 | 2026.11.01 | ROS2 周 Day 4：MoveIt2 规划与执行、碰撞盒避障、PlanningScene 与 action/service/topic 接口 |
-| 第 13 天 | 2026.11.02 | ROS2 周 Day 5：虚拟 RGB-D 相机、cv_bridge、message_filters、视觉检测链路（进行中） |
+| 第 13 天 | 2026.11.02 | ROS2 周 Day 5：虚拟 RGB-D 相机、cv_bridge、message_filters、目标检测、TF 与 RViz 3D marker |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -1263,7 +1289,7 @@ MoveIt2 规划
 
 ---
 
-### 2026.11.02 ｜ 第 13 天 · ROS2 周 Day 5：感知接入 ROS2（进行中）
+### 2026.11.02 ｜ 第 13 天 · ROS2 周 Day 5：感知接入 ROS2
 
 今天先用一个**虚拟 RGB-D 相机源**把感知链路跑通，再考虑接 Gazebo 相机或真实相机。
 
@@ -1311,11 +1337,103 @@ z = 1.0
 
 这比一上来就接真实相机、同时面对驱动、标定、光照、网络、算法问题要可控得多。
 
-#### 今日进展
+#### 1. 虚拟 RGB-D 相机
 
-- 虚拟相机发布 `/camera/image_raw`、`/camera/depth/image_raw`、`/camera/camera_info`；
-- 640×480 时大消息在 VM 里明显掉帧，降到 320×240 后恢复到 10 Hz；
-- 下一步写检测节点，用 `cv_bridge` + `message_filters` 做目标检测和三维反投影。
+虚拟相机以 320×240、10 Hz 发布：
+
+```text
+/camera/image_raw
+/camera/depth/image_raw
+/camera/camera_info
+```
+
+![虚拟相机图像](project14_ros2_perception/assets/camera_image.png)
+
+深度不是普通灰度图，而是 `32FC1` 米制深度：
+
+```text
+背景约 2.0 m
+红色目标约 1.0 m
+```
+
+#### 2. 检测节点
+
+检测节点用：
+
+```text
+message_filters.ApproximateTimeSynchronizer
+cv_bridge
+HSV 阈值
+深度中位数
+针孔相机反投影
+```
+
+发布：
+
+```text
+/vision/detections       → vision_msgs/Detection3DArray
+/vision/debug_image      → 带检测框的图像
+/vision/target_pose      → base_link 下的 PoseStamped
+/vision/target_marker    → RViz 红色球
+```
+
+![检测 debug 图像](project14_ros2_perception/assets/debug_detection.png)
+
+#### 3. TF 转到 base_link
+
+相机检测结果在：
+
+```text
+camera_optical_frame
+```
+
+通过静态 TF 转到：
+
+```text
+base_link
+```
+
+![RViz 中的目标 marker](project14_ros2_perception/assets/rviz_target.png)
+
+RViz 里同时能看到：
+
+- base_link 坐标轴；
+- camera_optical_frame 坐标轴；
+- base_link 下的红色目标球；
+- debug 图像里的绿色检测框。
+
+#### 4. 今天踩的坑
+
+| 现象 | 原因 | 解决 |
+| --- | --- | --- |
+| `image_raw` 只有约 1 Hz | 640×480 大消息在 VM/DDS 背压 | 降到 320×240 |
+| `ObjectHypothesis` 没有 `id` | Humble 字段名是 `class_id` | 改字段 |
+| rqt 下拉框为空 | 话题列表没有自动刷新 | 命令行直接指定话题 |
+| 深度图看起来不正常 | `32FC1` 不是 8 位灰度图 | 看数值或用 RViz/色图 |
+| 没有 TF | 检测点无法转到 base_link | 发布静态 TF |
+| 相机内参字段很多 | 除了 K 还有 D/R/P/ROI/binning | 按 CameraInfo 完整理解 |
+
+#### 5. 小感慨：找到适合自己的学习方式
+
+这次还有一个很个人的收获：
+
+> 找到适合自己的学习方式，感觉真是太棒了。视觉型学习者需要看到图片才能更好理解，所以我把这一点写进 memory，让后续任务尽量用 GUI、图像和 RViz 来验证，而不是只看命令行数字。
+
+这次先看到虚拟相机拍出的图，再看到绿色检测框，最后看到 RViz 里的 3D 目标，整条链路就变得很直观。
+
+#### 今日结果
+
+```text
+虚拟相机 10 Hz
+检测框稳定框住红色目标
+深度反投影 z ≈ 1.0 m
+TF 转换到 base_link
+RViz marker 与 debug 图像同步
+```
+
+详细代码、复现步骤和踩坑记录见：
+
+**[project14_ros2_perception/README.md](project14_ros2_perception/README.md)**
 
 ---
 
