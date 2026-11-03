@@ -168,6 +168,18 @@ MoveGroup goal accepted
 MoveGroup execution succeeded
 ```
 
+实测 launch 一次启动了 5 个进程：
+
+```text
+camera_mount_tf
+panda_base_tf
+synthetic_camera
+color_detector
+target_task
+```
+
+并且 `target_task` 在 launch 环境下完成了一次 MoveGroup 执行。
+
 ### 4.5 录制 rosbag
 
 另开终端：
@@ -190,6 +202,22 @@ ros2 bag record -o ~/bags/closed_loop /camera/image_raw /camera/depth/image_raw 
 
 ```bash
 ros2 bag info ~/bags/closed_loop
+```
+
+实测一次录制结果：
+
+```text
+Bag size: 289.7 MiB
+Duration: 253.84 s
+Messages: 32027
+
+/camera/image_raw       528
+/camera/depth/image_raw 528
+/vision/detections      525
+/vision/target_pose     525
+/joint_states           25366
+/tf                     4552
+/tf_static              3
 ```
 
 rosbag 不建议直接提交到 Git 仓库，保存在本机即可。

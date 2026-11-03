@@ -1614,6 +1614,26 @@ rosbag 录制：
 ros2 bag record -o ~/bags/closed_loop /camera/image_raw /camera/depth/image_raw /vision/detections /vision/target_pose /tf /tf_static /joint_states
 ```
 
+实测结果：
+
+```text
+launch：一次启动 5 个进程
+MoveGroup：goal accepted → execution succeeded
+rosbag：289.7 MiB，253.84 s，32027 条消息
+```
+
+rosbag 包含：
+
+```text
+/camera/image_raw       528
+/camera/depth/image_raw 528
+/vision/detections      525
+/vision/target_pose     525
+/joint_states           25366
+/tf                     4552
+/tf_static              3
+```
+
 #### 和真机、VLA 的关系
 
 今天的闭环抽象是：
