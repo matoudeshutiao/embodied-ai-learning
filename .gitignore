@@ -42,5 +42,10 @@ project14_ros2_perception/ros2_ws/build/
 project14_ros2_perception/ros2_ws/install/
 project14_ros2_perception/ros2_ws/log/
 
+# 第 14 天：闭环项目的 ROS2 编译输出不入库
+project15_ros2_closed_loop/ros2_ws/build/
+project15_ros2_closed_loop/ros2_ws/install/
+project15_ros2_closed_loop/ros2_ws/log/
+
 # 本机素材，不进入仓库
 personal journal/

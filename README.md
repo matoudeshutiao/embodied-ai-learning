@@ -97,6 +97,20 @@
 │           ├── __init__.py
 │           ├── synthetic_camera.py
 │           └── detector_node.py
+├── project15_ros2_closed_loop/ # 第 14 天：感知 → MoveIt2 → 执行闭环
+│   ├── README.md
+│   ├── assets/
+│   └── ros2_ws/src/vision_demo/
+│       ├── package.xml
+│       ├── setup.py
+│       ├── setup.cfg
+│       ├── launch/perception_task.launch.py
+│       ├── resource/vision_demo
+│       └── vision_demo/
+│           ├── __init__.py
+│           ├── synthetic_camera.py
+│           ├── detector_node.py
+│           └── task_node.py
 ├── assets/                # 第四天的结果展示图
 ├── 抓娃娃机.py           # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
@@ -196,6 +210,23 @@ ros2 run tf2_ros static_transform_publisher --x 0.5 --y 0.0 --z 0.5 --roll -1.57
 # 可视化：rqt_image_view + rviz2
 cd ../..
 
+# 第 14 天：感知 → MoveIt2 闭环
+# 先启动 MoveIt2 demo（终端 A）
+source /opt/ros/humble/setup.bash
+ros2 launch moveit_resources_panda_moveit_config demo.launch.py
+
+# 编译并用 launch 启动闭环（终端 B）
+cd project15_ros2_closed_loop/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+ros2 launch vision_demo perception_task.launch.py
+
+# 可选：录制闭环数据（终端 C）
+mkdir -p ~/bags
+ros2 bag record -o ~/bags/closed_loop /camera/image_raw /camera/depth/image_raw /vision/detections /vision/target_pose /tf /tf_static /joint_states
+cd ../..
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -224,6 +255,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;11 | 2026.10.31 | ROS2 周 Day 3：Gazebo 物理仿真、ros2_control 硬件接口、轨迹控制器与 RViz 同步 |
 | Day&nbsp;12 | 2026.11.01 | ROS2 周 Day 4：MoveIt2 规划与执行、碰撞盒避障、PlanningScene 与 action/service/topic 接口 |
 | Day&nbsp;13 | 2026.11.02 | ROS2 周 Day 5：虚拟 RGB-D 相机、cv_bridge、message_filters、目标检测、TF 与 RViz 3D marker |
+| Day&nbsp;14 | 2026.11.03 | ROS2 周 Day 6：感知 → MoveIt2 闭环、MoveGroup action、launch 与 rosbag |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -1434,6 +1466,179 @@ RViz marker 与 debug 图像同步
 详细代码、复现步骤和踩坑记录见：
 
 **[project14_ros2_perception/README.md](project14_ros2_perception/README.md)**
+
+---
+
+### 2026.11.03 ｜ 第 14 天 · ROS2 周 Day 6：感知 → MoveIt2 闭环
+
+第 13 天已经能输出：
+
+```text
+/vision/target_pose
+```
+
+今天把这个目标真正交给 MoveIt2：
+
+```text
+虚拟 RGB-D 相机
+        ↓
+detector_node
+        ↓
+/vision/target_pose（base_link）
+        ↓
+task_node
+        ↓
+/move_action（MoveGroup action）
+        ↓
+move_group 规划
+        ↓
+Panda fake controller
+        ↓
+RViz 中执行到目标
+```
+
+#### 闭环结果
+
+![感知 → MoveIt2 闭环成功](project15_ros2_closed_loop/assets/movegroup_success.png)
+
+目标约为：
+
+```text
+x ≈ 0.650 m
+y ≈ -0.137 m
+z ≈ 0.525 m
+```
+
+`task_node` 日志：
+
+```text
+Sending target: x=0.650, y=-0.137, z=0.525
+MoveGroup goal accepted
+MoveGroup execution succeeded
+```
+
+这说明：
+
+```text
+视觉检测 → target_pose
+→ MoveGroup action
+→ 规划
+→ Panda 执行
+```
+
+的软件闭环已经通了。
+
+#### 关键实现
+
+`task_node` 做三件事：
+
+1. 订阅 `/vision/target_pose`；
+2. 构造 `moveit_msgs/action/MoveGroup` 的位置约束；
+3. 发送到 `/move_action`，等待执行结果。
+
+关键参数：
+
+```text
+group_name: panda_arm
+link_name: panda_link8
+position tolerance: 0.03 m
+planning attempts: 10
+allowed planning time: 5 s
+```
+
+位置约束的 frame 使用 `panda_link0`，通过：
+
+```text
+panda_link0 → base_link（identity）
+```
+
+和感知的 `base_link` 对齐。
+
+#### 今天踩的坑
+
+1. **目标 x=1.3，Panda 不可达**
+   因为相机深度图像素值还硬编码为 1.0。
+   改成 `cv2.circle(depth, ..., z, -1)` 后，目标变成 x≈0.65。
+
+2. **相机安装位置和目标深度要匹配工作空间**
+   从原来的：
+
+   ```text
+   相机 x=0.5，目标深度=1.0
+   ```
+
+   调整为：
+
+   ```text
+   相机 x=0.3，目标深度=0.35
+   ```
+
+   目标才进入 Panda 约 0.85 m 的可达范围。
+
+3. **TF 启动顺序**
+   detector 比 static TF 先启动时会刷：
+
+   ```text
+   base_link does not exist
+   camera_optical_frame does not exist
+   ```
+
+   先启动 TF，再启动 detector 即可。
+
+4. **`moveit_commander` 缺失**
+   没有强行安装，而是直接使用：
+
+   ```text
+   /move_action
+   moveit_msgs/action/MoveGroup
+   ```
+
+   这也更接近底层接口。
+
+5. **位置约束不等于姿态约束**
+   今天只约束末端位置，没有约束末端姿态；MoveIt 可以自由选择可行的末端方向。
+
+#### launch 和 rosbag
+
+今天把感知、TF、任务节点收进一个 launch：
+
+```bash
+ros2 launch vision_demo perception_task.launch.py
+```
+
+MoveIt2 demo 需要提前启动。
+
+rosbag 录制：
+
+```bash
+ros2 bag record -o ~/bags/closed_loop /camera/image_raw /camera/depth/image_raw /vision/detections /vision/target_pose /tf /tf_static /joint_states
+```
+
+#### 和真机、VLA 的关系
+
+今天的闭环抽象是：
+
+```text
+感知：目标位置
+        ↓
+任务层：MoveGroup goal
+        ↓
+MoveIt2：规划
+        ↓
+控制器 / 真机：执行
+```
+
+以后换真机时，视觉、TF、MoveGroup goal 都保留，只替换 fake controller 和硬件接口。
+
+VLA 的高层目标也可以复用这条链路：
+
+```text
+VLA 输出目标 → MoveGroup 规划 → 控制器 → 真机
+```
+
+详细代码、launch、rosbag 命令和踩坑记录见：
+
+**[project15_ros2_closed_loop/README.md](project15_ros2_closed_loop/README.md)**
 
 ---
 

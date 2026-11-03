@@ -399,3 +399,5 @@ Gazebo / 真机
 ```
 
 这就是感知 → 规划 → 抓取的闭环。
+
+> 第 14 天已完成感知 → MoveIt2 的软件闭环，见 [`../project15_ros2_closed_loop/README.md`](../project15_ros2_closed_loop/README.md)。
