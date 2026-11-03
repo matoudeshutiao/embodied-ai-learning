@@ -1608,6 +1608,17 @@ ros2 launch vision_demo perception_task.launch.py
 
 MoveIt2 demo 需要提前启动。
 
+launch 会自动打开一个 `vision_view` RViz，里面预先配置好：
+
+```text
+Image: /vision/debug_image
+Marker: /vision/target_marker
+TF
+Grid
+```
+
+另一个 MoveIt RViz 显示 Panda 和规划；两个窗口并排，就能同时看到“照片里的目标”和“机械臂朝它移动”。
+
 rosbag 录制：
 
 ```bash

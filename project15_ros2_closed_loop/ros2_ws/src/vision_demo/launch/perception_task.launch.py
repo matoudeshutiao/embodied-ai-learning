@@ -1,8 +1,17 @@
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    rviz_config = os.path.join(
+        get_package_share_directory("vision_demo"),
+        "rviz",
+        "vision_view.rviz",
+    )
+
     return LaunchDescription([
         Node(
             package="tf2_ros",
@@ -43,6 +52,13 @@ def generate_launch_description():
             package="vision_demo",
             executable="task_node",
             name="target_task",
+            output="screen",
+        ),
+        Node(
+            package="rviz2",
+            executable="rviz2",
+            name="vision_view",
+            arguments=["-d", rviz_config],
             output="screen",
         ),
     ])

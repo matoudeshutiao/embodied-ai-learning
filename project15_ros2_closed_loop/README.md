@@ -89,6 +89,8 @@ project15_ros2_closed_loop/
             ├── resource/vision_demo
             ├── launch/
             │   └── perception_task.launch.py
+            ├── rviz/
+            │   └── vision_view.rviz
             └── vision_demo/
                 ├── __init__.py
                 ├── synthetic_camera.py
@@ -101,8 +103,9 @@ project15_ros2_closed_loop/
 | `synthetic_camera.py` | 发布 RGB、深度、CameraInfo；目标深度 0.35 m |
 | `detector_node.py` | 检测红色目标，发布 3D 检测、TF 后的 target pose 和 marker |
 | `task_node.py` | 订阅 target pose，发送 MoveGroup action |
-| `perception_task.launch.py` | 一次启动 TF、相机、检测和任务节点 |
-| `package.xml` / `setup.py` | 依赖、入口和 launch 安装 |
+| `perception_task.launch.py` | 一次启动 TF、相机、检测、任务节点和可视化 RViz |
+| `vision_view.rviz` | 自动显示相机 debug 图像与目标 marker |
+| `package.xml` / `setup.py` | 依赖、入口、launch 和 RViz 配置安装 |
 
 ---
 
@@ -152,9 +155,38 @@ static TF: panda_link0 → base_link
 synthetic_camera
 detector_node
 task_node
+vision_view rviz2
 ```
 
 MoveIt2 demo 需要提前启动，因为 `task_node` 等待 `/move_action`。
+
+### 4.4 可视化窗口
+
+launch 会自动打开第二个 RViz：`vision_view`。
+
+它包含：
+
+```text
+Image: /vision/debug_image
+Marker: /vision/target_marker
+TF
+Grid
+```
+
+MoveIt2 自带 RViz 继续显示 Panda 和 MotionPlanning；把两个窗口并排：
+
+```text
+左边：相机看到的红点 + 检测框 + 目标 marker
+右边：Panda 规划并移动到目标 marker
+```
+
+这样就能直接看到：
+
+```text
+照片里的目标 → 3D marker → 机械臂动作
+```
+
+没有去改 MoveIt 的系统 `moveit.rviz`，避免破坏官方配置。
 
 ### 4.4 看终端日志
 
