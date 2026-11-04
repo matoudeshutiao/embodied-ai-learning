@@ -47,5 +47,10 @@ project15_ros2_closed_loop/ros2_ws/build/
 project15_ros2_closed_loop/ros2_ws/install/
 project15_ros2_closed_loop/ros2_ws/log/
 
+# 第 15 天：VLA 桥接项目的 ROS2 编译输出不入库
+project16_ros2_vla_bridge/ros2_ws/build/
+project16_ros2_vla_bridge/ros2_ws/install/
+project16_ros2_vla_bridge/ros2_ws/log/
+
 # 本机素材，不进入仓库
 personal journal/

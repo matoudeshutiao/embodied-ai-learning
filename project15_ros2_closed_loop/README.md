@@ -391,3 +391,5 @@ Panda / simple_arm 抓取
         ↓
 完成检测 → 规划 → 抓取
 ```
+
+> 第 15 天已完成 VLA/真机桥接骨架，见 [`../project16_ros2_vla_bridge/README.md`](../project16_ros2_vla_bridge/README.md)。

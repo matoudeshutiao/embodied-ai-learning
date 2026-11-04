@@ -111,6 +111,20 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
+├── project16_ros2_vla_bridge/ # 第 15 天：VLA/真机桥接骨架
+│   ├── README.md
+│   ├── assets/
+│   └── ros2_ws/src/vla_bridge/
+│       ├── package.xml
+│       ├── setup.py
+│       ├── setup.cfg
+│       ├── resource/vla_bridge
+│       └── vla_bridge/
+│           ├── __init__.py
+│           ├── mock_policy.py
+│           ├── safety_filter.py
+│           ├── safe_executor.py
+│           └── mock_trajectory_server.py
 ├── assets/                # 第四天的结果展示图
 ├── 抓娃娃机.py           # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
@@ -227,6 +241,21 @@ mkdir -p ~/bags
 ros2 bag record -o ~/bags/closed_loop /camera/image_raw /camera/depth/image_raw /vision/detections /vision/target_pose /tf /tf_static /joint_states
 cd ../..
 
+# 第 15 天：VLA/真机桥接骨架（每个新终端都要先 source）
+cd project16_ros2_vla_bridge/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+# 终端 1
+ros2 run vla_bridge mock_trajectory_server
+# 终端 2
+ros2 run vla_bridge mock_policy
+# 终端 3
+ros2 run vla_bridge safety_filter
+# 终端 4
+ros2 run vla_bridge safe_executor
+cd ../..
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -256,6 +285,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;12 | 2026.11.01 | ROS2 周 Day 4：MoveIt2 规划与执行、碰撞盒避障、PlanningScene 与 action/service/topic 接口 |
 | Day&nbsp;13 | 2026.11.02 | ROS2 周 Day 5：虚拟 RGB-D 相机、cv_bridge、message_filters、目标检测、TF 与 RViz 3D marker |
 | Day&nbsp;14 | 2026.11.03 | ROS2 周 Day 6：感知 → MoveIt2 闭环、MoveGroup action、launch 与 rosbag |
+| Day&nbsp;15 | 2026.11.04 | ROS2 周 Day 7：VLA/真机桥接、安全层、动作接口与 mock 执行链 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -1670,6 +1700,178 @@ VLA 输出目标 → MoveGroup 规划 → 控制器 → 真机
 详细代码、launch、rosbag 命令和踩坑记录见：
 
 **[project15_ros2_closed_loop/README.md](project15_ros2_closed_loop/README.md)**
+
+---
+
+### 2026.11.04 ｜ 第 15 天 · ROS2 周 Day 7：VLA / 真机桥接骨架
+
+前 14 天主要在做仿真闭环：
+
+```text
+TF → Gazebo → ros2_control → MoveIt2 → 感知 → 规划 → 执行
+```
+
+今天补的是“策略到执行器”的中间层：
+
+```text
+Mock Policy
+    ↓ /policy/action_raw
+Safety Filter
+    ↓ /policy/action_safe
+Safe Executor
+    ↓ /task/execute_trajectory
+Mock Trajectory Server
+```
+
+![策略到动作接口的完整日志](project16_ros2_vla_bridge/assets/action_chain_logs.png)
+
+#### 神经系统的类比
+
+Day 13/14 更像“感知 → 中枢”：
+
+```text
+相机 → 检测 → target_pose → MoveIt2 规划
+```
+
+Day 15 更像“中枢 → 外周”的下行通路：
+
+```text
+策略动作 → 安全层 → 动作接口 → 执行器
+```
+
+安全层可以类比为脊髓反射或保护性抑制：
+
+```text
+越界动作 → 限位
+过快动作 → 时间缩放
+超时无新动作 → watchdog
+```
+
+但这**还不是完整的神经闭环**，因为：
+
+```text
+policy 是 mock，不读图像
+executor 后面是 mock action server
+没有真实关节执行
+没有执行后的反馈回到策略
+```
+
+完整闭环应该是：
+
+```text
+感知 → 策略 → 安全 → 执行 → 传感器反馈 → 策略
+```
+
+今天完成的是其中“中枢到外周”的软件命令链。
+
+#### 安全层做了什么
+
+1. 关节名校验；
+2. position 数量校验；
+3. 关节位置 clamp：
+
+   ```text
+   [5.0, -8.0] → [2.967, -2.0]
+   ```
+
+4. 速度限制：
+
+   ```text
+   v = Δposition / Δt
+   ```
+
+   超速时整体缩放 `time_from_start`：
+
+   ```text
+   0.5 rad / 0.1 s = 5 rad/s
+   → time scaled x3.33
+   ```
+
+5. watchdog：
+
+   ```text
+   watchdog: no new action
+   watchdog reset
+   ```
+
+#### 动作接口
+
+`/task/execute_trajectory` 使用标准：
+
+```text
+control_msgs/action/FollowJointTrajectory
+```
+
+`ros2 action info`：
+
+```text
+Action clients: /safe_executor
+Action servers: /mock_trajectory_server
+```
+
+`mock_trajectory_server` 接受 5 点轨迹并返回：
+
+```text
+action finished: code=0, message=mock execution ok
+```
+
+#### 重要环境规则：source
+
+每个新终端：
+
+```bash
+source /opt/ros/humble/setup.bash
+```
+
+```bash
+source ~/ros2_ws/install/setup.bash
+```
+
+每次重新编译后：
+
+```bash
+source ~/ros2_ws/install/setup.bash
+```
+
+规则：
+
+```text
+source 只更新当前终端
+不会重启已运行节点
+新终端必须 source
+重新编译后要重新 source
+改了代码的节点必须重启
+```
+
+#### 今天完成了吗
+
+核心学习内容完成了：
+
+```text
+mock policy
++ safety filter
++ 速度/位置限制
++ action 接口
++ mock 执行链
+```
+
+但还不能称为完整 VLA 或真机闭环：
+
+```text
+没有真实 VLA 模型
+没有真实控制器
+没有真实执行反馈
+```
+
+所以更准确的名字是：
+
+```text
+VLA / 真机桥接骨架
+```
+
+详细代码、测试命令、日志和限制见：
+
+**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md)**
 
 ---
 
