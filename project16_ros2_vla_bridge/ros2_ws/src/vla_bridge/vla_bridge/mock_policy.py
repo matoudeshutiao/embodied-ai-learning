@@ -17,7 +17,9 @@ class MockPolicy(Node):
             "/policy/action_raw",
             10,
         )
-        self.timer = self.create_timer(1.0, self.tick)
+        # 每 1.2 s 发一个 1.0 s 的动作块，留 0.2 s 给控制器收尾。
+        # 这样轨迹块之间不会严重重叠，Gazebo 里运动更连续。
+        self.timer = self.create_timer(1.2, self.tick)
         self.t = 0.0
 
         self.joint_names = ["joint1", "joint2"]
@@ -28,9 +30,10 @@ class MockPolicy(Node):
         traj.header.stamp = self.get_clock().now().to_msg()
         traj.joint_names = self.joint_names
 
+        # 一次策略推理输出未来 1 秒内的 5 个动作点。
         for i in range(5):
             point = JointTrajectoryPoint()
-            t = (i + 1) * 0.4
+            t = (i + 1) * 0.2
 
             point.positions = [
                 0.3 * math.sin(self.t + t),

@@ -111,7 +111,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15 天：VLA/真机桥接骨架
+├── project16_ros2_vla_bridge/ # 第 15–16 天：VLA/真机桥接与真控制器
 │   ├── README.md
 │   ├── assets/
 │   └── ros2_ws/src/vla_bridge/
@@ -119,6 +119,8 @@
 │       ├── setup.py
 │       ├── setup.cfg
 │       ├── resource/vla_bridge
+│       ├── launch/real_controller_demo.launch.py
+│       ├── rviz/real_controller_view.rviz
 │       └── vla_bridge/
 │           ├── __init__.py
 │           ├── mock_policy.py
@@ -256,6 +258,13 @@ ros2 run vla_bridge safety_filter
 ros2 run vla_bridge safe_executor
 cd ../..
 
+# 第 16 天：把 mock 执行器换成 Gazebo 真控制器（详见项目 README）
+cd ~/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install --packages-select arm_description vla_bridge
+source install/setup.bash
+ros2 launch vla_bridge real_controller_demo.launch.py
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -286,6 +295,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;13 | 2026.11.02 | ROS2 周 Day 5：虚拟 RGB-D 相机、cv_bridge、message_filters、目标检测、TF 与 RViz 3D marker |
 | Day&nbsp;14 | 2026.11.03 | ROS2 周 Day 6：感知 → MoveIt2 闭环、MoveGroup action、launch 与 rosbag |
 | Day&nbsp;15 | 2026.11.04 | ROS2 周 Day 7：VLA/真机桥接、安全层、动作接口与 mock 执行链 |
+| Day&nbsp;16 | 2026.11.05 | ROS2 周 Day 8：把 mock 执行器换成 Gazebo `joint_trajectory_controller` |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -1870,6 +1880,74 @@ VLA / 真机桥接骨架
 ```
 
 详细代码、测试命令、日志和限制见：
+
+**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md)**
+
+---
+
+### 2026.11.05 ｜ 第 16 天 · ROS2 周 Day 8：mock 执行器 → 真控制器
+
+第 15 天的最后一段是假的：
+
+```text
+policy → safety → safe_executor → mock_trajectory_server
+```
+
+`mock_trajectory_server` 收到轨迹后只打印日志并返回成功，关节不动。
+
+今天把最后一段替换成 Gazebo 里真正的 ros2_control 控制器：
+
+```text
+policy → safety → safe_executor
+→ joint_trajectory_controller
+→ ros2_control
+→ Gazebo 关节
+→ /joint_states
+→ TF / RViz
+```
+
+#### mock 和真控制器的区别
+
+| 对比项 | mock server | 真控制器 |
+| --- | --- | --- |
+| 接收轨迹 | ✅ | ✅ |
+| 驱动关节 | ❌ | ✅ |
+| 返回成功 | 立刻假成功 | 执行后返回 |
+| 关节状态变化 | ❌ | ✅ |
+| 上真机复用 | ❌ | ✅ 换硬件插件即可 |
+
+所以今天换的是：
+
+```text
+Gazebo 里的真控制器
+不是物理机械臂
+```
+
+#### 今天新增的工程内容
+
+```text
+safe_executor 的 action_name 可配置
+默认连接 /joint_trajectory_controller/follow_joint_trajectory
+mock_policy 改为 1 秒动作块 + 1.2 秒发送周期
+新增 real_controller_demo.launch.py
+新增默认 RViz 配置（RobotModel + TF + Grid）
+保留 mock_trajectory_server 作为对照
+```
+
+#### 验证目标
+
+```text
+joint_state_broadcaster active
+joint_trajectory_controller active
+safe_executor 成为 action client
+Gazebo 中 simple_arm 真实运动
+/joint_states 的 joint1 / joint2 变化
+RViz 与 Gazebo 同步
+```
+
+> 当前状态：代码与 launch 已实现，等待虚拟机实测和补充运行截图。
+
+详细命令、代码结构和排错步骤见：
 
 **[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md)**
 

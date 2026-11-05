@@ -11,10 +11,19 @@ class SafeExecutor(Node):
     def __init__(self):
         super().__init__("safe_executor")
 
+        # 默认接 Gazebo 里的 ros2_control 控制器。
+        # 想回到昨天的 mock 执行器时，用参数覆盖为
+        # /task/execute_trajectory 即可。
+        self.declare_parameter(
+            "action_name",
+            "/joint_trajectory_controller/follow_joint_trajectory",
+        )
+        self.action_name = self.get_parameter("action_name").value
+
         self.client = ActionClient(
             self,
             FollowJointTrajectory,
-            "/task/execute_trajectory",
+            self.action_name,
         )
         self.sub = self.create_subscription(
             JointTrajectory,
@@ -23,8 +32,12 @@ class SafeExecutor(Node):
             10,
         )
 
+        # 一次只执行一条轨迹；执行期间的新动作直接丢弃。
+        # 今天先保证“真控制器能跑”，动作队列留到下一步。
         self.busy = False
-        self.get_logger().info("Waiting for action server...")
+        self.get_logger().info(
+            f"Waiting for action server: {self.action_name}"
+        )
         self.client.wait_for_server()
         self.get_logger().info("Trajectory action server ready")
 

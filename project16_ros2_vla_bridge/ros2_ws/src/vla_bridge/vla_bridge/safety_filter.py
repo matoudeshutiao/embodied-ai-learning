@@ -35,6 +35,8 @@ class SafetyFilter(Node):
             10,
         )
 
+        # 软限位必须和 URDF 的 joint limit 保持一致。
+        # 这里只是软件保护，真机还必须有硬件急停和机械限位。
         self.position_limits = {
             "joint1": (-2.967, 2.967),
             "joint2": (-2.0, 2.0),
@@ -144,6 +146,8 @@ class SafetyFilter(Node):
             previous_positions = list(point.positions)
             previous_time = current_time
 
+        # 超速时不改路径，只把整条轨迹的时间轴拉长。
+        # 例如 x3.33 表示同样的路径用 3.33 倍时间走完。
         if max_ratio > 1.0:
             for point in points:
                 scaled = (
@@ -171,6 +175,8 @@ class SafetyFilter(Node):
             self.get_clock().now() - self.last_time
         ).nanoseconds / 1e9
 
+        # 策略断流超过 2 秒就报警。
+        # 注意：今天只报警，还没有自动发送“保持当前位置”的轨迹。
         if elapsed > 2.0 and not self.watchdog_active:
             self.watchdog_active = True
             self.get_logger().warn("watchdog: no new action")
