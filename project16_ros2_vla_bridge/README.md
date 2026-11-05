@@ -1,6 +1,6 @@
 # 项目 16：VLA / 真机桥接与真控制器
 
-> 状态：🟡 真控制器版本已实现，等待虚拟机实测。
+> 状态：✅ 已在 VM 中跑通。Gazebo 关节由真控制器实际驱动。
 >
 > 时间：2026.11.05 ｜ 第 16 天 ｜ ROS2 周 Day 8
 >
@@ -84,6 +84,39 @@ robot_state_publisher
     ↓ /tf
 RViz
 ```
+
+## 2.1 实测结果
+
+![Gazebo 与 RViz 中的真控制器执行](assets/real_controller.png)
+
+截图同时包含：
+
+```text
+Gazebo 中的 simple_arm
+RViz 中的同姿态模型
+joint_state_broadcaster active
+joint_trajectory_controller active
+action client /safe_executor
+action server /joint_trajectory_controller
+```
+
+控制器日志确认轨迹真的执行完成：
+
+```text
+[joint_trajectory_controller]: Received new action goal
+[joint_trajectory_controller]: Accepted new action goal
+[safe_executor]: action goal accepted
+[joint_trajectory_controller]: Goal reached, success!
+[safe_executor]: action finished: code=0, message=Goal successfully reached!
+```
+
+安全层持续输出：
+
+```text
+data: 'ok: 5 points'
+```
+
+观测到 Gazebo 和 RViz 中的手臂都在持续摆动，`/joint_states` 同步变化。
 
 ---
 

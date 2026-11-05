@@ -1945,7 +1945,53 @@ Gazebo 中 simple_arm 真实运动
 RViz 与 Gazebo 同步
 ```
 
-> 当前状态：代码与 launch 已实现，等待虚拟机实测和补充运行截图。
+#### 实测结果
+
+![Gazebo 与 RViz 中的真控制器执行](project16_ros2_vla_bridge/assets/real_controller.png)
+
+两个控制器均为 active：
+
+```text
+joint_state_broadcaster     joint_state_broadcaster/JointStateBroadcaster          active
+joint_trajectory_controller joint_trajectory_controller/JointTrajectoryController  active
+```
+
+`safe_executor` 已经连到控制器：
+
+```text
+Action clients: 1
+    /safe_executor
+Action servers: 1
+    /joint_trajectory_controller
+```
+
+控制器实际执行了轨迹：
+
+```text
+Received new action goal
+Accepted new action goal
+Goal reached, success!
+action finished: code=0, message=Goal successfully reached!
+```
+
+安全层输出：
+
+```text
+data: 'ok: 5 points'
+```
+
+Gazebo 与 RViz 中的手臂同步摆动，说明：
+
+```text
+policy → safety → safe_executor
+→ joint_trajectory_controller
+→ ros2_control
+→ Gazebo 关节
+→ /joint_states
+→ TF / RViz
+```
+
+这条执行链已经从“假成功”变成了真实驱动。
 
 详细命令、代码结构和排错步骤见：
 
