@@ -1997,6 +1997,10 @@ policy → safety → safe_executor
 
 **[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md)**
 
+今天的逐段代码解析、以及与第 15 天的逐项对比见：
+
+**[project16_ros2_vla_bridge/CODE_WALKTHROUGH.md](project16_ros2_vla_bridge/CODE_WALKTHROUGH.md)**
+
 ---
 
 ## 面试理论补充

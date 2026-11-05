@@ -444,6 +444,24 @@ watchdog 目前只报警，不会自动保持位置
 
 ---
 
+## 12. 代码逐段解析
+
+今天的关键代码、每段的作用、以及和第 15 天的逐项对比，见：
+
+**[CODE_WALKTHROUGH.md](CODE_WALKTHROUGH.md)**
+
+包含：
+
+```text
+safe_executor.py 的 action 参数与回调
+mock_policy.py 的动作块
+safety_filter.py 的限位/速度缩放/watchdog
+real_controller_demo.launch.py 的启动顺序
+第 15 天 vs 第 16 天对比
+```
+
+---
+
 ## 附录：第 15 天的 mock 链路
 
 第 15 天的完整日志仍保留在：
