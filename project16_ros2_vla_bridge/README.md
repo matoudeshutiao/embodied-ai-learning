@@ -462,6 +462,14 @@ real_controller_demo.launch.py 的启动顺序
 
 ---
 
+## 13. 真机准备周路线
+
+第 17 天的 ROS2 接口盘点、仿真/真机替换表、一周学习路径见：
+
+**[REAL_ROBOT_ROADMAP.md](REAL_ROBOT_ROADMAP.md)**
+
+---
+
 ## 附录：第 15 天的 mock 链路
 
 第 15 天的完整日志仍保留在：

@@ -111,8 +111,10 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–16 天：VLA/真机桥接与真控制器
+├── project16_ros2_vla_bridge/ # 第 15–17 天：VLA/真机桥接、真控制器与真机路线
 │   ├── README.md
+│   ├── CODE_WALKTHROUGH.md
+│   ├── REAL_ROBOT_ROADMAP.md
 │   ├── assets/
 │   └── ros2_ws/src/vla_bridge/
 │       ├── package.xml
@@ -296,6 +298,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;14 | 2026.11.03 | ROS2 周 Day 6：感知 → MoveIt2 闭环、MoveGroup action、launch 与 rosbag |
 | Day&nbsp;15 | 2026.11.04 | ROS2 周 Day 7：VLA/真机桥接、安全层、动作接口与 mock 执行链 |
 | Day&nbsp;16 | 2026.11.05 | ROS2 周 Day 8：把 mock 执行器换成 Gazebo `joint_trajectory_controller` |
+| Day&nbsp;17 | 2026.11.06 | ROS2 周 Day 9：执行栈接口盘点、仿真/真机替换表与真机准备路线 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -2000,6 +2003,97 @@ policy → safety → safe_executor
 今天的逐段代码解析、以及与第 15 天的逐项对比见：
 
 **[project16_ros2_vla_bridge/CODE_WALKTHROUGH.md](project16_ros2_vla_bridge/CODE_WALKTHROUGH.md)**
+
+---
+
+### 2026.11.06 ｜ 第 17 天 · ROS2 周 Day 9：真机接口盘点
+
+今天没有继续加功能，而是先回答一个更基础的问题：
+
+```text
+这条仿真执行链里，哪些能直接搬到真机？
+哪些必须替换？
+```
+
+#### 当前节点
+
+```text
+/controller_manager
+/gazebo
+/gazebo_ros2_control
+/joint_state_broadcaster
+/joint_trajectory_controller
+/mock_policy
+/robot_state_publisher
+/rviz
+/safe_executor
+/safety_filter
+```
+
+#### 当前执行 action
+
+```text
+/joint_trajectory_controller/follow_joint_trajectory
+control_msgs/action/FollowJointTrajectory
+```
+
+#### 当前硬件接口
+
+```text
+command interfaces
+    joint1/position [available] [claimed]
+    joint2/position [available] [claimed]
+
+state interfaces
+    joint1/position
+    joint1/velocity
+    joint2/position
+    joint2/velocity
+```
+
+`claimed` 表示 command interface 已经被 `joint_trajectory_controller` 占用。
+
+#### 仿真专用 vs 真机可复用
+
+| 接口 | 仿真专用？ | 真机处理 |
+| --- | --- | --- |
+| `/gazebo` | ✅ | 移除 |
+| `/gazebo_ros2_control` | ✅ | 换厂商硬件插件 |
+| `GazeboSystem` | ✅ | 换真机硬件接口 |
+| `/clock` | ✅ | 关闭 `use_sim_time` |
+| `spawn_entity.py` | ✅ | 真机不需要 |
+| `controller_manager` | ❌ | 保留 |
+| `joint_state_broadcaster` | ❌ | 保留 |
+| `joint_trajectory_controller` | ❌ | 保留 |
+| `FollowJointTrajectory` action | ❌ | 保留 |
+| `/joint_states` | ❌ | 由真机编码器提供 |
+| URDF / TF / RSP | ❌ | 换成真机模型 |
+| `/policy/*`、安全层、执行器 | ❌ | 保留并重调参数 |
+
+#### 三个真机风险
+
+```text
+1. 状态会过期：
+   broadcaster 停止后，safety_filter 仍可能拿旧位置做判断。
+
+2. 时间会失真：
+   真机没有 /clock，use_sim_time=true 会让时钟、watchdog、TF 异常。
+
+3. 动作会抢占：
+   执行中直接切换新轨迹会造成速度突变和碰撞风险。
+```
+
+下一步要改执行层：
+
+```text
+动作队列
+状态超时
+watchdog 保持位置
+```
+
+一周路线、完整接口输出和找老师的问题清单见：
+
+**[project16_ros2_vla_bridge/REAL_ROBOT_ROADMAP.md](project16_ros2_vla_bridge/REAL_ROBOT_ROADMAP.md)**
 
 ---
 
