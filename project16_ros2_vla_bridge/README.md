@@ -758,6 +758,74 @@ stats: queued=..., executed=..., dropped=...
 能区分“队列卡顿”和“目标原地保持”
 ```
 
+### 14.10 容量语义：pending-only vs in-flight
+
+这是今天留下的一个重要设计问题，代码暂不改，先记录。
+
+当前代码：
+
+```python
+if len(self.pending) >= self.max_queue_size:
+```
+
+只限制 pending，不包含 active。
+
+所以默认 `max_queue_size=2` 时：
+
+```text
+1 条 active + 2 条 pending = 总在途 3 条
+```
+
+另一种更符合直觉的定义：
+
+```text
+active + pending 最多 2 条
+```
+
+两种定义都合理，但会影响延迟和丢弃行为。
+
+以 `queue_probe` 的 8 条动作为例：
+
+```text
+到达间隔 0.25 秒
+每条执行 0.6 秒
+```
+
+| 容量定义 | 执行 | 丢弃 |
+| --- | --- | --- |
+| pending 最多 2（当前） | 1, 2, 4, 7, 8 | 3, 5, 6 |
+| 总在途最多 2 | 1, 3, 5, 8 | 2, 4, 6, 7 |
+
+真机上更推荐“总在途最多 2”：
+
+```text
+1 条正在执行
++ 1 条等待
+```
+
+因为它把最坏延迟限制在两段动作左右，而不是三段。
+
+当前不直接改代码，原因：
+
+```text
+这是容量策略选择，不是语法错误
+需要和动作块时长、策略频率、真机安全一起决定
+```
+
+后续决定后，可把参数改名为：
+
+```text
+max_in_flight
+```
+
+并把判断改成：
+
+```python
+in_flight = len(self.pending) + (1 if self.busy else 0)
+if in_flight >= self.max_in_flight:
+    ...
+```
+
 ---
 
 ## 附录：第 15 天的 mock 链路

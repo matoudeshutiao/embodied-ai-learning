@@ -2233,6 +2233,20 @@ max_queue_size 只限制 pending
 所以“完整重规划时清空 pending”不等于取消正在执行的轨迹。  
 如果连 active 也要放弃，必须单独做受控停止或取消当前 goal。
 
+当前 `max_queue_size=2` 只限制 pending，所以总在途可以是：
+
+```text
+1 条 active + 2 条 pending = 3 条
+```
+
+另一种定义是：
+
+```text
+active + pending 最多 2 条
+```
+
+两种定义会改变延迟和测试结果。这个问题先记录，代码暂不改，详见项目 README 第 14.10 节。
+
 #### 隔离测试
 
 之前的压力测试同时有 `mock_policy` 和测试 publisher，结果不干净。  
