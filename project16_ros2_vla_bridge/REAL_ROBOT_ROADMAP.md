@@ -53,7 +53,7 @@ GazeboSystem → 厂商 ros2_control 硬件插件
 | --- | --- | --- | --- |
 | Day&nbsp;17 | 执行栈盘点与 action 语义 | 仿真/真机接口替换表 | 知道换哪里 |
 | Day&nbsp;18 | 动作队列 | `safe_executor` 连续执行动作块 | 真机动作不丢块 |
-| Day&nbsp;19 | watchdog 与取消 | 状态超时、保持位置、取消轨迹 | 真机失效保护 |
+| Day&nbsp;19 | 动作年龄与 watchdog | 动作时间戳/年龄检查、状态超时、保持位置 | 真机低延迟与失效保护 |
 | Day&nbsp;20 | ros2_control 硬件接口 | 读懂 command/state interface | 换硬件不换上层 |
 | Day&nbsp;21 | 反馈与监控 | 跟踪误差、控制器状态、异常检测 | 真机状态监控 |
 | Day&nbsp;22 | 相机、TF、标定与数据 | 相机 TF 图、数据记录格式 | 真机感知与采数 |
@@ -283,3 +283,48 @@ use_sim_time = false
 9. 实验室是否有 GPU 做推理？
 10. 真机首次上电的流程和安全规范是什么？
 ```
+
+---
+
+## 8. Day 18 队列实测结果
+
+```text
+[safe_executor] queued action: 5 points, pending=2, busy=True
+[safe_executor] queue full, dropped oldest pending action (5 points)
+[safe_executor] queued action: 5 points, pending=2, busy=True
+
+[joint_trajectory_controller] Goal reached, success!
+[safe_executor] action finished: code=0, message=Goal successfully reached!
+
+[safe_executor] stats: queued=741, executed=724, dropped=14
+```
+
+统计检查：
+
+```text
+741 = 724 executed + 14 dropped + 3 in_flight
+```
+
+其中 in-flight 是：
+
+```text
+1 条正在执行
+2 条 pending
+```
+
+结论：
+
+```text
+队列串行执行正常
+队列满时丢最旧未执行块
+但队列深度 2 会带来约 2～3 秒的最坏延迟
+```
+
+下一步：
+
+```text
+Day 19 增加动作时间戳/年龄检查
+监控 pending 深度和从观测到执行的延迟
+真机上必要时把 max_queue_size 降到 1
+```
+

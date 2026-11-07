@@ -2176,6 +2176,51 @@ chunk 1 → chunk 2 → chunk 3
 
 这两者不能混用，否则容易造成动作跳变。
 
+#### 实测日志
+
+```text
+[safe_executor] queued action: 5 points, pending=2, busy=True
+[safe_executor] queue full, dropped oldest pending action (5 points)
+[safe_executor] queued action: 5 points, pending=2, busy=True
+
+[joint_trajectory_controller] Goal reached, success!
+[safe_executor] action finished: code=0, message=Goal successfully reached!
+
+[safe_executor] stats: queued=741, executed=724, dropped=14
+```
+
+统计关系：
+
+```text
+queued = executed + dropped + in_flight
+741 = 724 + 14 + 3
+```
+
+其中 3 条是日志打印时仍在途的动作：
+
+```text
+1 条正在执行
+2 条在 pending 队列
+```
+
+这证明了：
+
+```text
+队列确实在串行执行
+队列满时确实丢最旧未执行块
+控制器确实执行完成
+```
+
+但也暴露了真机问题：
+
+```text
+队列深度 2 + 当前执行 1 条
+→ 最坏可能带来约 2～3 秒延迟
+```
+
+仿真里只是“卡一下”，真机上可能是对移动目标反应变慢、避障不及时。  
+下一步需要增加动作时间戳/年龄检查，并评估是否把队列深度降到 1。
+
 完整代码、设计取舍和测试见：
 
 **[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14 节**

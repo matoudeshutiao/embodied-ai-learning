@@ -472,7 +472,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：🟡 代码已实现，等待 VM 实测。
+> 状态：✅ 已在 VM 中实测。队列串行执行、满时丢最旧未执行块。
 
 ### 14.1 为什么要队列
 
@@ -592,24 +592,98 @@ chunk 1 → chunk 2 → chunk 3
 清空 pending 队列，执行最新计划
 ```
 
-### 14.5 日志应该看到
+### 14.5 实测日志（✅）
 
-正常队列：
-
-```text
-queued action: 5 points, pending=0, busy=False
-sending action: 5 points, pending=0
-action finished: code=0
-stats: queued=..., executed=..., dropped=...
-```
-
-队列满：
+压力测试时实际看到：
 
 ```text
-queue full, dropped oldest pending action (5 points)
+[mock_policy]: published action chunk: 5 points
+[safe_executor]: queued action: 5 points, pending=2, busy=True
+
+[mock_policy]: published action chunk: 5 points
+[safe_executor]: queue full, dropped oldest pending action (5 points)
+[safe_executor]: queued action: 5 points, pending=2, busy=True
+
+[joint_trajectory_controller]: Goal reached, success!
+[safe_executor]: action finished: code=0, message=Goal successfully reached!
+
+[safe_executor]: stats: queued=741, executed=724, dropped=14
 ```
 
-### 14.6 当前局限
+这组日志同时证明了四件事：
+
+```text
+1. 当前有一条轨迹正在执行：busy=True
+2. 队列已经存了 2 条：pending=2
+3. 队列满后丢弃的是最旧的未执行块
+4. 控制器真实执行完成：Goal reached + code=0
+```
+
+### 14.6 统计数字怎么读
+
+```text
+queued   = 741
+executed = 724
+dropped  = 14
+```
+
+看起来少了一部分：
+
+```text
+741 - 724 - 14 = 3
+```
+
+这 3 条就是日志打印时仍然在途的动作：
+
+```text
+1 条正在执行
+2 条还在 pending 队列
+```
+
+所以：
+
+```text
+queued = executed + dropped + in_flight
+```
+
+数字是自节点启动以来的累计值，不是这一次压力测试的 5 条。
+
+### 14.7 真机启示：队列会带来延迟
+
+默认 `max_queue_size = 2`，意味着最坏情况下：
+
+```text
+1 条正在执行
++ 2 条等待执行
+```
+
+如果每条动作块约 1 秒，机器人可能在新观测之后最多执行约 2～3 秒前的旧计划。
+
+仿真里只是“卡一下”，真机上可能是：
+
+```text
+对移动目标反应变慢
+避障不及时
+动作和当前画面不一致
+```
+
+所以真机不能只看“队列不丢动作”，还要看：
+
+```text
+队列深度
+动作年龄
+观测到执行的总延迟
+```
+
+下一步应增加：
+
+```text
+动作时间戳/年龄检查
+队列深度监控
+必要时把 max_queue_size 降到 1
+```
+
+### 14.8 当前局限
 
 ```text
 没有动作时间戳/年龄检查
