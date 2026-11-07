@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from collections import deque
+
 import rclpy
 from control_msgs.action import FollowJointTrajectory
 from rclpy.action import ActionClient
@@ -20,6 +22,14 @@ class SafeExecutor(Node):
         )
         self.action_name = self.get_parameter("action_name").value
 
+        # 队列只保存“还没开始执行”的动作块。
+        # 默认只留 2 块，避免真机上积压太多过期动作。
+        self.declare_parameter("max_queue_size", 2)
+        self.max_queue_size = max(
+            1,
+            int(self.get_parameter("max_queue_size").value),
+        )
+
         self.client = ActionClient(
             self,
             FollowJointTrajectory,
@@ -32,28 +42,57 @@ class SafeExecutor(Node):
             10,
         )
 
-        # 一次只执行一条轨迹；执行期间的新动作直接丢弃。
-        # 今天先保证“真控制器能跑”，动作队列留到下一步。
+        self.pending = deque()
         self.busy = False
+        self.queued_count = 0
+        self.dropped_count = 0
+        self.executed_count = 0
+
         self.get_logger().info(
             f"Waiting for action server: {self.action_name}"
         )
         self.client.wait_for_server()
-        self.get_logger().info("Trajectory action server ready")
+        self.get_logger().info(
+            f"Trajectory action server ready, "
+            f"queue size={self.max_queue_size}"
+        )
 
     def on_safe_action(self, msg):
-        if self.busy:
-            return
         if not self.client.server_is_ready():
+            self.get_logger().warn("action server not ready, drop action")
             return
 
+        # 队列满时丢掉最旧的未执行块，保留较新的动作。
+        # 当前块正在执行时不受影响，避免中途硬切轨迹。
+        if len(self.pending) >= self.max_queue_size:
+            dropped = self.pending.popleft()
+            self.dropped_count += 1
+            self.get_logger().warn(
+                f"queue full, dropped oldest pending action "
+                f"({len(dropped.points)} points)"
+            )
+
+        self.pending.append(msg)
+        self.queued_count += 1
+        self.get_logger().info(
+            f"queued action: {len(msg.points)} points, "
+            f"pending={len(self.pending)}, busy={self.busy}"
+        )
+        self.start_next()
+
+    def start_next(self):
+        if self.busy or not self.pending:
+            return
+
+        msg = self.pending.popleft()
         self.busy = True
         goal = FollowJointTrajectory.Goal()
         goal.trajectory = msg
 
         self.get_logger().info(
             f"sending action: {len(msg.points)} points, "
-            f"joints={list(msg.joint_names)}"
+            f"joints={list(msg.joint_names)}, "
+            f"pending={len(self.pending)}"
         )
 
         future = self.client.send_goal_async(
@@ -70,6 +109,7 @@ class SafeExecutor(Node):
         if not goal_handle.accepted:
             self.get_logger().warn("action goal rejected")
             self.busy = False
+            self.start_next()
             return
 
         self.get_logger().info("action goal accepted")
@@ -78,11 +118,18 @@ class SafeExecutor(Node):
 
     def on_result(self, future):
         result = future.result().result
+        self.executed_count += 1
         self.get_logger().info(
             f"action finished: code={result.error_code}, "
             f"message={result.error_string}"
         )
+        self.get_logger().info(
+            f"stats: queued={self.queued_count}, "
+            f"executed={self.executed_count}, "
+            f"dropped={self.dropped_count}"
+        )
         self.busy = False
+        self.start_next()
 
 
 def main(args=None):

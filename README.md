@@ -299,6 +299,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;15 | 2026.11.04 | ROS2 周 Day 7：VLA/真机桥接、安全层、动作接口与 mock 执行链 |
 | Day&nbsp;16 | 2026.11.05 | ROS2 周 Day 8：把 mock 执行器换成 Gazebo `joint_trajectory_controller` |
 | Day&nbsp;17 | 2026.11.06 | ROS2 周 Day 9：执行栈接口盘点、仿真/真机替换表与真机准备路线 |
+| Day&nbsp;18 | 2026.11.07 | ROS2 周 Day 10：`safe_executor` 动作队列、丢最旧未执行块与统计日志 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -2094,6 +2095,90 @@ watchdog 保持位置
 一周路线、完整接口输出和找老师的问题清单见：
 
 **[project16_ros2_vla_bridge/REAL_ROBOT_ROADMAP.md](project16_ros2_vla_bridge/REAL_ROBOT_ROADMAP.md)**
+
+---
+
+### 2026.11.07 ｜ 第 18 天 · ROS2 周 Day 10：动作队列
+
+原来的 `safe_executor` 有一个问题：
+
+```text
+正在执行轨迹时
+新动作到来
+busy=True → 直接丢弃
+```
+
+第 15 天的 mock 链路里问题不明显；接上真控制器后，如果策略发得比执行快，就会丢动作，可能造成运动不连续。
+
+今天的改动：
+
+```text
+当前执行的块：不打断
+未执行的块：放进 pending 队列
+队列满：丢掉最旧的未执行块
+当前块执行完：从队列取下一块
+记录 queued / executed / dropped
+```
+
+关键代码：
+
+```python
+from collections import deque
+
+self.declare_parameter("max_queue_size", 2)
+self.max_queue_size = max(
+    1,
+    int(self.get_parameter("max_queue_size").value),
+)
+
+self.pending = deque()
+self.busy = False
+```
+
+队列满时：
+
+```python
+if len(self.pending) >= self.max_queue_size:
+    dropped = self.pending.popleft()
+    self.dropped_count += 1
+    self.get_logger().warn(
+        f"queue full, dropped oldest pending action "
+        f"({len(dropped.points)} points)"
+    )
+```
+
+取下一个执行：
+
+```python
+def start_next(self):
+    if self.busy or not self.pending:
+        return
+
+    msg = self.pending.popleft()
+    self.busy = True
+    goal = FollowJointTrajectory.Goal()
+    goal.trajectory = msg
+```
+
+今天先做“顺序拼接”语义：
+
+```text
+chunk 1 → chunk 2 → chunk 3
+队列满丢最旧未执行块
+不取消正在执行的块
+```
+
+如果以后策略每次输出“完整重规划”，旧 pending 已经过时，可以改成：
+
+```text
+清空 pending，只执行最新计划
+```
+
+这两者不能混用，否则容易造成动作跳变。
+
+完整代码、设计取舍和测试见：
+
+**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14 节**
 
 ---
 

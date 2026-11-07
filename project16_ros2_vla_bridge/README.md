@@ -470,6 +470,156 @@ real_controller_demo.launch.py 的启动顺序
 
 ---
 
+## 14. 第 18 天：动作队列
+
+> 状态：🟡 代码已实现，等待 VM 实测。
+
+### 14.1 为什么要队列
+
+原来的 `safe_executor`：
+
+```text
+正在执行一条轨迹
+    ↓
+新动作到来
+    ↓
+busy=True → 直接 return
+```
+
+结果是：
+
+```text
+动作被丢弃
+策略发得越快，丢得越多
+真机上可能出现动作不连续
+```
+
+### 14.2 队列语义
+
+```text
+当前正在执行的块：不打断
+还没执行的块：放进 pending 队列
+队列满：丢掉最旧的 pending 块
+当前块执行完：从队列取下一块
+```
+
+默认队列长度：
+
+```text
+max_queue_size = 2
+```
+
+### 14.3 关键代码
+
+```python
+from collections import deque
+
+self.declare_parameter("max_queue_size", 2)
+self.max_queue_size = max(
+    1,
+    int(self.get_parameter("max_queue_size").value),
+)
+
+self.pending = deque()
+self.busy = False
+```
+
+收到新动作：
+
+```python
+if len(self.pending) >= self.max_queue_size:
+    dropped = self.pending.popleft()
+    self.dropped_count += 1
+    self.get_logger().warn(
+        f"queue full, dropped oldest pending action "
+        f"({len(dropped.points)} points)"
+    )
+
+self.pending.append(msg)
+self.queued_count += 1
+self.get_logger().info(
+    f"queued action: {len(msg.points)} points, "
+    f"pending={len(self.pending)}, busy={self.busy}"
+)
+self.start_next()
+```
+
+取下一个执行：
+
+```python
+def start_next(self):
+    if self.busy or not self.pending:
+        return
+
+    msg = self.pending.popleft()
+    self.busy = True
+    goal = FollowJointTrajectory.Goal()
+    goal.trajectory = msg
+```
+
+执行结束后：
+
+```python
+self.busy = False
+self.start_next()
+```
+
+### 14.4 关键设计
+
+```text
+只丢“未执行”的旧动作
+不取消正在执行的轨迹
+```
+
+因为当前动作块是顺序拼接的：
+
+```text
+chunk 1 → chunk 2 → chunk 3
+```
+
+如果直接取消正在执行的轨迹并切换，会造成：
+
+```text
+速度突变
+跟踪误差
+保护性停机
+碰撞风险
+```
+
+以后接真正 VLA 的“完整重规划”时，再增加：
+
+```text
+清空 pending 队列，执行最新计划
+```
+
+### 14.5 日志应该看到
+
+正常队列：
+
+```text
+queued action: 5 points, pending=0, busy=False
+sending action: 5 points, pending=0
+action finished: code=0
+stats: queued=..., executed=..., dropped=...
+```
+
+队列满：
+
+```text
+queue full, dropped oldest pending action (5 points)
+```
+
+### 14.6 当前局限
+
+```text
+没有动作时间戳/年龄检查
+没有状态反馈监控
+watchdog 仍然只报警
+没有“完整重规划清空队列”模式
+```
+
+---
+
 ## 附录：第 15 天的 mock 链路
 
 第 15 天的完整日志仍保留在：
