@@ -128,6 +128,7 @@
 │           ├── mock_policy.py
 │           ├── safety_filter.py
 │           ├── safe_executor.py
+│           ├── queue_probe.py
 │           └── mock_trajectory_server.py
 ├── assets/                # 第四天的结果展示图
 ├── 抓娃娃机.py           # 彩蛋：键盘遥控机械臂去夹方块
@@ -2220,6 +2221,34 @@ queued = executed + dropped + in_flight
 
 仿真里只是“卡一下”，真机上可能是对移动目标反应变慢、避障不及时。  
 下一步需要增加动作时间戳/年龄检查，并评估是否把队列深度降到 1。
+
+#### 术语澄清：pending 不包含 active
+
+```text
+pending = 还没开始执行的动作块
+active  = 当前正在执行的那一条
+max_queue_size 只限制 pending
+```
+
+所以“完整重规划时清空 pending”不等于取消正在执行的轨迹。  
+如果连 active 也要放弃，必须单独做受控停止或取消当前 goal。
+
+#### 隔离测试
+
+之前的压力测试同时有 `mock_policy` 和测试 publisher，结果不干净。  
+现在可以关闭 `mock_policy`：
+
+```bash
+ros2 launch vla_bridge real_controller_demo.launch.py start_mock_policy:=false
+```
+
+另开终端只运行一个测试源：
+
+```bash
+ros2 run vla_bridge queue_probe
+```
+
+它会连续发送不同目标的短轨迹，用来单独验证队列的 `queued / dropped / executed`。
 
 完整代码、设计取舍和测试见：
 

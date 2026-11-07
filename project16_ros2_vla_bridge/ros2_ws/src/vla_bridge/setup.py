@@ -36,6 +36,7 @@ setup(
             "safety_filter = vla_bridge.safety_filter:main",
             "mock_trajectory_server = vla_bridge.mock_trajectory_server:main",
             "safe_executor = vla_bridge.safe_executor:main",
+            "queue_probe = vla_bridge.queue_probe:main",
         ],
     },
 )

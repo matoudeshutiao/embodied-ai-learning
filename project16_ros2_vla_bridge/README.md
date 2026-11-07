@@ -571,6 +571,23 @@ self.start_next()
 不取消正在执行的轨迹
 ```
 
+术语要分清：
+
+```text
+pending     = 还没开始执行的动作块
+active      = 当前正在执行的那一条
+max_queue_size 只限制 pending，不包含 active
+```
+
+所以“完整重规划时清空 pending”指的是：
+
+```text
+清空还没开始执行的旧计划
+```
+
+它不包含 active。  
+如果连 active 也要放弃，必须另做“取消当前 goal / 受控停止”，不能只靠 `pending.clear()`。
+
 因为当前动作块是顺序拼接的：
 
 ```text
@@ -690,6 +707,55 @@ queued = executed + dropped + in_flight
 没有状态反馈监控
 watchdog 仍然只报警
 没有“完整重规划清空队列”模式
+```
+
+### 14.9 隔离队列测试
+
+之前的压力测试同时有 `mock_policy` 和测试 publisher 发动作，结果不干净。
+
+现在 launch 支持关闭 `mock_policy`：
+
+```bash
+ros2 launch vla_bridge real_controller_demo.launch.py start_mock_policy:=false
+```
+
+另开终端，只运行一个测试发布者：
+
+```bash
+ros2 run vla_bridge queue_probe
+```
+
+`queue_probe` 会：
+
+```text
+每 0.25 秒发一条短轨迹
+每条轨迹目标不同
+每条轨迹时长 0.6 秒
+共发 8 条
+```
+
+这样观察：
+
+```text
+robot 是否连续向不同目标运动
+safe_executor 是否出现 queued/dropped
+队列满时是否丢弃未执行的旧块
+```
+
+预期日志：
+
+```text
+queued action: 1 points, pending=...
+queue full, dropped oldest pending action (1 points)
+stats: queued=..., executed=..., dropped=...
+```
+
+隔离测试的意义：
+
+```text
+只有一个动作源
+目标会变化
+能区分“队列卡顿”和“目标原地保持”
 ```
 
 ---
