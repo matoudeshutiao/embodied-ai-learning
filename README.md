@@ -2264,6 +2264,43 @@ ros2 run vla_bridge queue_probe
 
 它会连续发送不同目标的短轨迹，用来单独验证队列的 `queued / dropped / executed`。
 
+#### 隔离测试发现：时间戳被队列延迟“吃掉”
+
+实测结果：
+
+```text
+queued=8, executed=8, dropped=0
+```
+
+没有丢动作，但每条动作实际执行时间明显短于设定的 0.6 秒：
+
+| 动作 | 排队延迟 | 实际执行 | 总和 |
+| --- | ---: | ---: | ---: |
+| #2 | 0.451 s | 0.155 s | 0.606 s |
+| #3 | 0.455 s | 0.153 s | 0.608 s |
+| #4 | 0.358 s | 0.252 s | 0.610 s |
+
+原因是轨迹头部的 `header.stamp` 是发布时的时间，排队越久，
+控制器认为轨迹已经过去的时间越多，只剩更短的时间执行剩余部分。
+
+这比“丢动作”更隐蔽：
+
+```text
+路径没变
+但执行时间被压缩
+实际速度可能高于规划值
+```
+
+所以下一步不是继续调队列，而是做动作时间对齐：
+
+```text
+age = now - header.stamp
+age 太大 → 丢弃过期动作
+发送前重新对齐 header.stamp 与 time_from_start
+```
+
+详细分析见项目 README 第 14.11 节。
+
 完整代码、设计取舍和测试见：
 
 **[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14 节**
