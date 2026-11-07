@@ -53,7 +53,7 @@ GazeboSystem → 厂商 ros2_control 硬件插件
 | --- | --- | --- | --- |
 | Day&nbsp;17 | 执行栈盘点与 action 语义 | 仿真/真机接口替换表 | 知道换哪里 |
 | Day&nbsp;18 | 动作队列 | `safe_executor` 连续执行动作块 | 真机动作不丢块 |
-| Day&nbsp;19 | 动作年龄与 watchdog | 动作时间戳/年龄检查、状态超时、保持位置 | 真机低延迟与失效保护 |
+| Day&nbsp;19 | 队列容量对比 + 动作时间对齐 + watchdog | 对比 pending-only / 总在途 2，加入 age 检查与时间对齐、状态超时、保持位置 | 真机低延迟与失效保护 |
 | Day&nbsp;20 | ros2_control 硬件接口 | 读懂 command/state interface | 换硬件不换上层 |
 | Day&nbsp;21 | 反馈与监控 | 跟踪误差、控制器状态、异常检测 | 真机状态监控 |
 | Day&nbsp;22 | 相机、TF、标定与数据 | 相机 TF 图、数据记录格式 | 真机感知与采数 |

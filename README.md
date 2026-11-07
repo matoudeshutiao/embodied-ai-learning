@@ -2305,6 +2305,8 @@ age 太大 → 丢弃过期动作
 
 **[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14 节**
 
+> 第 18 天分两天完成：今天完成队列代码、隔离测试和时间压缩定位；明天对比两种队列容量语义，并做动作时间对齐。
+
 ---
 
 ## 面试理论补充
