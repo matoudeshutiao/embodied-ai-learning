@@ -1107,6 +1107,71 @@ dropped = capacity_dropped + age_dropped
 
 这样对比 A/B 时，就不会把“容量丢包”和“动作过期”混在一起。
 
+### 14.15 A/B 实测对比
+
+相同条件：
+
+```text
+max_action_age=0.5
+queue_probe 发 8 条
+每条 duration=0.6
+```
+
+| 指标 | B：max_in_flight=2 | A：max_in_flight=3 |
+| --- | ---: | ---: |
+| queued | 8 | 8 |
+| executed | 4 | 4 |
+| capacity_dropped | 4 | 3 |
+| age_dropped | 0 | 1 |
+| dropped 总数 | 4 | 4 |
+| 观测 age | 0～0.1 s | 0.3～0.7 s |
+
+A 的最后一次 stats 是：
+
+```text
+queued=8, executed=4, dropped=3,
+capacity_dropped=3, age_dropped=0
+```
+
+紧接着：
+
+```text
+expired action: age=0.700s, duration=0.600s, drop
+```
+
+所以 A 的最终结果要加上这次年龄丢弃：
+
+```text
+dropped=4
+capacity_dropped=3
+age_dropped=1
+```
+
+结论：
+
+```text
+A 多存一条，但没有多执行一条
+多出来的那条因为 age=0.7s 超过 duration=0.6s 被丢弃
+```
+
+A 只是把一次容量丢包换成了过期丢包，同时动作整体更旧：
+
+```text
+B：动作年龄 0～0.1 秒
+A：动作年龄 0.3～0.7 秒
+```
+
+因此：
+
+```text
+当前 max_action_age=0.5 下，B 更好
+执行数量一样
+动作更新鲜
+延迟更低
+```
+
+如果放宽 `max_action_age`，A 可能多执行一条，但执行的是更旧的计划，这是“新鲜度 vs 连续性”的取舍。
+
 ---
 
 ## 附录：第 15 天的 mock 链路

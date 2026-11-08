@@ -448,8 +448,51 @@ dropped          = capacity_dropped + age_dropped
 时间压缩问题已修复
 动作不再被压缩成 0.15 秒
 B 容量限制正常体现为 4 执行 / 4 丢弃
-下一步在相同 max_action_age 下比较 A/B，并区分两类丢弃
 ```
+
+### A/B 对比实测
+
+| 指标 | B：max_in_flight=2 | A：max_in_flight=3 |
+| --- | ---: | ---: |
+| queued | 8 | 8 |
+| executed | 4 | 4 |
+| capacity_dropped | 4 | 3 |
+| age_dropped | 0 | 1 |
+| dropped 总数 | 4 | 4 |
+| 观测 age | 0～0.1 s | 0.3～0.7 s |
+
+A 最后一次 stats 是 `dropped=3`，但紧接着出现：
+
+```text
+expired action: age=0.700s, duration=0.600s, drop
+```
+
+因此最终是：
+
+```text
+executed=4
+dropped=4 = 3 capacity + 1 age
+```
+
+结论：
+
+```text
+A 多存的一条没有多执行
+它等到 age=0.7s > duration=0.6s，被过期规则丢掉
+A 只是把容量丢包换成了过期丢包
+同时动作年龄从 0～0.1s 增加到 0.3～0.7s
+```
+
+当前 `max_action_age=0.5` 下：
+
+```text
+B 更好
+执行数量一样
+动作更新鲜
+延迟更低
+```
+
+如果放宽 `max_action_age`，A 可能多执行，但会更旧，这是取舍。
 
 ---
 

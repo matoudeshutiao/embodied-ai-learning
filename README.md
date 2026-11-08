@@ -2478,6 +2478,57 @@ dropped = capacity_dropped + age_dropped
 
 这样不会把“丢包”和“过期”混在一起。
 
+#### A/B 实测对比
+
+相同条件：
+
+```text
+max_action_age=0.5
+queue_probe 发 8 条
+每条 duration=0.6
+```
+
+| 指标 | B：max_in_flight=2 | A：max_in_flight=3 |
+| --- | ---: | ---: |
+| queued | 8 | 8 |
+| executed | 4 | 4 |
+| capacity_dropped | 4 | 3 |
+| age_dropped | 0 | 1 |
+| dropped 总数 | 4 | 4 |
+| 观测 age | 0～0.1 s | 0.3～0.7 s |
+
+A 最后一次 stats 显示 `dropped=3`，但紧接着有：
+
+```text
+expired action: age=0.700s, duration=0.600s, drop
+```
+
+所以最终 A 是：
+
+```text
+executed=4
+dropped=4 = 3 capacity + 1 age
+```
+
+结论：
+
+```text
+A 多存的一条没有多执行
+它等到 age=0.7s > duration=0.6s，被过期规则丢掉
+A 只是把一次容量丢包换成了过期丢包
+同时动作整体更旧
+```
+
+当前 `max_action_age=0.5` 下，B 更好：
+
+```text
+执行数量一样
+动作更新鲜
+延迟更低
+```
+
+放宽 `max_action_age` 后 A 可能多执行，但会更旧，这是“新鲜度 vs 连续性”的取舍。
+
 #### 今天的三句话
 
 ```text
