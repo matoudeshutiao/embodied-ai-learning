@@ -34,6 +34,9 @@ def generate_launch_description():
     # 2 是低延迟真机默认；3 更接近原来的 pending-only 行为。
     max_in_flight = LaunchConfiguration("max_in_flight")
 
+    # 动作在队列里允许等待的最长时间，超过就丢弃。
+    max_action_age = LaunchConfiguration("max_action_age")
+
     xacro_file = os.path.join(
         arm_share, "urdf", "simple_arm.urdf.xacro"
     )
@@ -120,6 +123,10 @@ def generate_launch_description():
                     max_in_flight,
                     value_type=int,
                 ),
+                "max_action_age": ParameterValue(
+                    max_action_age,
+                    value_type=float,
+                ),
             }
         ],
         output="screen",
@@ -189,6 +196,13 @@ def generate_launch_description():
                 description=(
                     "Maximum active + pending actions. "
                     "2 = low-latency default; 3 = one extra buffered chunk."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "max_action_age",
+                default_value="0.5",
+                description=(
+                    "Maximum queue age in seconds before an action is dropped."
                 ),
             ),
             gazebo,

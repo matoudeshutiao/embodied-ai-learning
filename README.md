@@ -2397,6 +2397,51 @@ max_in_flight:=3
 
 不能把旧轨迹原样压缩执行。
 
+#### 为什么控制器会自动压缩
+
+`header.stamp` 是轨迹的绝对起点，`time_from_start` 是每个点相对起点的偏移：
+
+```text
+header.stamp = 0.0
+point.time_from_start = 0.6
+→ 控制器认为 0.6 秒后到达目标
+```
+
+如果动作排队 0.45 秒才发出，控制器看到：
+
+```text
+当前时间已经是 0.45
+只剩 0.15 秒
+```
+
+它不是暂停计时，而是按时间表执行剩余部分，所以轨迹被压缩。
+
+#### 时间对齐已实现
+
+`safe_executor` 出队时：
+
+```text
+age = now - header.stamp
+age >= 轨迹总时长 → 丢弃
+age > max_action_age → 丢弃
+否则 → header.stamp = now，再发送
+```
+
+新增参数：
+
+```text
+max_action_age = 0.5 秒
+```
+
+B 实测日志：
+
+```text
+queued=8, executed=5, dropped=3
+```
+
+执行 5 条不是容量失效，而是实际执行时间被时间戳压缩，队列更快排空。  
+修好时间对齐后，才能公平比较 A/B 的执行/丢弃数量。
+
 #### 今天的三句话
 
 ```text

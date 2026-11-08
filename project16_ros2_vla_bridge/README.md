@@ -975,6 +975,69 @@ pending-only vs total in-flight
 
 **[QUEUE_DAY19.md](QUEUE_DAY19.md)**
 
+### 14.12 时间对齐实现
+
+`safe_executor` 出队时新增：
+
+```python
+age = now - msg.header.stamp
+total_duration = msg.points[-1].time_from_start
+```
+
+处理规则：
+
+```text
+age >= total_duration → 动作已过期，丢弃
+age > max_action_age   → 动作太旧，丢弃
+否则                   → header.stamp = now，再发送
+```
+
+关键代码：
+
+```python
+def prepare_for_execution(self, msg):
+    now = self.get_clock().now()
+    stamp = msg.header.stamp
+    stamp_sec = stamp.sec + stamp.nanosec * 1e-9
+    now_sec = now.nanoseconds * 1e-9
+    age = max(0.0, now_sec - stamp_sec)
+
+    total_duration = self.duration_to_sec(
+        msg.points[-1].time_from_start
+    )
+
+    if total_duration <= 0.0 or age >= total_duration:
+        return False
+
+    if age > self.max_action_age:
+        return False
+
+    # 让控制器从当前时刻开始执行完整轨迹。
+    msg.header.stamp = now.to_msg()
+    return True
+```
+
+新增参数：
+
+```text
+max_action_age = 0.5 秒（默认）
+```
+
+launch 参数：
+
+```text
+max_action_age:=0.5
+max_in_flight:=2
+```
+
+这样：
+
+```text
+旧时间戳不会再把轨迹压缩
+过期动作会被丢弃
+安全层仍负责位置/速度限制
+```
+
 ---
 
 ## 附录：第 15 天的 mock 链路

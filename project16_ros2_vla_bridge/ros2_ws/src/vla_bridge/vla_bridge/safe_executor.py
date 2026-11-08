@@ -31,6 +31,14 @@ class SafeExecutor(Node):
             int(self.get_parameter("max_in_flight").value),
         )
 
+        # 动作在队列里最多允许等多久。
+        # 超过这个年龄就丢弃，避免执行过期计划。
+        self.declare_parameter("max_action_age", 0.5)
+        self.max_action_age = max(
+            0.0,
+            float(self.get_parameter("max_action_age").value),
+        )
+
         self.client = ActionClient(
             self,
             FollowJointTrajectory,
@@ -55,17 +63,69 @@ class SafeExecutor(Node):
         self.client.wait_for_server()
         self.get_logger().info(
             f"Trajectory action server ready, "
-            f"max_in_flight={self.max_in_flight}"
+            f"max_in_flight={self.max_in_flight}, "
+            f"max_action_age={self.max_action_age:.3f}s"
         )
 
     def in_flight(self):
         """总在途 = 正在执行 + 等待执行。"""
         return len(self.pending) + (1 if self.busy else 0)
 
+    @staticmethod
+    def duration_to_sec(duration):
+        return float(duration.sec) + float(duration.nanosec) * 1e-9
+
+    def prepare_for_execution(self, msg):
+        """检查动作年龄；安全时重新打时间戳，避免轨迹被压缩。"""
+        if not msg.points:
+            self.get_logger().warn("empty trajectory, drop action")
+            return False
+
+        now = self.get_clock().now()
+        stamp = msg.header.stamp
+        stamp_sec = float(stamp.sec) + float(stamp.nanosec) * 1e-9
+        now_sec = float(now.nanoseconds) * 1e-9
+        age = max(0.0, now_sec - stamp_sec)
+        total_duration = self.duration_to_sec(
+            msg.points[-1].time_from_start
+        )
+
+        # 已经超过轨迹总时长，剩余时间 <= 0，不能执行。
+        if total_duration <= 0.0 or age >= total_duration:
+            self.get_logger().warn(
+                f"expired action: age={age:.3f}s, "
+                f"duration={total_duration:.3f}s, drop"
+            )
+            return False
+
+        # 还没完全过期，但已经太旧，也按过期处理。
+        if age > self.max_action_age:
+            self.get_logger().warn(
+                f"stale action: age={age:.3f}s > "
+                f"max_action_age={self.max_action_age:.3f}s, drop"
+            )
+            return False
+
+        # 关键：把轨迹起点改成“现在”，让控制器执行完整时长。
+        # 不重新打时间戳，控制器会以为队列等待已经消耗了轨迹时间。
+        msg.header.stamp = now.to_msg()
+        self.get_logger().info(
+            f"time aligned: age={age:.3f}s, "
+            f"duration={total_duration:.3f}s"
+        )
+        return True
+
     def on_safe_action(self, msg):
         if not self.client.server_is_ready():
             self.get_logger().warn("action server not ready, drop action")
             return
+
+        # 手动测试消息可能没有时间戳；用接收时间作为起点。
+        if msg.header.stamp.sec == 0 and msg.header.stamp.nanosec == 0:
+            msg.header.stamp = self.get_clock().now().to_msg()
+            self.get_logger().warn(
+                "action has zero timestamp, using arrival time"
+            )
 
         # 到达总在途上限时，优先丢掉最旧的“未执行”块。
         # 当前正在执行的 active 永远不在这里被取消。
@@ -97,26 +157,33 @@ class SafeExecutor(Node):
         self.start_next()
 
     def start_next(self):
-        if self.busy or not self.pending:
+        if self.busy:
             return
 
-        msg = self.pending.popleft()
-        self.busy = True
-        goal = FollowJointTrajectory.Goal()
-        goal.trajectory = msg
+        # 跳过已经过期/太旧的动作，只发送仍可安全执行的动作。
+        while self.pending:
+            msg = self.pending.popleft()
+            if not self.prepare_for_execution(msg):
+                self.dropped_count += 1
+                continue
 
-        self.get_logger().info(
-            f"sending action: {len(msg.points)} points, "
-            f"joints={list(msg.joint_names)}, "
-            f"in_flight={self.in_flight()}, "
-            f"pending={len(self.pending)}"
-        )
+            self.busy = True
+            goal = FollowJointTrajectory.Goal()
+            goal.trajectory = msg
 
-        future = self.client.send_goal_async(
-            goal,
-            feedback_callback=self.on_feedback,
-        )
-        future.add_done_callback(self.on_goal_response)
+            self.get_logger().info(
+                f"sending action: {len(msg.points)} points, "
+                f"joints={list(msg.joint_names)}, "
+                f"in_flight={self.in_flight()}, "
+                f"pending={len(self.pending)}"
+            )
+
+            future = self.client.send_goal_async(
+                goal,
+                feedback_callback=self.on_feedback,
+            )
+            future.add_done_callback(self.on_goal_response)
+            return
 
     def on_feedback(self, feedback_msg):
         pass
