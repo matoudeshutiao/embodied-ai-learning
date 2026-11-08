@@ -2433,14 +2433,33 @@ age > max_action_age → 丢弃
 max_action_age = 0.5 秒
 ```
 
-B 实测日志：
+修复前 B 实测：
 
 ```text
 queued=8, executed=5, dropped=3
 ```
 
-执行 5 条不是容量失效，而是实际执行时间被时间戳压缩，队列更快排空。  
-修好时间对齐后，才能公平比较 A/B 的执行/丢弃数量。
+执行 5 条不是容量失效，而是控制器把旧时间戳当成起点，动作被压缩执行，队列更快排空。
+
+修复后：
+
+```text
+time aligned: age=0.200s, duration=0.600s
+time aligned: age=0.100s, duration=0.600s
+
+queued=8, executed=4, dropped=4
+```
+
+实际执行时间：
+
+```text
+#1: 0.606 s
+#3: 0.560 s
+#6: 0.557 s
+#8: 0.560 s
+```
+
+动作恢复到接近完整的 0.6 秒，B 的 4 执行 / 4 丢弃才真正体现出来。
 
 #### 今天的三句话
 

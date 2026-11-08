@@ -403,6 +403,45 @@ max_in_flight:=2
 队列丢最旧策略是否符合容量语义
 ```
 
+### 实测结果
+
+启动参数：
+
+```text
+max_in_flight=2
+max_action_age=0.5
+```
+
+日志：
+
+```text
+time aligned: age=0.200s, duration=0.600s
+time aligned: age=0.100s, duration=0.600s
+```
+
+实际执行时间：
+
+```text
+#1: 0.606 s
+#3: 0.560 s
+#6: 0.557 s
+#8: 0.560 s
+```
+
+最终统计：
+
+```text
+queued=8, executed=4, dropped=4
+```
+
+结论：
+
+```text
+时间压缩问题已修复
+动作不再被压缩成 0.15 秒
+B 容量限制正常体现为 4 执行 / 4 丢弃
+```
+
 ---
 
 ## 8. 今天要记住的三句话
