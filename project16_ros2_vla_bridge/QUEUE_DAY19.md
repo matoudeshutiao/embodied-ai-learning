@@ -434,12 +434,21 @@ time aligned: age=0.100s, duration=0.600s
 queued=8, executed=4, dropped=4
 ```
 
+为了区分丢弃原因，日志新增：
+
+```text
+capacity_dropped = 队列容量满导致
+age_dropped      = 动作太旧导致
+dropped          = capacity_dropped + age_dropped
+```
+
 结论：
 
 ```text
 时间压缩问题已修复
 动作不再被压缩成 0.15 秒
 B 容量限制正常体现为 4 执行 / 4 丢弃
+下一步在相同 max_action_age 下比较 A/B，并区分两类丢弃
 ```
 
 ---

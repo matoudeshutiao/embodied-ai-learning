@@ -2461,6 +2461,23 @@ queued=8, executed=4, dropped=4
 
 动作恢复到接近完整的 0.6 秒，B 的 4 执行 / 4 丢弃才真正体现出来。
 
+为了比较 A/B，日志现在分开统计：
+
+```text
+capacity_dropped = 容量满导致
+age_dropped      = 动作太旧导致
+dropped          = 两者之和
+```
+
+关系：
+
+```text
+queued = executed + dropped + in_flight
+dropped = capacity_dropped + age_dropped
+```
+
+这样不会把“丢包”和“过期”混在一起。
+
 #### 今天的三句话
 
 ```text

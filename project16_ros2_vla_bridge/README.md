@@ -1081,6 +1081,32 @@ queued=8, executed=4, dropped=4
 
 之前执行 5 条，是因为控制器把旧时间戳当作起点，动作被加速执行；现在时间对齐后，容量限制才真正体现出来。
 
+### 14.14 丢弃原因分类
+
+为了比较 A/B，`safe_executor` 现在把丢弃原因分开统计：
+
+```text
+capacity_dropped = 队列达到 max_in_flight，丢掉最旧 pending
+age_dropped      = 动作等待太久，超过 max_action_age 或轨迹总时长
+dropped          = 两者之和
+```
+
+统计日志：
+
+```text
+stats: queued=..., executed=..., dropped=...,
+       capacity_dropped=..., age_dropped=...
+```
+
+判断关系：
+
+```text
+queued = executed + dropped + in_flight
+dropped = capacity_dropped + age_dropped
+```
+
+这样对比 A/B 时，就不会把“容量丢包”和“动作过期”混在一起。
+
 ---
 
 ## 附录：第 15 天的 mock 链路

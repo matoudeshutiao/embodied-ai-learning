@@ -55,6 +55,8 @@ class SafeExecutor(Node):
         self.busy = False
         self.queued_count = 0
         self.dropped_count = 0
+        self.capacity_dropped_count = 0
+        self.age_dropped_count = 0
         self.executed_count = 0
 
         self.get_logger().info(
@@ -133,6 +135,7 @@ class SafeExecutor(Node):
             if self.pending:
                 dropped = self.pending.popleft()
                 self.dropped_count += 1
+                self.capacity_dropped_count += 1
                 self.get_logger().warn(
                     f"max_in_flight reached, drop oldest pending action "
                     f"({len(dropped.points)} points)"
@@ -141,6 +144,7 @@ class SafeExecutor(Node):
                 # 只有 active、没有 pending 可丢，只能丢弃新动作。
                 # max_in_flight=1 时会走到这里。
                 self.dropped_count += 1
+                self.capacity_dropped_count += 1
                 self.get_logger().warn(
                     "max_in_flight reached with no pending action, "
                     "drop newest action"
@@ -165,6 +169,7 @@ class SafeExecutor(Node):
             msg = self.pending.popleft()
             if not self.prepare_for_execution(msg):
                 self.dropped_count += 1
+                self.age_dropped_count += 1
                 continue
 
             self.busy = True
@@ -210,7 +215,9 @@ class SafeExecutor(Node):
         self.get_logger().info(
             f"stats: queued={self.queued_count}, "
             f"executed={self.executed_count}, "
-            f"dropped={self.dropped_count}"
+            f"dropped={self.dropped_count}, "
+            f"capacity_dropped={self.capacity_dropped_count}, "
+            f"age_dropped={self.age_dropped_count}"
         )
         self.busy = False
         self.start_next()
