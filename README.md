@@ -114,6 +114,7 @@
 ├── project16_ros2_vla_bridge/ # 第 15–17 天：VLA/真机桥接、真控制器与真机路线
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
+│   ├── QUEUE_DAY19.md
 │   ├── REAL_ROBOT_ROADMAP.md
 │   ├── assets/
 │   └── ros2_ws/src/vla_bridge/
@@ -301,6 +302,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;16 | 2026.11.05 | ROS2 周 Day 8：把 mock 执行器换成 Gazebo `joint_trajectory_controller` |
 | Day&nbsp;17 | 2026.11.06 | ROS2 周 Day 9：执行栈接口盘点、仿真/真机替换表与真机准备路线 |
 | Day&nbsp;18 | 2026.11.07 | ROS2 周 Day 10：`safe_executor` 动作队列、丢最旧未执行块与统计日志 |
+| Day&nbsp;19 | 2026.11.08 | ROS2 周 Day 11：队列容量 pending-only vs in-flight、动作时间对齐与过期动作规则 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -2306,6 +2308,83 @@ age 太大 → 丢弃过期动作
 **[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14 节**
 
 > 第 18 天分两天完成：今天完成队列代码、隔离测试和时间压缩定位；明天对比两种队列容量语义，并做动作时间对齐。
+
+---
+
+### 2026.11.08 ｜ 第 19 天 · ROS2 周 Day 11：队列容量与动作时间对齐
+
+今天不写新功能，先把两个规则定清楚。
+
+#### 两种队列容量
+
+```text
+A. pending-only：
+   1 条 active + 2 条 pending = 总在途 3 条
+
+B. total in-flight：
+   1 条 active + 1 条 pending = 总在途 2 条
+```
+
+8 条动作、0.25 秒到达、每条 0.6 秒时：
+
+| 容量定义 | 执行 | 丢弃 |
+| --- | --- | --- |
+| A：pending 最多 2 | 1, 2, 4, 7, 8 | 3, 5, 6 |
+| B：总在途最多 2 | 1, 3, 5, 8 | 2, 4, 6, 7 |
+
+真机更推荐 B：
+
+```text
+最坏延迟更短
+不会积压三段旧计划
+```
+
+#### 动作过期怎么处理
+
+题目：
+
+```text
+动作总时长 0.6 秒
+队列里等了 0.5 秒
+只剩 0.1 秒
+执行剩下的 0.1 秒，还是丢弃？
+```
+
+答案：
+
+```text
+默认丢弃
+```
+
+因为原样执行剩下的 0.1 秒意味着：
+
+```text
+路径被压缩到 1/6 时间
+实际速度可能变成原计划的 6 倍
+```
+
+只有满足这些条件时，才可以重新对齐后执行：
+
+```text
+目标是静态的
+路径仍然有效
+当前状态与轨迹起点接近
+重新计时后速度不超限
+```
+
+不能把旧轨迹原样压缩执行。
+
+#### 今天的三句话
+
+```text
+队列容量要明确是否包含 active
+动作年龄比动作数量更危险
+过期动作默认丢弃，重新对齐是例外
+```
+
+完整时间线和解答见：
+
+**[project16_ros2_vla_bridge/QUEUE_DAY19.md](project16_ros2_vla_bridge/QUEUE_DAY19.md)**
 
 ---
 
