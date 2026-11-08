@@ -764,31 +764,74 @@ stats: queued=..., executed=..., dropped=...
 
 ### 14.10 容量语义：pending-only vs in-flight
 
-这是今天留下的一个重要设计问题，代码暂不改，先记录。
+第 18 天先实现了 pending-only；第 19 天改成总在途可配置。
 
-当前代码：
-
-```python
-if len(self.pending) >= self.max_queue_size:
-```
-
-只限制 pending，不包含 active。
-
-所以默认 `max_queue_size=2` 时：
+#### A：pending-only
 
 ```text
-1 条 active + 2 条 pending = 总在途 3 条
+active 不计入容量
+max_pending = 2
+总在途最多 1 active + 2 pending = 3
 ```
 
-另一种更符合直觉的定义：
+优点：
 
 ```text
-active + pending 最多 2 条
+正常负载下丢动作少
+保留更多未来计划
+轨迹连续性更好
 ```
 
-两种定义都合理，但会影响延迟和丢弃行为。
+缺点：
 
-以 `queue_probe` 的 8 条动作为例：
+```text
+最坏排队延迟多一段动作
+header.stamp 更旧
+更容易执行几秒前的计划
+```
+
+适合：
+
+```text
+静态目标
+变化很慢的环境
+对连续性要求高的任务
+```
+
+#### B：total in-flight
+
+```text
+active + pending 都计入容量
+max_in_flight = 2
+总在途最多 1 active + 1 pending = 2
+```
+
+优点：
+
+```text
+最坏延迟更短
+动作更新鲜
+动作时间被队列压缩得更少
+```
+
+缺点：
+
+```text
+压力大时丢动作更多
+未来计划更短
+连续轨迹更容易被截断
+```
+
+适合：
+
+```text
+移动目标
+动态障碍
+真机遥操作
+需要快速响应新观测的任务
+```
+
+#### 8 条动作对比
 
 ```text
 到达间隔 0.25 秒
@@ -797,37 +840,53 @@ active + pending 最多 2 条
 
 | 容量定义 | 执行 | 丢弃 |
 | --- | --- | --- |
-| pending 最多 2（当前） | 1, 2, 4, 7, 8 | 3, 5, 6 |
-| 总在途最多 2 | 1, 3, 5, 8 | 2, 4, 6, 7 |
+| A：pending 最多 2 | 1, 2, 4, 7, 8 | 3, 5, 6 |
+| B：总在途最多 2 | 1, 3, 5, 8 | 2, 4, 6, 7 |
 
-真机上更推荐“总在途最多 2”：
+#### 为什么真机推荐 B
 
-```text
-1 条正在执行
-+ 1 条等待
-```
-
-因为它把最坏延迟限制在两段动作左右，而不是三段。
-
-当前不直接改代码，原因：
+不是“丢包越少越好”，而是：
 
 ```text
-这是容量策略选择，不是语法错误
-需要和动作块时长、策略频率、真机安全一起决定
+丢一个旧动作
+比执行一个过期动作更安全
 ```
 
-后续决定后，可把参数改名为：
+B 丢得更多，但丢的是尚未执行的旧计划；  
+A 丢得少，但它可能把旧计划执行到更晚。
+
+真机首先要保证：
 
 ```text
-max_in_flight
+动作新鲜
+延迟可控
+场景变化后能尽快响应
 ```
 
-并把判断改成：
+#### 当前实现
+
+`safe_executor` 已改为：
 
 ```python
-in_flight = len(self.pending) + (1 if self.busy else 0)
-if in_flight >= self.max_in_flight:
+def in_flight(self):
+    return len(self.pending) + (1 if self.busy else 0)
+
+if self.in_flight() >= self.max_in_flight:
     ...
+```
+
+参数：
+
+```text
+max_in_flight = 2   # 默认 B
+max_in_flight = 3   # 近似 A 的总在途上限
+```
+
+launch 参数：
+
+```text
+max_in_flight:=2
+max_in_flight:=3
 ```
 
 ### 14.11 隔离测试发现：队列延迟会“吃掉”轨迹时间

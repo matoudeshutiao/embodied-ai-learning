@@ -30,6 +30,10 @@ def generate_launch_description():
     # 做隔离队列测试时设为 false，避免 mock_policy 和测试节点同时发动作。
     start_mock_policy = LaunchConfiguration("start_mock_policy")
 
+    # 总在途 = 正在执行 + 等待执行。
+    # 2 是低延迟真机默认；3 更接近原来的 pending-only 行为。
+    max_in_flight = LaunchConfiguration("max_in_flight")
+
     xacro_file = os.path.join(
         arm_share, "urdf", "simple_arm.urdf.xacro"
     )
@@ -112,6 +116,10 @@ def generate_launch_description():
                     "/joint_trajectory_controller/"
                     "follow_joint_trajectory"
                 ),
+                "max_in_flight": ParameterValue(
+                    max_in_flight,
+                    value_type=int,
+                ),
             }
         ],
         output="screen",
@@ -173,6 +181,14 @@ def generate_launch_description():
                 default_value="true",
                 description=(
                     "Start mock_policy. Set false for isolated queue tests."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "max_in_flight",
+                default_value="2",
+                description=(
+                    "Maximum active + pending actions. "
+                    "2 = low-latency default; 3 = one extra buffered chunk."
                 ),
             ),
             gazebo,

@@ -22,12 +22,13 @@ class SafeExecutor(Node):
         )
         self.action_name = self.get_parameter("action_name").value
 
-        # 队列只保存“还没开始执行”的动作块。
-        # 默认只留 2 块，避免真机上积压太多过期动作。
-        self.declare_parameter("max_queue_size", 2)
-        self.max_queue_size = max(
+        # 限制“总在途”数量：正在执行 + 等待执行。
+        # 默认 2 = 1 条 active + 1 条 pending，优先保证低延迟。
+        # 想保留更多计划可设为 3，但真机会增加旧动作风险。
+        self.declare_parameter("max_in_flight", 2)
+        self.max_in_flight = max(
             1,
-            int(self.get_parameter("max_queue_size").value),
+            int(self.get_parameter("max_in_flight").value),
         )
 
         self.client = ActionClient(
@@ -54,28 +55,43 @@ class SafeExecutor(Node):
         self.client.wait_for_server()
         self.get_logger().info(
             f"Trajectory action server ready, "
-            f"queue size={self.max_queue_size}"
+            f"max_in_flight={self.max_in_flight}"
         )
+
+    def in_flight(self):
+        """总在途 = 正在执行 + 等待执行。"""
+        return len(self.pending) + (1 if self.busy else 0)
 
     def on_safe_action(self, msg):
         if not self.client.server_is_ready():
             self.get_logger().warn("action server not ready, drop action")
             return
 
-        # 队列满时丢掉最旧的未执行块，保留较新的动作。
-        # 当前块正在执行时不受影响，避免中途硬切轨迹。
-        if len(self.pending) >= self.max_queue_size:
-            dropped = self.pending.popleft()
-            self.dropped_count += 1
-            self.get_logger().warn(
-                f"queue full, dropped oldest pending action "
-                f"({len(dropped.points)} points)"
-            )
+        # 到达总在途上限时，优先丢掉最旧的“未执行”块。
+        # 当前正在执行的 active 永远不在这里被取消。
+        if self.in_flight() >= self.max_in_flight:
+            if self.pending:
+                dropped = self.pending.popleft()
+                self.dropped_count += 1
+                self.get_logger().warn(
+                    f"max_in_flight reached, drop oldest pending action "
+                    f"({len(dropped.points)} points)"
+                )
+            else:
+                # 只有 active、没有 pending 可丢，只能丢弃新动作。
+                # max_in_flight=1 时会走到这里。
+                self.dropped_count += 1
+                self.get_logger().warn(
+                    "max_in_flight reached with no pending action, "
+                    "drop newest action"
+                )
+                return
 
         self.pending.append(msg)
         self.queued_count += 1
         self.get_logger().info(
             f"queued action: {len(msg.points)} points, "
+            f"in_flight={self.in_flight()}, "
             f"pending={len(self.pending)}, busy={self.busy}"
         )
         self.start_next()
@@ -92,6 +108,7 @@ class SafeExecutor(Node):
         self.get_logger().info(
             f"sending action: {len(msg.points)} points, "
             f"joints={list(msg.joint_names)}, "
+            f"in_flight={self.in_flight()}, "
             f"pending={len(self.pending)}"
         )
 
