@@ -2569,6 +2569,40 @@ A 最后一条 age=0.7s > duration=0.6s，被丢弃
 
 动作年龄衡量的是**新鲜度**，不是执行时间。
 
+#### 状态超时
+
+`joint_state_broadcaster` 停止后，`/joint_states` 不再更新；如果安全层继续用最后一次关节位置，就会拿旧状态做判断。
+
+`safety_filter` 新增：
+
+```text
+state_timeout = 0.5 秒
+```
+
+规则：
+
+```text
+/joint_states 超时 → 状态无效 → 拒绝新动作
+```
+
+此时 `/policy/safety_status` 会发布：
+
+```text
+drop: stale state
+```
+
+正常恢复后打印：
+
+```text
+joint state restored
+```
+
+launch 参数：
+
+```text
+state_timeout:=0.5
+```
+
 #### 今天的三句话
 
 ```text

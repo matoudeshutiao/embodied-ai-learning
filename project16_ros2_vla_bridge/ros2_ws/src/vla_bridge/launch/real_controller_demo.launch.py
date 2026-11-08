@@ -37,6 +37,9 @@ def generate_launch_description():
     # 动作在队列里允许等待的最长时间，超过就丢弃。
     max_action_age = LaunchConfiguration("max_action_age")
 
+    # /joint_states 超过这个时间不更新，安全层拒绝动作。
+    state_timeout = LaunchConfiguration("state_timeout")
+
     xacro_file = os.path.join(
         arm_share, "urdf", "simple_arm.urdf.xacro"
     )
@@ -99,7 +102,15 @@ def generate_launch_description():
     safety_filter = Node(
         package="vla_bridge",
         executable="safety_filter",
-        parameters=[{"use_sim_time": True}],
+        parameters=[
+            {
+                "use_sim_time": True,
+                "state_timeout": ParameterValue(
+                    state_timeout,
+                    value_type=float,
+                ),
+            }
+        ],
         output="screen",
     )
     mock_policy = Node(
@@ -203,6 +214,14 @@ def generate_launch_description():
                 default_value="0.5",
                 description=(
                     "Maximum queue age in seconds before an action is dropped."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "state_timeout",
+                default_value="0.5",
+                description=(
+                    "Maximum /joint_states silence in seconds before "
+                    "safety_filter rejects actions."
                 ),
             ),
             gazebo,

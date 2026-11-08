@@ -46,13 +46,27 @@ class SafetyFilter(Node):
             "joint2": 1.5,
         }
 
+        # /joint_states 超过这个时间没更新，就认为状态过期。
+        # 真机上绝不能拿旧关节位置继续做安全判断。
+        self.declare_parameter("state_timeout", 0.5)
+        self.state_timeout = max(
+            0.05,
+            float(self.get_parameter("state_timeout").value),
+        )
+
         self.current_positions = {}
+        self.last_state_time = None
+        self.state_warned = False
         self.last_time = self.get_clock().now()
         self.received = False
         self.watchdog_active = False
         self.watchdog = self.create_timer(0.5, self.check_watchdog)
+        self.state_timer = self.create_timer(0.2, self.check_state)
 
-        self.get_logger().info("Safety filter started")
+        self.get_logger().info(
+            f"Safety filter started, "
+            f"state_timeout={self.state_timeout:.3f}s"
+        )
 
     def publish_status(self, text):
         msg = String()
@@ -64,6 +78,33 @@ class SafetyFilter(Node):
             name: position
             for name, position in zip(msg.name, msg.position)
         }
+        self.last_state_time = self.get_clock().now()
+
+        if self.state_warned:
+            self.state_warned = False
+            self.get_logger().info("joint state restored")
+            self.publish_status("state: ok")
+
+    def state_is_fresh(self):
+        if self.last_state_time is None:
+            return False
+
+        age = (
+            self.get_clock().now() - self.last_state_time
+        ).nanoseconds / 1e9
+        return age <= self.state_timeout
+
+    def check_state(self):
+        if self.state_is_fresh():
+            return
+
+        if not self.state_warned:
+            self.state_warned = True
+            self.get_logger().warn(
+                f"joint state stale or missing "
+                f"(timeout={self.state_timeout:.3f}s)"
+            )
+            self.publish_status("drop: stale state")
 
     def duration_to_sec(self, duration):
         return float(duration.sec) + float(duration.nanosec) * 1e-9
@@ -80,6 +121,16 @@ class SafetyFilter(Node):
         if self.watchdog_active:
             self.watchdog_active = False
             self.get_logger().info("watchdog reset")
+
+        # 状态过期时拒绝动作，避免拿旧位置做速度校验。
+        if not self.state_is_fresh():
+            self.publish_status("drop: stale state")
+            if not self.state_warned:
+                self.state_warned = True
+                self.get_logger().warn(
+                    "joint state stale, dropping action"
+                )
+            return
 
         unknown = [
             name for name in msg.joint_names

@@ -1232,6 +1232,58 @@ age=0.7s > duration=0.6s
 
 不是执行时间。
 
+### 14.17 状态超时
+
+`joint_state_broadcaster` 停止后，`/joint_states` 不再更新。  
+如果安全层继续使用最后一次关节位置，就会拿旧状态做速度校验。
+
+`safety_filter` 新增：
+
+```text
+state_timeout = 0.5 秒
+```
+
+逻辑：
+
+```text
+/joint_states 超时
+→ 状态无效
+→ 拒绝新动作
+→ /policy/safety_status 发布 drop: stale state
+```
+
+关键代码：
+
+```python
+def state_is_fresh(self):
+    if self.last_state_time is None:
+        return False
+    age = (self.get_clock().now() - self.last_state_time).nanoseconds / 1e9
+    return age <= self.state_timeout
+```
+
+收到动作时：
+
+```python
+if not self.state_is_fresh():
+    self.publish_status("drop: stale state")
+    return
+```
+
+launch 参数：
+
+```text
+state_timeout:=0.5
+```
+
+测试方法：
+
+```text
+正常启动后停掉 joint_state_broadcaster
+观察 safety_filter 是否拒绝动作
+再恢复 broadcaster，观察是否恢复
+```
+
 ---
 
 ## 附录：第 15 天的 mock 链路
