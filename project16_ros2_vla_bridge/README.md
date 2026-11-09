@@ -1421,6 +1421,36 @@ failed   = 失败
 → 重新接受动作
 ```
 
+注意：如果保持默认 `watchdog_timeout=2.0`，5 秒长轨迹会先被 policy watchdog 取消，状态超时测试会被污染。
+
+做状态超时测试时应隔离变量：
+
+```text
+watchdog_timeout=10.0
+state_timeout=0.5
+```
+
+这样策略断流不会先触发，只有 `/joint_states` 断流会触发安全停止。
+
+```bash
+ros2 launch vla_bridge real_controller_demo.launch.py start_mock_policy:=false max_in_flight:=2 max_action_age:=0.5 state_timeout:=0.5 watchdog_timeout:=10.0
+```
+
+再发长轨迹并停掉 broadcaster：
+
+```bash
+ros2 control switch_controllers --deactivate joint_state_broadcaster
+```
+
+预期：
+
+```text
+joint state stale or missing
+drop: stale state
+SAFETY STOP: state stale, clear pending
+cancel active trajectory
+```
+
 ---
 
 ## 附录：第 15 天的 mock 链路

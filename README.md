@@ -2629,6 +2629,15 @@ watchdog: no new action
 
 测试 1 是第三种：动作本身不危险，状态也正常，只是策略 2 秒没有继续发动作。
 
+测试状态超时时要隔离变量，否则默认 2 秒 watchdog 会先取消 5 秒轨迹：
+
+```text
+watchdog_timeout:=10.0
+state_timeout:=0.5
+```
+
+这样只有 `/joint_states` 断流会触发安全停止。
+
 故障状态：
 
 ```text

@@ -40,6 +40,10 @@ def generate_launch_description():
     # /joint_states 超过这个时间不更新，安全层拒绝动作。
     state_timeout = LaunchConfiguration("state_timeout")
 
+    # 策略多久没有新动作就认为断流。
+    # 做状态超时测试时调大，避免两个故障同时触发。
+    watchdog_timeout = LaunchConfiguration("watchdog_timeout")
+
     xacro_file = os.path.join(
         arm_share, "urdf", "simple_arm.urdf.xacro"
     )
@@ -107,6 +111,10 @@ def generate_launch_description():
                 "use_sim_time": True,
                 "state_timeout": ParameterValue(
                     state_timeout,
+                    value_type=float,
+                ),
+                "watchdog_timeout": ParameterValue(
+                    watchdog_timeout,
                     value_type=float,
                 ),
             }
@@ -222,6 +230,14 @@ def generate_launch_description():
                 description=(
                     "Maximum /joint_states silence in seconds before "
                     "safety_filter rejects actions."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "watchdog_timeout",
+                default_value="2.0",
+                description=(
+                    "Maximum policy silence in seconds before watchdog "
+                    "cancels the active trajectory."
                 ),
             ),
             gazebo,

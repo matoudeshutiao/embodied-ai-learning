@@ -54,6 +54,14 @@ class SafetyFilter(Node):
             float(self.get_parameter("state_timeout").value),
         )
 
+        # 策略多久没有新动作就认为断流。
+        # 做状态超时测试时可临时调大，避免 watchdog 先触发。
+        self.declare_parameter("watchdog_timeout", 2.0)
+        self.watchdog_timeout = max(
+            0.5,
+            float(self.get_parameter("watchdog_timeout").value),
+        )
+
         self.current_positions = {}
         self.last_state_time = None
         self.state_warned = False
@@ -65,7 +73,8 @@ class SafetyFilter(Node):
 
         self.get_logger().info(
             f"Safety filter started, "
-            f"state_timeout={self.state_timeout:.3f}s"
+            f"state_timeout={self.state_timeout:.3f}s, "
+            f"watchdog_timeout={self.watchdog_timeout:.3f}s"
         )
 
     def publish_status(self, text):
@@ -229,7 +238,7 @@ class SafetyFilter(Node):
 
         # 策略断流超过 2 秒就报警。
         # 注意：今天只报警，还没有自动发送“保持当前位置”的轨迹。
-        if elapsed > 2.0 and not self.watchdog_active:
+        if elapsed > self.watchdog_timeout and not self.watchdog_active:
             self.watchdog_active = True
             self.get_logger().warn("watchdog: no new action")
             self.publish_status("watchdog: no new action")
