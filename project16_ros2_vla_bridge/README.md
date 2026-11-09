@@ -125,8 +125,14 @@ data: 'ok: 5 points'
 ```text
 project16_ros2_vla_bridge/
 ├── README.md
+├── CODE_WALKTHROUGH.md
+├── QUEUE_DAY19.md
+├── REAL_ROBOT_ROADMAP.md
 ├── assets/
-│   └── action_chain_logs.png       # 第 15 天 mock 链路日志
+│   ├── action_chain_logs.png
+│   └── real_controller.png
+├── scripts/
+│   └── test_state_timeout.sh
 └── ros2_ws/
     └── src/
         └── vla_bridge/
@@ -142,8 +148,9 @@ project16_ros2_vla_bridge/
                 ├── __init__.py
                 ├── mock_policy.py
                 ├── safety_filter.py
-                ├── mock_trajectory_server.py
-                └── safe_executor.py
+                ├── safe_executor.py
+                ├── queue_probe.py
+                └── mock_trajectory_server.py
 ```
 
 | 文件 | 作用 |
@@ -1488,6 +1495,40 @@ watchdog reset
 ```
 
 否则第一个恢复动作可能先被丢掉，看起来永远不恢复。
+
+#### 自动化测试（不需要抢时间）
+
+脚本：
+
+```text
+scripts/test_state_timeout.sh
+```
+
+它自己控制时序：
+
+```text
+发 30 秒轨迹
+等 5 秒
+停 broadcaster
+等 5 秒
+恢复 broadcaster
+等 3 秒
+发 queue_probe
+```
+
+先启动：
+
+```bash
+ros2 launch vla_bridge real_controller_demo.launch.py start_mock_policy:=false max_in_flight:=2 max_action_age:=0.5 state_timeout:=0.5 watchdog_timeout:=60.0
+```
+
+等 `safe_executor` 显示 ready 后，另开终端运行：
+
+```bash
+bash ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/test_state_timeout.sh
+```
+
+不需要人工卡秒数。
 
 ---
 
