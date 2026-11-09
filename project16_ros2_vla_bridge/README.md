@@ -479,11 +479,11 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：🟡 第 18 天分两天完成。
+> 状态：✅ 第 18–19 天完成。
 >
-> 今天已完成：队列代码、隔离测试、时间压缩问题定位。
+> 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
-> 明天继续：对比 pending-only / 总在途 2 两种容量语义，并做动作时间对齐。
+> 第 18 节保留最初 pending-only 版本的演进过程；当前实现见 14.10。
 
 ### 14.1 为什么要队列
 
@@ -505,7 +505,7 @@ busy=True → 直接 return
 真机上可能出现动作不连续
 ```
 
-### 14.2 队列语义
+### 14.2 队列语义（Day 18 初版）
 
 ```text
 当前正在执行的块：不打断
@@ -514,13 +514,21 @@ busy=True → 直接 return
 当前块执行完：从队列取下一块
 ```
 
-默认队列长度：
+Day 18 初版参数：
 
 ```text
-max_queue_size = 2
+max_queue_size = 2   # 只限制 pending
 ```
 
-### 14.3 关键代码
+第 19 天已改为总在途限制：
+
+```text
+max_in_flight = 2
+```
+
+当前实现见 14.10。
+
+### 14.3 关键代码（Day 18 初版）
 
 ```python
 from collections import deque
@@ -587,7 +595,8 @@ self.start_next()
 ```text
 pending     = 还没开始执行的动作块
 active      = 当前正在执行的那一条
-max_queue_size 只限制 pending，不包含 active
+Day 18 初版的 max_queue_size 只限制 pending，不包含 active
+第 19 天已改为 max_in_flight = active + pending
 ```
 
 所以“完整重规划时清空 pending”指的是：
@@ -678,14 +687,21 @@ queued = executed + dropped + in_flight
 
 ### 14.7 真机启示：队列会带来延迟
 
-默认 `max_queue_size = 2`，意味着最坏情况下：
+Day 18 初版 `max_queue_size=2` 意味着最坏情况下：
 
 ```text
 1 条正在执行
 + 2 条等待执行
 ```
 
-如果每条动作块约 1 秒，机器人可能在新观测之后最多执行约 2～3 秒前的旧计划。
+第 19 天改成 `max_in_flight=2` 后，最坏变成：
+
+```text
+1 条正在执行
++ 1 条等待执行
+```
+
+如果每条动作块约 1 秒，真机仍可能执行约 1～2 秒前的计划。
 
 仿真里只是“卡一下”，真机上可能是：
 
@@ -703,21 +719,42 @@ queued = executed + dropped + in_flight
 观测到执行的总延迟
 ```
 
-下一步应增加：
+后续已增加：
 
 ```text
 动作时间戳/年龄检查
-队列深度监控
-必要时把 max_queue_size 降到 1
+capacity_dropped / age_dropped 分类
+状态超时
+watchdog 取消与恢复
 ```
 
-### 14.8 当前局限
+必要时可把 `max_in_flight` 降到 1。
+
+### 14.8 Day 18 当时的局限与后续结果
+
+Day 18 当时：
 
 ```text
 没有动作时间戳/年龄检查
 没有状态反馈监控
 watchdog 仍然只报警
-没有“完整重规划清空队列”模式
+没有完整重规划清空队列模式
+```
+
+后续已完成：
+
+```text
+动作年龄检查 + 时间重对齐
+/joint_states 状态超时
+watchdog 取消 active
+安全阻塞与恢复
+```
+
+仍未完成：
+
+```text
+完整重规划时清空 pending 的模式
+真机硬件接口替换
 ```
 
 ### 14.9 隔离队列测试

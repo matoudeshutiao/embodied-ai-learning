@@ -258,13 +258,14 @@ use_sim_time = false
 真正需要替换的是 Gazebo 硬件层和时间源
 ```
 
-明天开始改执行层：
+Day 18–19 已完成执行层：
 
 ```text
-1. safe_executor 增加动作队列
+1. safe_executor 增加有界动作队列
 2. 不再因为 busy 直接丢动作
-3. 记录 queued / dropped / executed
-4. 用日志验证动作块连续执行
+3. 记录 queued / executed / canceled / dropped
+4. 增加动作年龄检查与时间重对齐
+5. 状态超时与 watchdog 取消/恢复
 ```
 
 ---
@@ -325,6 +326,6 @@ use_sim_time = false
 ```text
 Day 19 增加动作时间戳/年龄检查
 监控 pending 深度和从观测到执行的延迟
-真机上必要时把 max_queue_size 降到 1
+真机上必要时把 max_in_flight 降到 1（只执行当前动作）
 ```
 

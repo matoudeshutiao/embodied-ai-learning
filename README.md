@@ -111,7 +111,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–17 天：VLA/真机桥接、真控制器与真机路线
+├── project16_ros2_vla_bridge/ # 第 15–19 天：VLA/真机桥接、队列、时间对齐与安全层
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -303,7 +303,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;16 | 2026.11.05 | ROS2 周 Day 8：把 mock 执行器换成 Gazebo `joint_trajectory_controller` |
 | Day&nbsp;17 | 2026.11.06 | ROS2 周 Day 9：执行栈接口盘点、仿真/真机替换表与真机准备路线 |
 | Day&nbsp;18 | 2026.11.07 | ROS2 周 Day 10：`safe_executor` 动作队列、丢最旧未执行块与统计日志 |
-| Day&nbsp;19 | 2026.11.08 | ROS2 周 Day 11：队列容量 pending-only vs in-flight、动作时间对齐与过期动作规则 |
+| Day&nbsp;19 | 2026.11.08 | ROS2 周 Day 11：队列容量、动作时间对齐、状态超时、watchdog 取消与安全恢复 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -2124,6 +2124,9 @@ busy=True → 直接丢弃
 记录 queued / executed / dropped
 ```
 
+> 下面是 Day 18 初版的 pending-only 代码；第 19 天已改成
+> `max_in_flight`（active + pending），当前代码见 Day 19 小节和项目 README 14.10。
+
 关键代码：
 
 ```python
@@ -2223,20 +2226,21 @@ queued = executed + dropped + in_flight
 ```
 
 仿真里只是“卡一下”，真机上可能是对移动目标反应变慢、避障不及时。  
-下一步需要增加动作时间戳/年龄检查，并评估是否把队列深度降到 1。
+Day 19 已完成动作时间戳/年龄检查和 A/B 队列深度对比。
 
 #### 术语澄清：pending 不包含 active
 
 ```text
 pending = 还没开始执行的动作块
 active  = 当前正在执行的那一条
-max_queue_size 只限制 pending
+Day 18 初版的 max_queue_size 只限制 pending
+第 19 天已改为 max_in_flight = active + pending
 ```
 
 所以“完整重规划时清空 pending”不等于取消正在执行的轨迹。  
 如果连 active 也要放弃，必须单独做受控停止或取消当前 goal。
 
-当前 `max_queue_size=2` 只限制 pending，所以总在途可以是：
+Day 18 初版 `max_queue_size=2` 只限制 pending，所以总在途可以是：
 
 ```text
 1 条 active + 2 条 pending = 3 条
@@ -2308,7 +2312,7 @@ age 太大 → 丢弃过期动作
 
 **[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14 节**
 
-> 第 18 天分两天完成：今天完成队列代码、隔离测试和时间压缩定位；明天对比两种队列容量语义，并做动作时间对齐。
+> 第 18 天分两天完成：Day 18 完成队列代码、隔离测试和时间压缩定位；Day 19 已完成容量语义对比、动作时间对齐、状态超时和 watchdog 取消/恢复。
 
 ---
 
