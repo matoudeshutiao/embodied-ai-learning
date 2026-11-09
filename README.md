@@ -2663,7 +2663,7 @@ action canceled by safety stop
 stats: canceled=1
 ```
 
-说明状态超时确实取消了正在执行的 30 秒轨迹。
+说明状态超时确实取消了正在执行的慢速长轨迹。自动化脚本已改成 20 秒单轨迹 + 单条恢复动作，不再混入上一关的 queue_probe 压力测试。
 
 恢复后：
 

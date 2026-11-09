@@ -1555,16 +1555,29 @@ scripts/test_state_timeout.sh
 它自己控制时序：
 
 ```text
-发 30 秒轨迹
+发一条慢速 20 秒轨迹
 等 5 秒
 停 broadcaster
 等 5 秒
 恢复 broadcaster
 等 3 秒
-发 queue_probe
+发一条短恢复轨迹
 ```
 
-先启动：
+这个脚本故意不使用 `queue_probe`：
+
+```text
+queue_probe 是上一关的队列压力测试
+状态中断/恢复测试只需要一条动作
+```
+
+先做命令顺序检查：
+
+```bash
+DRY_RUN=1 bash ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/test_state_timeout.sh
+```
+
+再启动：
 
 ```bash
 ros2 launch vla_bridge real_controller_demo.launch.py start_mock_policy:=false max_in_flight:=2 max_action_age:=0.5 state_timeout:=0.5 watchdog_timeout:=60.0
