@@ -2649,7 +2649,16 @@ action canceled by safety stop
 stats: canceled=1
 ```
 
-说明状态超时确实取消了正在执行的 10 秒轨迹。
+说明状态超时确实取消了正在执行的 30 秒轨迹。
+
+恢复后：
+
+```text
+joint state restored
+safety recovered, accepting actions again
+```
+
+随后 `queue_probe` 又能正常执行动作，恢复链路验证通过。
 
 启动阶段新增 `startup_grace=2.0s`，避免安全层比 `/joint_states` 先启动时误报 stale。
 

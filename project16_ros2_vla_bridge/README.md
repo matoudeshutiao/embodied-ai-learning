@@ -1468,7 +1468,18 @@ action canceled by safety stop
 stats: canceled=1
 ```
 
-说明状态超时确实取消了正在执行的 10 秒轨迹。
+恢复后：
+
+```text
+joint state restored
+safety recovered, accepting actions again
+```
+
+随后 `queue_probe` 又能正常执行动作，说明恢复链路也通了。
+
+早期 `queue_probe` 被脚本里的 `timeout` 杀掉时会打印
+`ExternalShutdownException`；现在节点发完 8 条后会主动退出，
+不再依赖外部 timeout，也不会打印这个异常。
 
 启动阶段新增 `startup_grace=2.0s`：
 

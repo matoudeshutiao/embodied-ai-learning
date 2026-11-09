@@ -2,6 +2,7 @@
 
 import rclpy
 from builtin_interfaces.msg import Duration
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
@@ -39,6 +40,7 @@ class QueueProbe(Node):
         ]
 
         self.index = 0
+        self.finished = False
         self.timer = self.create_timer(self.interval, self.tick)
         self.get_logger().info(
             f"queue probe started: count={self.count}, "
@@ -48,6 +50,7 @@ class QueueProbe(Node):
     def tick(self):
         if self.index >= self.count:
             self.timer.cancel()
+            self.finished = True
             self.get_logger().info("queue probe finished")
             return
 
@@ -78,8 +81,10 @@ def main(args=None):
     rclpy.init(args=args)
     node = QueueProbe()
     try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
+        # 发完 count 条后主动退出，避免依赖外部 timeout 杀进程。
+        while rclpy.ok() and not node.finished:
+            rclpy.spin_once(node, timeout_sec=0.1)
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()
