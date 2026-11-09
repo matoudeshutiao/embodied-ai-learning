@@ -187,11 +187,19 @@ class SafeExecutor(Node):
 
     def on_safe_action(self, msg):
         if self.safety_blocked:
-            self.dropped_count += 1
-            self.get_logger().warn(
-                "safety stop active, drop incoming action"
-            )
-            return
+            # 状态正常时，新动作本身就说明策略恢复。
+            # 这能避免 "watchdog reset" 消息比动作晚到，
+            # 导致第一个恢复动作被误丢。
+            if self.state_ok:
+                self.policy_ok = True
+                self.maybe_resume()
+
+            if self.safety_blocked:
+                self.dropped_count += 1
+                self.get_logger().warn(
+                    "safety stop active, drop incoming action"
+                )
+                return
 
         if not self.client.server_is_ready():
             self.get_logger().warn("action server not ready, drop action")

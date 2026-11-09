@@ -2652,6 +2652,9 @@ stats: canceled=1
 
 启动阶段新增 `startup_grace=2.0s`，避免安全层比 `/joint_states` 先启动时误报 stale。
 
+如果 watchdog 已触发，只有 `state: ok` 还不够，因为策略可能仍在断流。  
+现在只要状态正常、新的动作到达，`safe_executor` 就把这视为策略恢复并解除阻塞，避免恢复动作被时序问题误丢。
+
 故障状态：
 
 ```text

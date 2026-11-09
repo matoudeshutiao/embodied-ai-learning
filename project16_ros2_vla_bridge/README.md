@@ -1477,6 +1477,18 @@ state: ok
 watchdog reset
 ```
 
+还有一个时序问题：`watchdog reset` 可能比恢复动作晚到。  
+所以 `safe_executor` 现在规定：
+
+```text
+状态正常时
+只要收到新动作
+就认为策略恢复
+→ 解除 safety_blocked
+```
+
+否则第一个恢复动作可能先被丢掉，看起来永远不恢复。
+
 ---
 
 ## 附录：第 15 天的 mock 链路
