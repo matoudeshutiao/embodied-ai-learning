@@ -2,6 +2,14 @@
 
 从零开始学习具身智能的代码与笔记，当前使用 **PyBullet + Franka Panda 七自由度机械臂** 做仿真练习；第 7 天起进入 **ROS2 Humble + Ubuntu 22.04**，学习机器人系统、TF、Gazebo、MoveIt2 和控制器。
 
+## 学习方式
+
+这个仓库以“原始记录 + 用户反思 + Claude 编辑”为主，不是 AI 代写学习总结。
+
+- 原始命令、报错、截图和困惑放在 [learning_journal/](learning_journal/README.md)；
+- 学习分工、术语卡、故障演练和完成标准见 [LEARNING_PROTOCOL.md](LEARNING_PROTOCOL.md)；
+- 项目 README 中的整理内容只是二次编辑，原始证据保留在 `learning_journal/`。
+
 ## 环境
 
 | 项目 | 版本 |
@@ -21,6 +29,8 @@
 
 ```text
 .
+├── LEARNING_PROTOCOL.md   # 学习分工、术语卡、故障演练与完成标准
+├── learning_journal/      # 用户原始记录、反思与截图
 ├── 第一个项目.py    # 加载机械臂，用逆运动学（IK）把末端移动到指定位置
 ├── 第二个项目.py    # 完整的抓取流程：接近 → 下降 → 闭合夹爪 → 抬起
 ├── 第三个项目.py    # 把抓取拆成四个阶段函数，观察控制链路与 IK 收敛
