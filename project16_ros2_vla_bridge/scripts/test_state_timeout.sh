@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# 注意：不要在 source ROS 之前启用 set -u。
+# ROS 的 setup.bash 会引用未定义变量，导致 unbound variable。
+set -eo pipefail
+set +u
 
 # 先启动：
 # ros2 launch vla_bridge real_controller_demo.launch.py \
@@ -8,8 +11,29 @@ set -euo pipefail
 #
 # 等 safe_executor 打印 "Trajectory action server ready" 后，再运行本脚本。
 
+if [ ! -f /opt/ros/humble/setup.bash ]; then
+  echo "ERROR: /opt/ros/humble/setup.bash not found"
+  exit 1
+fi
+
+if [ ! -f "$HOME/ros2_ws/install/setup.bash" ]; then
+  echo "ERROR: ~/ros2_ws/install/setup.bash not found"
+  exit 1
+fi
+
 source /opt/ros/humble/setup.bash
 source "$HOME/ros2_ws/install/setup.bash"
+
+if ! command -v ros2 >/dev/null 2>&1; then
+  echo "ERROR: ros2 command not found after sourcing"
+  exit 1
+fi
+
+if ! ros2 action list | grep -q \
+  "/joint_trajectory_controller/follow_joint_trajectory"; then
+  echo "ERROR: controller action not found; start the launch first."
+  exit 1
+fi
 
 echo "[1/5] 发送 30 秒长轨迹（脚本自己计时，不需要你抢操作）"
 ros2 topic pub --once /policy/action_raw \
