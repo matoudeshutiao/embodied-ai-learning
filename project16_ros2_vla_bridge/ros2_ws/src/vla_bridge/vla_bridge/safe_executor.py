@@ -6,6 +6,7 @@ import rclpy
 from control_msgs.action import FollowJointTrajectory
 from rclpy.action import ActionClient
 from rclpy.node import Node
+from std_msgs.msg import String
 from trajectory_msgs.msg import JointTrajectory
 
 
@@ -53,11 +54,26 @@ class SafeExecutor(Node):
 
         self.pending = deque()
         self.busy = False
+        self.active_goal_handle = None
+        self.cancel_requested = False
+        self.safety_blocked = False
+        self.state_ok = True
+        self.policy_ok = True
+
         self.queued_count = 0
         self.dropped_count = 0
         self.capacity_dropped_count = 0
         self.age_dropped_count = 0
         self.executed_count = 0
+        self.failed_count = 0
+
+        # 安全层通过状态话题通知：状态过期 / 策略断流 / 恢复
+        self.status_sub = self.create_subscription(
+            String,
+            "/policy/safety_status",
+            self.on_safety_status,
+            10,
+        )
 
         self.get_logger().info(
             f"Waiting for action server: {self.action_name}"
@@ -72,6 +88,57 @@ class SafeExecutor(Node):
     def in_flight(self):
         """总在途 = 正在执行 + 等待执行。"""
         return len(self.pending) + (1 if self.busy else 0)
+
+    def on_safety_status(self, msg):
+        status = msg.data
+
+        if status == "watchdog: no new action":
+            self.policy_ok = False
+            self.enter_safety_stop("policy watchdog")
+
+        elif status == "watchdog reset":
+            self.policy_ok = True
+            self.maybe_resume()
+
+        elif status == "drop: stale state":
+            self.state_ok = False
+            self.enter_safety_stop("state stale")
+
+        elif status == "state: ok":
+            self.state_ok = True
+            self.maybe_resume()
+
+    def enter_safety_stop(self, reason):
+        if self.safety_blocked:
+            return
+
+        self.safety_blocked = True
+        self.pending.clear()
+        self.get_logger().warn(
+            f"SAFETY STOP: {reason}, clear pending"
+        )
+        self.cancel_active()
+
+    def maybe_resume(self):
+        if (
+            self.safety_blocked
+            and self.state_ok
+            and self.policy_ok
+        ):
+            self.safety_blocked = False
+            self.get_logger().info(
+                "safety recovered, accepting actions again"
+            )
+
+    def cancel_active(self):
+        if self.active_goal_handle is None:
+            return
+        if self.cancel_requested:
+            return
+
+        self.cancel_requested = True
+        self.get_logger().warn("cancel active trajectory")
+        self.active_goal_handle.cancel_goal_async()
 
     @staticmethod
     def duration_to_sec(duration):
@@ -118,6 +185,13 @@ class SafeExecutor(Node):
         return True
 
     def on_safe_action(self, msg):
+        if self.safety_blocked:
+            self.dropped_count += 1
+            self.get_logger().warn(
+                "safety stop active, drop incoming action"
+            )
+            return
+
         if not self.client.server_is_ready():
             self.get_logger().warn("action server not ready, drop action")
             return
@@ -161,7 +235,7 @@ class SafeExecutor(Node):
         self.start_next()
 
     def start_next(self):
-        if self.busy:
+        if self.busy or self.safety_blocked:
             return
 
         # 跳过已经过期/太旧的动作，只发送仍可安全执行的动作。
@@ -201,13 +275,24 @@ class SafeExecutor(Node):
             self.start_next()
             return
 
+        self.active_goal_handle = goal_handle
         self.get_logger().info("action goal accepted")
+
+        # 如果发送后、接收 goal 前发生安全故障，立即取消。
+        if self.safety_blocked:
+            self.cancel_active()
+
         result_future = goal_handle.get_result_async()
         result_future.add_done_callback(self.on_result)
 
     def on_result(self, future):
         result = future.result().result
-        self.executed_count += 1
+
+        if result.error_code == 0:
+            self.executed_count += 1
+        else:
+            self.failed_count += 1
+
         self.get_logger().info(
             f"action finished: code={result.error_code}, "
             f"message={result.error_string}"
@@ -215,10 +300,14 @@ class SafeExecutor(Node):
         self.get_logger().info(
             f"stats: queued={self.queued_count}, "
             f"executed={self.executed_count}, "
+            f"failed={self.failed_count}, "
             f"dropped={self.dropped_count}, "
             f"capacity_dropped={self.capacity_dropped_count}, "
             f"age_dropped={self.age_dropped_count}"
         )
+
+        self.active_goal_handle = None
+        self.cancel_requested = False
         self.busy = False
         self.start_next()
 

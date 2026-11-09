@@ -2603,6 +2603,55 @@ launch 参数：
 state_timeout:=0.5
 ```
 
+#### Watchdog 与故障取消
+
+之前 watchdog 只报警：
+
+```text
+watchdog: no new action
+```
+
+现在 `safe_executor` 订阅 `/policy/safety_status`，收到故障后：
+
+```text
+清空 pending
+取消正在执行的 active goal
+阻止新的动作进入
+```
+
+故障状态：
+
+```text
+watchdog: no new action
+drop: stale state
+```
+
+恢复状态：
+
+```text
+watchdog reset
+state: ok
+```
+
+只有状态和策略都恢复后，才重新接受动作。
+
+关键动作：
+
+```python
+def enter_safety_stop(self, reason):
+    self.safety_blocked = True
+    self.pending.clear()
+    self.cancel_active()
+```
+
+```python
+def cancel_active(self):
+    if self.active_goal_handle is None:
+        return
+    self.cancel_requested = True
+    self.active_goal_handle.cancel_goal_async()
+```
+
 #### 今天的三句话
 
 ```text

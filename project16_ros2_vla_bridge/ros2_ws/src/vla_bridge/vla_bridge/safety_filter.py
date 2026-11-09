@@ -121,6 +121,7 @@ class SafetyFilter(Node):
         if self.watchdog_active:
             self.watchdog_active = False
             self.get_logger().info("watchdog reset")
+            self.publish_status("watchdog reset")
 
         # 状态过期时拒绝动作，避免拿旧位置做速度校验。
         if not self.state_is_fresh():

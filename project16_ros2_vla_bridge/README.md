@@ -1284,6 +1284,94 @@ state_timeout:=0.5
 再恢复 broadcaster，观察是否恢复
 ```
 
+### 14.18 Watchdog 与故障取消
+
+之前 watchdog 只报警：
+
+```text
+watchdog: no new action
+```
+
+现在 `safe_executor` 订阅 `/policy/safety_status`，收到故障状态后：
+
+```text
+清空 pending
+取消正在执行的 active goal
+阻止新的动作进入
+```
+
+故障状态：
+
+```text
+watchdog: no new action
+drop: stale state
+```
+
+恢复状态：
+
+```text
+watchdog reset
+state: ok
+```
+
+只有 `state_ok` 和 `policy_ok` 都恢复后，才重新接受动作。
+
+关键代码：
+
+```python
+def enter_safety_stop(self, reason):
+    if self.safety_blocked:
+        return
+
+    self.safety_blocked = True
+    self.pending.clear()
+    self.get_logger().warn(
+        f"SAFETY STOP: {reason}, clear pending"
+    )
+    self.cancel_active()
+```
+
+取消 active：
+
+```python
+def cancel_active(self):
+    if self.active_goal_handle is None:
+        return
+    if self.cancel_requested:
+        return
+
+    self.cancel_requested = True
+    self.active_goal_handle.cancel_goal_async()
+```
+
+恢复：
+
+```python
+if self.safety_blocked and self.state_ok and self.policy_ok:
+    self.safety_blocked = False
+```
+
+测试策略断流：
+
+```text
+发一条 5 秒的长轨迹
+之后不再发新动作
+2 秒后 watchdog 触发
+→ 清空队列
+→ 取消 active
+```
+
+测试状态断流：
+
+```text
+停掉 joint_state_broadcaster
+→ drop: stale state
+→ 清空队列并取消 active
+恢复 broadcaster
+→ state: ok
+→ 重新接受动作
+```
+
 ---
 
 ## 附录：第 15 天的 mock 链路
