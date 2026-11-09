@@ -2632,11 +2632,25 @@ watchdog: no new action
 测试状态超时时要隔离变量，否则默认 2 秒 watchdog 会先取消 5 秒轨迹：
 
 ```text
-watchdog_timeout:=10.0
+watchdog_timeout:=30.0
 state_timeout:=0.5
 ```
 
 这样只有 `/joint_states` 断流会触发安全停止。
+
+实测状态断流：
+
+```text
+SAFETY STOP: state stale, clear pending
+cancel active trajectory
+Canceling active action goal
+action canceled by safety stop
+stats: canceled=1
+```
+
+说明状态超时确实取消了正在执行的 10 秒轨迹。
+
+启动阶段新增 `startup_grace=2.0s`，避免安全层比 `/joint_states` 先启动时误报 stale。
 
 故障状态：
 

@@ -54,6 +54,14 @@ class SafetyFilter(Node):
             float(self.get_parameter("state_timeout").value),
         )
 
+        # 启动后给 /joint_states 一点时间上线，避免刚启动就误报过期。
+        self.declare_parameter("startup_grace", 2.0)
+        self.startup_grace = max(
+            0.0,
+            float(self.get_parameter("startup_grace").value),
+        )
+        self.node_start_time = self.get_clock().now()
+
         # 策略多久没有新动作就认为断流。
         # 做状态超时测试时可临时调大，避免 watchdog 先触发。
         self.declare_parameter("watchdog_timeout", 2.0)
@@ -74,7 +82,8 @@ class SafetyFilter(Node):
         self.get_logger().info(
             f"Safety filter started, "
             f"state_timeout={self.state_timeout:.3f}s, "
-            f"watchdog_timeout={self.watchdog_timeout:.3f}s"
+            f"watchdog_timeout={self.watchdog_timeout:.3f}s, "
+            f"startup_grace={self.startup_grace:.3f}s"
         )
 
     def publish_status(self, text):
@@ -106,6 +115,14 @@ class SafetyFilter(Node):
     def check_state(self):
         if self.state_is_fresh():
             return
+
+        # 启动阶段还没收到第一帧 /joint_states 时，先等待 grace。
+        if self.last_state_time is None:
+            elapsed = (
+                self.get_clock().now() - self.node_start_time
+            ).nanoseconds / 1e9
+            if elapsed < self.startup_grace:
+                return
 
         if not self.state_warned:
             self.state_warned = True

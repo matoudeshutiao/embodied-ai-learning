@@ -1433,7 +1433,7 @@ state_timeout=0.5
 这样策略断流不会先触发，只有 `/joint_states` 断流会触发安全停止。
 
 ```bash
-ros2 launch vla_bridge real_controller_demo.launch.py start_mock_policy:=false max_in_flight:=2 max_action_age:=0.5 state_timeout:=0.5 watchdog_timeout:=10.0
+ros2 launch vla_bridge real_controller_demo.launch.py start_mock_policy:=false max_in_flight:=2 max_action_age:=0.5 state_timeout:=0.5 watchdog_timeout:=30.0
 ```
 
 再发长轨迹并停掉 broadcaster：
@@ -1449,6 +1449,32 @@ joint state stale or missing
 drop: stale state
 SAFETY STOP: state stale, clear pending
 cancel active trajectory
+```
+
+实测已经看到：
+
+```text
+SAFETY STOP: state stale, clear pending
+cancel active trajectory
+Canceling active action goal
+action canceled by safety stop
+stats: canceled=1
+```
+
+说明状态超时确实取消了正在执行的 10 秒轨迹。
+
+启动阶段新增 `startup_grace=2.0s`：
+
+```text
+刚启动时 /joint_states 还没上线
+→ 先等待，不误报 stale
+```
+
+如果 watchdog 也因为长时间没有新动作触发，恢复需要同时满足：
+
+```text
+state: ok
+watchdog reset
 ```
 
 ---
