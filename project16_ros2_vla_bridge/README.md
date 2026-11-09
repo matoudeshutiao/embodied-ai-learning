@@ -1361,6 +1361,31 @@ if self.safety_blocked and self.state_ok and self.policy_ok:
 → 取消 active
 ```
 
+实测日志：
+
+```text
+[watchdog] watchdog: no new action
+[safe_executor] SAFETY STOP: policy watchdog, clear pending
+[safe_executor] cancel active trajectory
+[joint_trajectory_controller] Got request to cancel goal
+[joint_trajectory_controller] Canceling active action goal
+```
+
+控制器取消成功时返回：
+
+```text
+action finished: code=0, message=
+```
+
+注意：这个 `code=0` 不是“轨迹正常走完”，而是“取消成功”。  
+因此统计拆成：
+
+```text
+executed = 正常完成
+canceled = 被安全取消
+failed   = 失败
+```
+
 测试状态断流：
 
 ```text

@@ -65,6 +65,7 @@ class SafeExecutor(Node):
         self.capacity_dropped_count = 0
         self.age_dropped_count = 0
         self.executed_count = 0
+        self.canceled_count = 0
         self.failed_count = 0
 
         # 安全层通过状态话题通知：状态过期 / 策略断流 / 恢复
@@ -287,8 +288,15 @@ class SafeExecutor(Node):
 
     def on_result(self, future):
         result = future.result().result
+        was_canceled = self.cancel_requested
 
-        if result.error_code == 0:
+        # 控制器取消成功时也可能返回 code=0，不能算正常完成。
+        if was_canceled:
+            self.canceled_count += 1
+            self.get_logger().warn(
+                "action canceled by safety stop"
+            )
+        elif result.error_code == 0:
             self.executed_count += 1
         else:
             self.failed_count += 1
@@ -300,6 +308,7 @@ class SafeExecutor(Node):
         self.get_logger().info(
             f"stats: queued={self.queued_count}, "
             f"executed={self.executed_count}, "
+            f"canceled={self.canceled_count}, "
             f"failed={self.failed_count}, "
             f"dropped={self.dropped_count}, "
             f"capacity_dropped={self.capacity_dropped_count}, "

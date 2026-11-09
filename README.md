@@ -2652,6 +2652,30 @@ def cancel_active(self):
     self.active_goal_handle.cancel_goal_async()
 ```
 
+策略断流实测：
+
+```text
+[watchdog] watchdog: no new action
+[safe_executor] SAFETY STOP: policy watchdog, clear pending
+[safe_executor] cancel active trajectory
+[joint_trajectory_controller] Got request to cancel goal
+[joint_trajectory_controller] Canceling active action goal
+```
+
+控制器取消成功也会返回：
+
+```text
+action finished: code=0, message=
+```
+
+所以统计区分：
+
+```text
+executed = 正常完成
+canceled = 被安全取消
+failed   = 失败
+```
+
 #### 今天的三句话
 
 ```text
