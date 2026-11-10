@@ -52,5 +52,8 @@ project16_ros2_vla_bridge/ros2_ws/build/
 project16_ros2_vla_bridge/ros2_ws/install/
 project16_ros2_vla_bridge/ros2_ws/log/
 
+# 第 21 天：停止体检的原始记录不入库，只提交精选图
+project16_ros2_vla_bridge/output/
+
 # 本机素材，不进入仓库
 personal journal/
