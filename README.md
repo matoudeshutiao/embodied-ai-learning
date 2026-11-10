@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–19 天：VLA/真机桥接、队列、时间对齐与安全层
+├── project16_ros2_vla_bridge/ # 第 15–20 天：VLA/真机桥接、队列、时间对齐与安全层
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -2322,11 +2322,11 @@ age 太大 → 丢弃过期动作
 
 **[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14–16 节**
 
-> 第 18 天分两天完成：Day 18 完成队列代码、隔离测试和时间压缩定位；Day 19 已完成容量语义对比、动作时间对齐、状态超时和 watchdog 取消/恢复。
+> 第 18 天分两天完成：Day 18 完成队列代码、隔离测试和时间压缩定位；Day 19 完成容量语义对比和动作时间对齐；Day 20 完成状态超时、watchdog 取消与恢复。
 
 ---
 
-### 2026.11.08 ｜ 第 19 天 · ROS2 周 Day 11（上）：队列容量与动作时间对齐
+### 2026.11.08 ｜ 第 19 天 · ROS2 周 Day 11：队列容量与动作时间对齐
 
 今天先把两个规则定清楚，并把 `safe_executor` 改成可配置的总在途限制。
 
@@ -2751,7 +2751,7 @@ failed   = 失败
 
 ---
 
-### 2026.11.09 ｜ 第 19 天 · ROS2 周 Day 11（下）：状态超时、watchdog 取消与恢复
+### 2026.11.09 ｜ 第 20 天 · ROS2 周 Day 12：状态超时、watchdog 取消与恢复
 
 队列部分结束后，今天只验证一件事：
 
@@ -2889,8 +2889,8 @@ DRY_RUN=1 bash ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/test_sta
 
 原始记录：
 
-- [raw.md](learning_journal/2026-11-09-day19/raw.md)
-- [reflection.md](learning_journal/2026-11-09-day19/reflection.md)
+- [raw.md](learning_journal/2026-11-09-day20/raw.md)
+- [reflection.md](learning_journal/2026-11-09-day20/reflection.md)
 
 > 这一天的结论不是“安全层做好了”，而是：
 > 现在的安全层会中断，但不会受控停止；

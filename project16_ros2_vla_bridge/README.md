@@ -479,7 +479,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–19 天完成。
+> 状态：✅ 第 18–20 天完成。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -1594,9 +1594,9 @@ bash ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/test_state_timeout
 
 ---
 
-## 16. 第 19 天（续，2026-11-09）：状态超时与恢复实验
+## 16. 第 20 天（2026-11-09）：状态超时与恢复实验
 
-第 19 天上午做队列容量和时间对齐；这一天只做安全层的中断与恢复。
+第 19 天做队列容量和时间对齐；第 20 天只做安全层的中断与恢复。
 
 目标：
 
@@ -1742,8 +1742,8 @@ state stale
 
 原始记录：
 
-- [raw.md](../learning_journal/2026-11-09-day19/raw.md)
-- [reflection.md](../learning_journal/2026-11-09-day19/reflection.md)
+- [raw.md](../learning_journal/2026-11-09-day20/raw.md)
+- [reflection.md](../learning_journal/2026-11-09-day20/reflection.md)
 
 > 结论：当前安全层能中断，但不能受控停止；  
 > 状态失效时，原地停比移动到“安全位置”更可信。
