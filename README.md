@@ -2320,13 +2320,13 @@ age 太大 → 丢弃过期动作
 
 完整代码、设计取舍和测试见：
 
-**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14 节**
+**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14–16 节**
 
 > 第 18 天分两天完成：Day 18 完成队列代码、隔离测试和时间压缩定位；Day 19 已完成容量语义对比、动作时间对齐、状态超时和 watchdog 取消/恢复。
 
 ---
 
-### 2026.11.08 ｜ 第 19 天 · ROS2 周 Day 11：队列容量与动作时间对齐
+### 2026.11.08 ｜ 第 19 天 · ROS2 周 Day 11（上）：队列容量与动作时间对齐
 
 今天先把两个规则定清楚，并把 `safe_executor` 改成可配置的总在途限制。
 
@@ -2672,7 +2672,8 @@ joint state restored
 safety recovered, accepting actions again
 ```
 
-随后 `queue_probe` 又能正常执行动作，恢复链路验证通过。
+恢复动作能重新执行，恢复链路验证通过。  
+注意：隔离测试只发一条短恢复轨迹，不再用 `queue_probe`；`queue_probe` 属于队列压力测试，不能拿来验证状态恢复。
 
 启动阶段新增 `startup_grace=2.0s`，避免安全层比 `/joint_states` 先启动时误报 stale。
 
@@ -2747,6 +2748,153 @@ failed   = 失败
 完整时间线和解答见：
 
 **[project16_ros2_vla_bridge/QUEUE_DAY19.md](project16_ros2_vla_bridge/QUEUE_DAY19.md)**
+
+---
+
+### 2026.11.09 ｜ 第 19 天 · ROS2 周 Day 11（下）：状态超时、watchdog 取消与恢复
+
+队列部分结束后，今天只验证一件事：
+
+```text
+状态断流时，安全层能不能中断当前动作
+状态恢复后，能不能重新接受动作
+```
+
+这一天刻意不碰队列压力测试。
+
+#### 先隔离变量
+
+如果保持默认 `watchdog_timeout=2.0`，20 秒慢轨迹会在 2 秒后被策略 watchdog 取消，
+看起来像“状态超时”，其实是另一个故障。所以测试启动参数固定为：
+
+```text
+start_mock_policy:=false
+state_timeout:=0.5
+watchdog_timeout:=60.0
+max_in_flight:=2
+max_action_age:=0.5
+```
+
+`watchdog_timeout` 拉长到 60 秒，保证只有 `/joint_states` 断流会触发安全停止。
+
+#### 测试脚本只保留一个故障
+
+脚本：
+
+```text
+project16_ros2_vla_bridge/scripts/test_state_timeout.sh
+```
+
+顺序：
+
+```text
+1. 发一条 20 秒慢速轨迹
+2. 等 5 秒
+3. 停 joint_state_broadcaster
+4. 等 5 秒
+5. 恢复 broadcaster
+6. 等 3 秒
+7. 发一条 2 秒短恢复轨迹
+```
+
+这里没有 `queue_probe`。`queue_probe` 是上一关的 8 条队列压力测试，
+混进来会同时改变队列深度、动作年龄和故障时序，实验就不干净了。
+
+脚本支持只打印命令、不动机器人：
+
+```bash
+DRY_RUN=1 bash ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/test_state_timeout.sh
+```
+
+`bash -n` 和 `DRY_RUN=1` 已通过；VM 里的正式实跑仍待执行。
+此前用旧测试已经观察到取消和恢复日志，但旧脚本混入了 `queue_probe`，
+所以重写后要重新跑一遍，才能把“状态超时”单独归因。
+
+#### 已观察到的中断日志
+
+```text
+[safety_filter] joint state stale or missing
+[safety_filter] drop: stale state
+[safe_executor] SAFETY STOP: state stale, clear pending
+[safe_executor] cancel active trajectory
+[joint_trajectory_controller] Got request to cancel goal
+[joint_trajectory_controller] Canceling active action goal
+[safe_executor] action canceled by safety stop
+[safe_executor] stats: ... canceled=1
+```
+
+恢复后：
+
+```text
+[safety_filter] joint state restored
+[safety_filter] state: ok
+[safe_executor] safety recovered, accepting actions again
+```
+
+链路是：
+
+```text
+状态断流 → 拒绝新动作 → 清空 pending → 取消 active → 状态恢复 → 解除阻塞
+```
+
+但“取消成功”不等于“受控停止”。
+
+#### 我的预测和实际
+
+| 我的预测 | 实际发生 | 原因 |
+| --- | --- | --- |
+| 安全策略会让机械臂缓慢停下，停到安全位置 | 视觉上一下子停住 | 代码调用 `cancel_goal_async()`，不是减速轨迹 |
+| 运动会一直进行，直到我主动发停止命令 | 我还没操作，动作已经被取消 | 状态超时自动触发安全停止 |
+| 恢复后的运动会很平缓 | 恢复后的运动仍然很剧烈 | 旧测试恢复后又跑了 `queue_probe`，不是缓启动 |
+| 时间戳会自动计算运行时间 | `header.stamp` 是发布时刻，排队越久剩余时间越短 | 控制器把 stamp 当绝对起点 |
+
+#### 为什么“移动到安全位置”不一定安全
+
+状态超时的意思是：
+
+```text
+/joint_states 已经超过 0.5 秒没有更新
+```
+
+系统不知道机械臂现在在哪，也不知道当前速度。  
+这时如果再“规划到安全位置”，等于：
+
+```text
+用过期状态当起点
+重新规划一条新轨迹
+```
+
+起点错了，终点再安全也可能撞。
+
+所以停止策略要按“状态是否可信”分开：
+
+| 故障 | 状态可信 | 当前做法 | 更合理的真机策略 |
+| --- | --- | --- | --- |
+| 状态超时 | 否 | 取消 active，原地停 | 立即刹车/硬件急停，不盲目移动 |
+| 策略 watchdog | 通常是 | 取消 active，原地停 | 可用最后可信状态做受控减速/保持 |
+| 用户主动停止 | 通常是 | 取消 active | 受控减速到零 |
+| 硬件急停 | 不一定 | 无 | 断使能/抱闸，软件不参与 |
+
+当前代码只实现了“取消”，所以四种情况看起来都像急停。
+
+#### 还没解决的问题
+
+```text
+状态超时时，能不能用最后一份可信状态做短时减速？
+策略断流但状态正常时，能不能保持当前位置，而不是直接取消？
+“安全位置”由谁定义：策略、操作员，还是预设的 home 位？
+```
+
+这些问题先不写代码，等隔离测试跑完再决定。
+
+原始记录：
+
+- [raw.md](learning_journal/2026-11-09-day19/raw.md)
+- [reflection.md](learning_journal/2026-11-09-day19/reflection.md)
+
+> 这一天的结论不是“安全层做好了”，而是：
+> 现在的安全层会中断，但不会受控停止；
+> 状态失效时，原地停比移动到所谓安全位置更可信。
 
 ---
 

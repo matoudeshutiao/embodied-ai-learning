@@ -1006,7 +1006,7 @@ age 太大 → 丢弃过期动作
 
 ---
 
-## 15. 第 19 天：队列容量与动作时间对齐
+## 15. 第 19 天（2026-11-08）：队列容量与动作时间对齐
 
 第 19 天把两个遗留规则整理成文档：
 
@@ -1512,7 +1512,8 @@ joint state restored
 safety recovered, accepting actions again
 ```
 
-随后 `queue_probe` 又能正常执行动作，说明恢复链路也通了。
+恢复动作能重新执行，说明恢复链路通了。  
+隔离测试不再用 `queue_probe`：它属于队列压力测试，不能拿来验证状态恢复。
 
 早期 `queue_probe` 被脚本里的 `timeout` 杀掉时会打印
 `ExternalShutdownException`；现在节点发完 8 条后会主动退出，
@@ -1590,6 +1591,162 @@ bash ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/test_state_timeout
 ```
 
 不需要人工卡秒数。
+
+---
+
+## 16. 第 19 天（续，2026-11-09）：状态超时与恢复实验
+
+第 19 天上午做队列容量和时间对齐；这一天只做安全层的中断与恢复。
+
+目标：
+
+```text
+状态断流 → 中断当前动作
+状态恢复 → 重新接受动作
+```
+
+队列压力测试不属于这个实验。
+
+### 16.1 隔离变量
+
+默认 `watchdog_timeout=2.0` 会先取消 20 秒慢轨迹，污染“状态超时”实验。  
+所以启动参数固定为：
+
+```text
+start_mock_policy:=false
+state_timeout:=0.5
+watchdog_timeout:=60.0
+max_in_flight:=2
+max_action_age:=0.5
+```
+
+`watchdog_timeout` 拉长到 60 秒，保证只有 `/joint_states` 断流会触发停止。
+
+启动命令：
+
+```bash
+ros2 launch vla_bridge real_controller_demo.launch.py start_mock_policy:=false max_in_flight:=2 max_action_age:=0.5 state_timeout:=0.5 watchdog_timeout:=60.0
+```
+
+### 16.2 测试脚本
+
+脚本：
+
+```text
+scripts/test_state_timeout.sh
+```
+
+执行顺序：
+
+```text
+1. 发一条 20 秒慢速轨迹
+2. 等 5 秒
+3. 停 joint_state_broadcaster
+4. 等 5 秒
+5. 恢复 broadcaster
+6. 等 3 秒
+7. 发一条 2 秒短恢复轨迹
+```
+
+它不使用 `queue_probe`。  
+`queue_probe` 是 8 条动作的队列压力测试；混入后会同时改变队列深度、
+动作年龄和故障时序，无法单独归因。
+
+先检查命令顺序：
+
+```bash
+DRY_RUN=1 bash ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/test_state_timeout.sh
+```
+
+当前状态：
+
+```text
+bash -n       已通过
+DRY_RUN=1     已通过
+VM 正式实跑   待执行
+```
+
+旧测试已经观察到取消/恢复日志，但旧脚本混入了队列压力测试，
+所以重写后的隔离脚本还要在 VM 里重新跑一遍。
+
+### 16.3 已观察到的日志
+
+中断：
+
+```text
+[safety_filter] joint state stale or missing
+[safety_filter] drop: stale state
+[safe_executor] SAFETY STOP: state stale, clear pending
+[safe_executor] cancel active trajectory
+[joint_trajectory_controller] Got request to cancel goal
+[joint_trajectory_controller] Canceling active action goal
+[safe_executor] action canceled by safety stop
+[safe_executor] stats: ... canceled=1
+```
+
+恢复：
+
+```text
+[safety_filter] joint state restored
+[safety_filter] state: ok
+[safe_executor] safety recovered, accepting actions again
+```
+
+状态机：
+
+```text
+state stale
+→ 拒绝新动作
+→ 清空 pending
+→ 取消 active goal
+→ state ok
+→ 解除 safety_blocked
+```
+
+### 16.4 预测与实际的差异
+
+| 预测 | 实际 | 原因 |
+| --- | --- | --- |
+| 安全停止会缓慢减速到安全位置 | 视觉上瞬间停住 | `cancel_goal_async()` 是取消，不是减速轨迹 |
+| 动作会一直执行到我主动停止 | 我还没操作就停了 | 状态超时自动触发 |
+| 恢复后的动作会很平缓 | 恢复后的运动仍然很剧烈 | 旧测试恢复后又跑了 `queue_probe`，不是缓启动 |
+| 时间戳会自动处理排队时间 | 排队越久，剩余执行时间越短 | `header.stamp` 被当作绝对起点 |
+
+### 16.5 停止策略要按状态可信度分开
+
+状态超时意味着：
+
+```text
+/joint_states 超过 state_timeout 没有更新
+```
+
+系统不知道当前关节位置和速度。  
+此时如果“移动到安全位置”，就是拿过期状态重新规划，起点本身不可信。
+
+| 故障 | 状态可信 | 当前做法 | 更合理的真机策略 |
+| --- | --- | --- | --- |
+| 状态超时 | 否 | 取消 active，原地停 | 立即刹车/硬件急停，不盲目移动 |
+| 策略 watchdog | 通常是 | 取消 active，原地停 | 用最后可信状态受控减速/保持 |
+| 用户主动停止 | 通常是 | 取消 active | 受控减速到零 |
+| 硬件急停 | 不一定 | 无 | 断使能/抱闸，软件不参与 |
+
+当前 `safe_executor` 只有“取消”这一种停止方式，所以四种故障看起来都像急停。
+
+### 16.6 还没解决的问题
+
+```text
+状态超时时，能不能用最后一份可信状态做短时减速？
+策略断流但状态正常时，能不能保持当前位置，而不是取消？
+“安全位置”由谁定义：策略、操作员，还是预设 home 位？
+```
+
+原始记录：
+
+- [raw.md](../learning_journal/2026-11-09-day19/raw.md)
+- [reflection.md](../learning_journal/2026-11-09-day19/reflection.md)
+
+> 结论：当前安全层能中断，但不能受控停止；  
+> 状态失效时，原地停比移动到“安全位置”更可信。
 
 ---
 
