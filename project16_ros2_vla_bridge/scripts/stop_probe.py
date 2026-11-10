@@ -91,9 +91,10 @@ class StopProbe(Node):
             {
                 "t": t,
                 "j1_pos": float(positions["joint1"]),
-                "j1_vel": float(velocities.get("joint1", 0.0)),
                 "j2_pos": float(positions["joint2"]),
-                "j2_vel": float(velocities.get("joint2", 0.0)),
+                # 原始 velocity 字段先保留，用来对照它是否可信。
+                "j1_vel_raw": float(velocities.get("joint1", 0.0)),
+                "j2_vel_raw": float(velocities.get("joint2", 0.0)),
             }
         )
 
@@ -181,6 +182,34 @@ class StopProbe(Node):
             return None
         return sum(values) / len(values)
 
+    def calculate_velocities(self):
+        """用位置差分算速度。
+
+        这次实测发现 /joint_states.velocity 在停止前后几乎是一条常数线，
+        但位置曲线明明有斜率变化。对这个实验来说，位置差分更可信。
+        """
+        n = len(self.samples)
+        for i, sample in enumerate(self.samples):
+            lo = max(0, i - 3)
+            hi = min(n - 1, i + 3)
+            if hi <= lo:
+                sample["j1_vel_calc"] = 0.0
+                sample["j2_vel_calc"] = 0.0
+                continue
+
+            dt = self.samples[hi]["t"] - self.samples[lo]["t"]
+            if dt <= 1e-9:
+                sample["j1_vel_calc"] = 0.0
+                sample["j2_vel_calc"] = 0.0
+                continue
+
+            sample["j1_vel_calc"] = (
+                self.samples[hi]["j1_pos"] - self.samples[lo]["j1_pos"]
+            ) / dt
+            sample["j2_vel_calc"] = (
+                self.samples[hi]["j2_pos"] - self.samples[lo]["j2_pos"]
+            ) / dt
+
     def write_outputs(self):
         if self.written:
             return
@@ -190,6 +219,7 @@ class StopProbe(Node):
             self.get_logger().error("no samples recorded")
             return
 
+        self.calculate_velocities()
         self.output_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         csv_path = self.output_dir / f"stop_probe_{stamp}.csv"
@@ -198,7 +228,15 @@ class StopProbe(Node):
         with csv_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(
                 f,
-                fieldnames=["t", "j1_pos", "j1_vel", "j2_pos", "j2_vel"],
+                fieldnames=[
+                    "t",
+                    "j1_pos",
+                    "j1_vel_raw",
+                    "j1_vel_calc",
+                    "j2_pos",
+                    "j2_vel_raw",
+                    "j2_vel_calc",
+                ],
             )
             writer.writeheader()
             writer.writerows(self.samples)
@@ -227,17 +265,28 @@ class StopProbe(Node):
         print(f"samples      : {len(self.samples)}")
         print(f"stop time    : {stop_t:.3f} s")
         print(f"stop reason  : {reason}")
-        for joint, key in (("joint1", "j1_vel"), ("joint2", "j2_vel")):
-            before = self.mean_velocity(key, before_start, stop_t)
-            after = self.mean_velocity(key, after_start, after_end)
+        for joint, calc_key, raw_key in (
+            ("joint1", "j1_vel_calc", "j1_vel_raw"),
+            ("joint2", "j2_vel_calc", "j2_vel_raw"),
+        ):
+            before = self.mean_velocity(calc_key, before_start, stop_t)
+            after = self.mean_velocity(calc_key, after_start, after_end)
             if before is None or after is None:
                 print(f"{joint}      : not enough samples")
                 continue
             print(
-                f"{joint}      : v_before={before:+.4f} rad/s, "
+                f"{joint} calc : v_before={before:+.4f} rad/s, "
                 f"v_after={after:+.4f} rad/s, "
                 f"drop={abs(before - after):.4f} rad/s"
             )
+
+            raw_values = [s[raw_key] for s in self.samples]
+            raw_span = max(raw_values) - min(raw_values)
+            if raw_span < 1e-4:
+                print(
+                    f"{joint} raw  : flat at {raw_values[0]:+.4f} rad/s; "
+                    "position difference is used instead"
+                )
         print("==================")
         print("")
 
@@ -261,9 +310,9 @@ class StopProbe(Node):
             s["j2_pos"] for s in self.samples
         ]
         vel_values = [
-            s["j1_vel"] for s in self.samples
+            s["j1_vel_calc"] for s in self.samples
         ] + [
-            s["j2_vel"] for s in self.samples
+            s["j2_vel_calc"] for s in self.samples
         ]
 
         def y_range(values):
@@ -340,7 +389,14 @@ class StopProbe(Node):
         pos_top = top + 30
         vel_top = pos_top + panel_h + gap
         svg.extend(grid(pos_top, pos_lo, pos_hi, "joint position (rad)"))
-        svg.extend(grid(vel_top, vel_lo, vel_hi, "joint velocity (rad/s)"))
+        svg.extend(
+            grid(
+                vel_top,
+                vel_lo,
+                vel_hi,
+                "joint velocity from position difference (rad/s)",
+            )
+        )
 
         svg.append(
             f'<polyline points="{polyline("j1_pos", pos_lo, pos_hi, pos_top)}" '
@@ -351,11 +407,11 @@ class StopProbe(Node):
             f'fill="none" stroke="#dc2626" stroke-width="2"/>'
         )
         svg.append(
-            f'<polyline points="{polyline("j1_vel", vel_lo, vel_hi, vel_top)}" '
+            f'<polyline points="{polyline("j1_vel_calc", vel_lo, vel_hi, vel_top)}" '
             f'fill="none" stroke="#2563eb" stroke-width="2"/>'
         )
         svg.append(
-            f'<polyline points="{polyline("j2_vel", vel_lo, vel_hi, vel_top)}" '
+            f'<polyline points="{polyline("j2_vel_calc", vel_lo, vel_hi, vel_top)}" '
             f'fill="none" stroke="#dc2626" stroke-width="2"/>'
         )
 
