@@ -479,7 +479,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–20 天完成。
+> 状态：✅ 第 18–21 天完成。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -1747,6 +1747,136 @@ state stale
 
 > 结论：当前安全层能中断，但不能受控停止；  
 > 状态失效时，原地停比移动到“安全位置”更可信。
+
+---
+
+## 17. 第 21 天（2026-11-10）：安全停止体检
+
+目标不是修改安全层，而是测量：
+
+```text
+watchdog 取消动作时，速度是慢慢降到 0，还是直接掉到 0
+```
+
+### 17.1 实验脚本
+
+```text
+scripts/stop_probe.py
+```
+
+流程：
+
+```text
+等 /joint_states
+发一条 5 秒慢轨迹
+不再发新动作
+默认 watchdog 2 秒后取消
+继续记录 3 秒
+输出 CSV 和 SVG
+```
+
+它只用一条动作，不使用 `queue_probe`。
+
+运行前提：
+
+```text
+start_mock_policy:=false
+state_timeout:=0.5
+watchdog_timeout:=2.0
+```
+
+### 17.2 第一版：直接画 velocity 是错的
+
+第一版读取：
+
+```python
+velocities = dict(zip(msg.name, msg.velocity))
+```
+
+直接画 `/joint_states.velocity`，结果速度线全程几乎不变。
+
+实测发现：
+
+```text
+joint1 原始 velocity：全程 0.0000 rad/s
+joint1 位置：0 → 0.16 rad
+```
+
+位置明明在动，速度却是 0，说明这个字段不能直接用来判断停止。
+
+### 17.3 第二版：位置差分
+
+保留原始字段做对照，同时用中心差分计算速度：
+
+```python
+lo = max(0, i - 3)
+hi = min(n - 1, i + 3)
+dt = samples[hi]["t"] - samples[lo]["t"]
+v = (samples[hi]["pos"] - samples[lo]["pos"]) / dt
+```
+
+输出 CSV 同时包含：
+
+```text
+j1_vel_raw / j2_vel_raw   原始 /joint_states.velocity
+j1_vel_calc / j2_vel_calc 位置差分速度
+```
+
+### 17.4 实测结果
+
+```text
+samples      : 952
+stop time    : 3.759 s
+stop reason  : watchdog: no new action
+
+joint1 calc : v_before=+0.0693 rad/s, v_after=-0.0000 rad/s
+joint2 calc : v_before=-0.0772 rad/s, v_after=+0.0000 rad/s
+
+joint1 raw  : flat at +0.0000 rad/s;
+              position difference is used instead
+```
+
+![安全停止的位置与速度曲线](assets/stop_profile.png)
+
+位置曲线在 stop 处是硬拐角，速度曲线接近垂直下落。
+
+采样率约 100 Hz，即 10 ms 一个点。  
+如果速度在一个采样周期内从 `0.0693` 掉到 `0`：
+
+```text
+减速度 ≈ 0.0693 / 0.01 ≈ 6.9 rad/s²
+```
+
+按 `0.5 rad/s²` 减速应该需要：
+
+```text
+0.0693 / 0.5 ≈ 0.14 秒
+```
+
+实际过渡远短于 0.14 秒，所以视觉上就是急停。
+
+### 17.5 结论
+
+```text
+cancel_goal_async() 是急停，不是受控减速
+/joint_states.velocity 不能默认相信
+位置差分会引入噪声，但能看出停止处的速度台阶
+```
+
+下一步不是立刻写受控停止，而是先确认真机应该相信哪个状态源：
+
+```text
+编码器位置差分
+驱动器速度
+控制器反馈
+```
+
+如果速度都不可信，就不能安全地按固定减速度停车。
+
+原始记录：
+
+- [raw.md](../learning_journal/2026-11-10-day21/raw.md)
+- [reflection.md](../learning_journal/2026-11-10-day21/reflection.md)
 
 ---
 

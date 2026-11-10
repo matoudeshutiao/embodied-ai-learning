@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–20 天：VLA/真机桥接、队列、时间对齐与安全层
+├── project16_ros2_vla_bridge/ # 第 15–21 天：VLA/真机桥接、队列、时间对齐与安全层
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -279,6 +279,10 @@ source /opt/ros/humble/setup.bash
 colcon build --symlink-install --packages-select arm_description vla_bridge
 source install/setup.bash
 ros2 launch vla_bridge real_controller_demo.launch.py
+
+# 第 21 天：安全停止体检（保持上面 launch 运行，另开终端）
+cd ~/embodied-ai-learning
+python3 project16_ros2_vla_bridge/scripts/stop_probe.py
 
 python 抓娃娃机.py    # 彩蛋
 ```
@@ -2320,7 +2324,7 @@ age 太大 → 丢弃过期动作
 
 完整代码、设计取舍和测试见：
 
-**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14–16 节**
+**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14–17 节**
 
 > 第 18 天分两天完成：Day 18 完成队列代码、隔离测试和时间压缩定位；Day 19 完成容量语义对比和动作时间对齐；Day 20 完成状态超时、watchdog 取消与恢复。
 
@@ -2895,6 +2899,125 @@ DRY_RUN=1 bash ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/test_sta
 > 这一天的结论不是“安全层做好了”，而是：
 > 现在的安全层会中断，但不会受控停止；
 > 状态失效时，原地停比移动到所谓安全位置更可信。
+
+---
+
+### 2026.11.10 ｜ 第 21 天 · ROS2 周 Day 13：给安全停止做体检
+
+今天不修改安全层，只测一件事：
+
+```text
+watchdog 取消动作时，速度是慢慢降到 0，还是直接掉到 0
+```
+
+#### 实验
+
+脚本：
+
+```text
+project16_ros2_vla_bridge/scripts/stop_probe.py
+```
+
+它只发一条 5 秒慢轨迹，然后不再发新动作，让默认 2 秒 watchdog 取消。
+不使用 `queue_probe`。
+
+启动参数：
+
+```text
+start_mock_policy:=false
+state_timeout:=0.5
+watchdog_timeout:=2.0
+```
+
+脚本记录 `/joint_states`，输出 CSV 和 SVG 到：
+
+```text
+project16_ros2_vla_bridge/output/
+```
+
+#### 第一次图是错的
+
+第一版直接画 `/joint_states.velocity`，结果速度线全程几乎不变。
+
+用户看到图后的第一反应：
+
+```text
+这速度全程没变
+```
+
+检查后发现：
+
+```text
+joint1 原始 velocity：全程 0.0000 rad/s
+joint1 位置：0 → 0.16 rad，确实在动
+```
+
+这个字段不能直接用来判断停止。
+
+#### 改用位置差分
+
+第二版用前后位置差分计算速度：
+
+```text
+v ≈ (q[i+3] - q[i-3]) / (t[i+3] - t[i-3])
+```
+
+实测结果：
+
+```text
+samples      : 952
+stop time    : 3.759 s
+stop reason  : watchdog: no new action
+
+joint1: +0.0693 rad/s → -0.0000 rad/s
+joint2: -0.0772 rad/s → +0.0000 rad/s
+```
+
+![安全停止的位置与速度曲线](project16_ros2_vla_bridge/assets/stop_profile.png)
+
+位置曲线在 stop 处是硬拐角，速度曲线接近垂直下落。
+
+952 个样本、约 9.5 秒，采样率约 100 Hz，即 10 ms 一个点。  
+如果速度在一个采样周期内从 `0.0693` 掉到 `0`，减速度约：
+
+```text
+0.0693 / 0.01 ≈ 6.9 rad/s²
+```
+
+作为对比，按 `0.5 rad/s²` 减速需要：
+
+```text
+0.0693 / 0.5 ≈ 0.14 秒
+```
+
+实际过渡远短于 0.14 秒，所以视觉上就是急停。
+
+#### 今天学到的
+
+```text
+1. cancel_goal_async() 是急停，不是受控减速
+2. /joint_states.velocity 不能默认相信，至少要和位置交叉验证
+3. 位置差分会引入噪声，但能看出停止处的速度台阶
+```
+
+#### 下一步
+
+先不做受控停止，先回答一个设计问题：
+
+```text
+真机急停时，应该相信哪个状态源？
+编码器位置差分、驱动器速度，还是控制器反馈？
+```
+
+如果连速度都不能信，就不能安全地做“按固定减速度停车”。
+
+原始记录：
+
+- [raw.md](learning_journal/2026-11-10-day21/raw.md)
+- [reflection.md](learning_journal/2026-11-10-day21/reflection.md)
+
+> 这张图的价值不是“图画得好看”，而是它把“急停”从一个感觉变成了曲线和数字：
+> 位置出现硬拐角，速度在约一个采样周期内掉到 0。
 
 ---
 
