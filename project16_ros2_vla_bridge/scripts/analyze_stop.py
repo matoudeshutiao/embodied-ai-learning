@@ -276,15 +276,17 @@ def write_svg(path, rows, analysis, ideal_table):
     colors = ["#059669", "#0891b2", "#7c3aed", "#ea580c"]
     for (accel, duration, _), color in zip(ideal_table, colors):
         x_end = left + duration / max_duration * (width - left - right)
-        y0 = ideal_top + panel_h
-        y_end = ideal_top + panel_h * 0.0
+        # 速度从左上角的 v0 开始，向右下角降到 0。
+        y_start = ideal_top
+        y_end = ideal_top + panel_h
         svg.append(
-            f'<line x1="{left}" y1="{y0:.2f}" x2="{x_end:.2f}" '
+            f'<line x1="{left}" y1="{y_start:.2f}" x2="{x_end:.2f}" '
             f'y2="{y_end:.2f}" stroke="{color}" stroke-width="2"/>'
         )
         svg.append(
-            f'<text x="{x_end + 5:.2f}" y="{y_end + 12:.2f}" '
-            f'font-size="11" fill="{color}">a={accel:g}</text>'
+            f'<text x="{x_end - 4:.2f}" y="{y_end - 6:.2f}" '
+            f'text-anchor="end" font-size="11" fill="{color}">'
+            f"a={accel:g}</text>"
         )
 
     # 实测急停：在 transition 时间内从 pre_speed 掉到 0。
