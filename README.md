@@ -320,7 +320,10 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;16 | 2026.11.05 | ROS2 周 Day 8：把 mock 执行器换成 Gazebo `joint_trajectory_controller` |
 | Day&nbsp;17 | 2026.11.06 | ROS2 周 Day 9：执行栈接口盘点、仿真/真机替换表与真机准备路线 |
 | Day&nbsp;18 | 2026.11.07 | ROS2 周 Day 10：`safe_executor` 动作队列、丢最旧未执行块与统计日志 |
-| Day&nbsp;19 | 2026.11.08 | ROS2 周 Day 11：队列容量、动作时间对齐、状态超时、watchdog 取消与安全恢复 |
+| Day&nbsp;19 | 2026.11.08 | ROS2 周 Day 11：队列容量与动作时间对齐、A/B 队列深度对比 |
+| Day&nbsp;20 | 2026.11.09 | ROS2 周 Day 12：状态超时、watchdog 取消与安全恢复 |
+| Day&nbsp;21 | 2026.11.10 | ROS2 周 Day 13：安全停止体检、`/joint_states.velocity` 交叉验证与停止曲线 |
+| Day&nbsp;22 | 2026.11.11 | ROS2 周 Day 14：急停过渡量化、减速度计算与理想减速对比 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
