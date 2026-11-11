@@ -479,7 +479,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–21 天完成。
+> 状态：✅ 第 18–22 天完成。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -1879,6 +1879,115 @@ cancel_goal_async() 是急停，不是受控减速
 
 - [raw.md](../learning_journal/2026-11-10-day21/raw.md)
 - [reflection.md](../learning_journal/2026-11-10-day21/reflection.md)
+
+---
+
+## 18. 第 22 天（2026-11-11）：停止过程量化
+
+第 21 天只看到“很像垂直”的速度曲线。第 22 天用 CSV 算出真实过渡。
+
+### 18.1 分析脚本
+
+```text
+scripts/analyze_stop.py
+```
+
+默认读取最新的：
+
+```text
+output/stop_probe_*.csv
+```
+
+输出：
+
+```text
+停止过渡时间
+减速度
+停止距离
+不同减速度下的理想停止时间和距离
+```
+
+### 18.2 停止检测
+
+直接用原始速度找最大落差：
+
+```python
+index = max(
+    range(1, len(speeds)),
+    key=lambda i: speeds[i - 1] - speeds[i],
+)
+```
+
+以停止前 0.25 秒的平均速度作为 `v0`，  
+以速度降到 `v0` 的 10% 以下作为停止阈值。
+
+### 18.3 实测结果
+
+```text
+samples        : 952
+stop time      : 3.742 s
+v before       : 0.0794 rad/s
+transition     : 52.5 ms
+deceleration   : 1.51 rad/s²
+stop distance  : joint1=0.00070 rad, joint2=0.00075 rad
+```
+
+| 减速度 | 停止时间 | 停止距离 |
+| ---: | ---: | ---: |
+| 0.25 rad/s² | 317.5 ms | 0.0126 rad |
+| 0.50 rad/s² | 158.8 ms | 0.0063 rad |
+| 1.00 rad/s² | 79.4 ms | 0.00315 rad |
+| 2.00 rad/s² | 39.7 ms | 0.00158 rad |
+| 实测急停 | 52.5 ms | 0.0007 rad |
+
+![实测停止与不同减速度的理想曲线](assets/stop_analysis.png)
+
+### 18.4 为什么图上是垂直的
+
+整张图横轴约 9.5 秒：
+
+```text
+52.5 / 9500 ≈ 0.55%
+```
+
+50 ms 不到整张图 1% 的宽度，所以看起来像竖线。  
+只有放大到 ±0.35 秒，才能看到约 52.5 ms 的斜坡。
+
+### 18.5 绘图方向错误
+
+第一次生成的图里，理想减速曲线画成了从 `0` 往上升。  
+正确方向应该是从 `v0` 往下降。
+
+这个错误说明：
+
+```text
+分析图本身也要验证方向、单位和坐标轴
+```
+
+修正后才把图放进 README。
+
+### 18.6 观察
+
+```text
+当前 cancel 停止约 52.5 ms、1.51 rad/s²
+比 0.5 rad/s² 的舒适减速激进约 3 倍
+但不是无限大减速度
+joint2 停止后速度穿过 0，有轻微回弹
+回弹对应的位置幅度只有约 0.0007 rad
+```
+
+### 18.7 下一步
+
+```text
+1. 真机目标减速度取 0.5 还是 1.0 rad/s²？
+2. 速度更高时，cancel 的停止时间会怎么变？
+3. 状态正常时做受控停止；状态失效时是否仍然立刻刹车？
+```
+
+原始记录：
+
+- [raw.md](../learning_journal/2026-11-11-day22/raw.md)
+- [reflection.md](../learning_journal/2026-11-11-day22/reflection.md)
 
 ---
 

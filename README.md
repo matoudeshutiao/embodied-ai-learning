@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–21 天：VLA/真机桥接、队列、时间对齐与安全层
+├── project16_ros2_vla_bridge/ # 第 15–22 天：VLA/真机桥接、队列、时间对齐与安全层
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -283,6 +283,9 @@ ros2 launch vla_bridge real_controller_demo.launch.py
 # 第 21 天：安全停止体检（保持上面 launch 运行，另开终端）
 cd ~/embodied-ai-learning
 python3 project16_ros2_vla_bridge/scripts/stop_probe.py
+
+# 第 22 天：分析急停过渡（不需要 Gazebo）
+python3 project16_ros2_vla_bridge/scripts/analyze_stop.py
 
 python 抓娃娃机.py    # 彩蛋
 ```
@@ -2324,7 +2327,7 @@ age 太大 → 丢弃过期动作
 
 完整代码、设计取舍和测试见：
 
-**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14–17 节**
+**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14–18 节**
 
 > 第 18 天分两天完成：Day 18 完成队列代码、隔离测试和时间压缩定位；Day 19 完成容量语义对比和动作时间对齐；Day 20 完成状态超时、watchdog 取消与恢复。
 
@@ -3019,7 +3022,116 @@ stop distance: 0.0007 rad
 - [reflection.md](learning_journal/2026-11-10-day21/reflection.md)
 
 > 这张图的价值不是“图画得好看”，而是它把“急停”从一个感觉变成了曲线和数字：
-> 位置出现硬拐角，速度在约一个采样周期内掉到 0。
+> 位置出现硬拐角，速度在约 52.5 ms 内掉到 0。
+
+---
+
+### 2026.11.11 ｜ 第 22 天 · ROS2 周 Day 14：把急停变成数字
+
+昨天看到一条近似垂直的速度线。今天不猜，直接分析 CSV。
+
+#### 先预测
+
+用户猜：
+
+```text
+A. 10 ms 左右
+```
+
+实际不是。
+
+#### 分析脚本
+
+```text
+project16_ros2_vla_bridge/scripts/analyze_stop.py
+```
+
+它自动找最新的 `stop_probe_*.csv`，计算：
+
+```text
+停止过渡时间
+减速度
+停止距离
+不同减速度下的理想停止时间和距离
+```
+
+#### 实测结果
+
+```text
+samples        : 952
+stop time      : 3.742 s
+v before       : 0.0794 rad/s
+transition     : 52.5 ms
+deceleration   : 1.51 rad/s²
+stop distance  : joint1=0.00070 rad, joint2=0.00075 rad
+```
+
+| 项目 | 数值 |
+| --- | ---: |
+| 停止前速度 | 0.0794 rad/s |
+| 过渡时间 | 52.5 ms |
+| 减速度 | 1.51 rad/s² |
+| 停止距离 | 约 0.0007 rad |
+
+和理想减速对比：
+
+| 减速度 | 停止时间 | 停止距离 |
+| ---: | ---: | ---: |
+| 0.25 rad/s² | 317.5 ms | 0.0126 rad |
+| 0.50 rad/s² | 158.8 ms | 0.0063 rad |
+| 1.00 rad/s² | 79.4 ms | 0.00315 rad |
+| 2.00 rad/s² | 39.7 ms | 0.00158 rad |
+| 实测急停 | 52.5 ms | 0.0007 rad |
+
+#### 为什么整张图看起来是垂直的
+
+横轴约 9.5 秒：
+
+```text
+52.5 / 9500 ≈ 0.55%
+```
+
+50 ms 只占整张图不到 1% 的宽度，肉眼当然像一条竖线。  
+放大到 ±0.35 秒后，才看到它是一小段斜坡。
+
+#### 第一次图也是错的
+
+第一次生成的图，下半部分“理想减速曲线”画反了：
+
+```text
+错误：从 0 往上升
+正确：从 v0 往下降
+```
+
+用户要求先检查图对不对，才发现这个绘图方向错误。  
+修正后才放进 README。
+
+![实测停止与不同减速度的理想曲线](project16_ros2_vla_bridge/assets/stop_analysis.png)
+
+#### 今天学到的
+
+```text
+1. 图上的垂直不等于物理上的瞬间
+2. 预测 10 ms，实测 52.5 ms，差了 5 倍
+3. 当前停止减速度 1.51 rad/s²，约比 0.5 rad/s² 激进 3 倍
+4. joint2 停止后速度穿过 0，有轻微回弹，位置幅度只有 0.0007 rad
+5. 分析图本身也要验证方向、单位和坐标轴
+```
+
+#### 下一步
+
+先不急着写受控停止。先回答：
+
+```text
+1. 真机目标减速度取多少？0.5 还是 1.0 rad/s²？
+2. 速度更高时，cancel 的停止时间会怎么变？
+3. 状态正常时做受控停止；状态失效时是否仍然立刻刹车？
+```
+
+原始记录：
+
+- [raw.md](learning_journal/2026-11-11-day22/raw.md)
+- [reflection.md](learning_journal/2026-11-11-day22/reflection.md)
 
 ---
 
