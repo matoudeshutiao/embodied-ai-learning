@@ -3336,6 +3336,12 @@ state interface：position / velocity / effort？
 
 然后才能替换成真实硬件插件。
 
+合同 v0 已写入：
+
+**[project16_ros2_vla_bridge/HARDWARE_CONTRACT.md](project16_ros2_vla_bridge/HARDWARE_CONTRACT.md)**
+
+里面按 Panda 7 关节写清了限位、速度、力矩、接口、频率、停止策略和测试阶梯。
+
 ---
 
 ## 面试理论补充

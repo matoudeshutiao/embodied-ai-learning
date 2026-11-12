@@ -128,20 +128,32 @@ project16_ros2_vla_bridge/
 ├── CODE_WALKTHROUGH.md
 ├── QUEUE_DAY19.md
 ├── REAL_ROBOT_ROADMAP.md
+├── HARDWARE_CONTRACT.md
 ├── assets/
 │   ├── action_chain_logs.png
-│   └── real_controller.png
+│   ├── real_controller.png
+│   ├── stop_profile.png
+│   ├── stop_analysis.png
+│   └── stop_analysis_high_speed.png
 ├── scripts/
-│   └── test_state_timeout.sh
+│   ├── test_state_timeout.sh
+│   ├── stop_probe.py
+│   └── analyze_stop.py
 └── ros2_ws/
     └── src/
+        ├── arm_mock_description/
+        │   ├── CMakeLists.txt
+        │   ├── package.xml
+        │   ├── config/controllers.yaml
+        │   └── urdf/simple_arm_mock.urdf.xacro
         └── vla_bridge/
             ├── package.xml
             ├── setup.py
             ├── setup.cfg
             ├── resource/vla_bridge
             ├── launch/
-            │   └── real_controller_demo.launch.py
+            │   ├── real_controller_demo.launch.py
+            │   └── mock_hardware_demo.launch.py
             ├── rviz/
             │   └── real_controller_view.rviz
             └── vla_bridge/
@@ -160,6 +172,11 @@ project16_ros2_vla_bridge/
 | `safe_executor.py` | 把安全动作发给可配置的 action server |
 | `mock_trajectory_server.py` | 第 15 天的假执行器，保留作对照 |
 | `real_controller_demo.launch.py` | 启动 Gazebo、控制器、桥接节点和 RViz |
+| `mock_hardware_demo.launch.py` | 不启动 Gazebo，用 mock hardware 跑同一套控制链 |
+| `stop_probe.py` | 发一条慢轨迹并记录 watchdog 停止前后的关节状态 |
+| `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
+| `arm_mock_description/` | mock hardware 的 URDF 和控制器配置 |
+| `HARDWARE_CONTRACT.md` | Panda 真机接口合同 v0 |
 | `real_controller_view.rviz` | 默认显示 RobotModel、TF 和 Grid |
 
 ---
@@ -2221,15 +2238,24 @@ mock hardware 没有惯性、重力、碰撞和摩擦
 
 ### 20.5 下一步
 
-先写清楚真机接口合同：
+真机接口合同 v0 已写入：
+
+**[HARDWARE_CONTRACT.md](HARDWARE_CONTRACT.md)**
+
+合同覆盖：
 
 ```text
-command interface：position / velocity / effort？
-state interface：position / velocity / effort？
-单位、限位、更新率、时间戳来源
+Panda 7 关节限位/速度/力矩
+夹爪接口
+command/state interface
+控制器 action
+仿真参数 vs 真机目标参数
+停止策略与故障语义
+启动/关闭顺序
+测试阶梯
 ```
 
-然后替换成真实硬件插件。
+下一步按合同实现 fake hardware plugin，再加入延迟、噪声、限位和故障注入。
 
 ---
 
