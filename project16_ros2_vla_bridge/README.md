@@ -2037,6 +2037,8 @@ stop distance  : joint1=0.00245 rad, joint2=0.00181 rad
 | 低速 | 0.0794 rad/s | 52.5 ms | 1.51 rad/s² | 0.0007 rad |
 | 高速 | 0.2448 rad/s | 51.7 ms | 4.74 rad/s² | 0.00245 rad |
 
+![高速停止与理想减速对比](assets/stop_analysis_high_speed.png)
+
 速度约 3.1 倍，过渡时间几乎不变，减速度约 3.1 倍。
 
 ### 19.3 图为什么看起来一样
@@ -2053,14 +2055,28 @@ stop distance  : joint1=0.00245 rad, joint2=0.00181 rad
 
 ### 19.4 结论
 
-当前 cancel 更接近：
+先澄清：
 
 ```text
-固定约 52 ms 停止时间
-不是固定减速度
+52 ms 不是 stop_probe 写死的参数
+也不是安全层显式设置的停止时间
 ```
 
-外推：
+`stop_probe` 只发一条 5 秒轨迹并停止发新动作；watchdog 触发后
+`safe_executor` 调用 `cancel_goal_async()`。  
+52 ms 是控制器取消当前轨迹后的实际过渡行为，不是我们配置的常数。
+
+两个速度点的观测：
+
+```text
+低速 52.5 ms
+高速 51.7 ms
+```
+
+这更像固定时间停车，不是固定减速度；但两次测量只能说明趋势，
+不能证明控制器内部写死了 52 ms。可能和 100 Hz 更新、取消处理或插值有关，尚未验证。
+
+按趋势外推：
 
 ```text
 v=0.49 rad/s -> a≈9.5 rad/s²

@@ -3185,6 +3185,8 @@ stop distance  : joint1=0.00245 rad, joint2=0.00181 rad
 | 低速 | 0.0794 rad/s | 52.5 ms | 1.51 rad/s² | 0.0007 rad |
 | 高速 | 0.2448 rad/s | 51.7 ms | 4.74 rad/s² | 0.00245 rad |
 
+![高速停止分析](project16_ros2_vla_bridge/assets/stop_analysis_high_speed.png)
+
 速度变成约 3.1 倍，过渡时间几乎不变，减速度也跟着变成约 3.1 倍。
 
 #### 为什么图看起来一样
@@ -3207,14 +3209,27 @@ stop distance  : joint1=0.00245 rad, joint2=0.00181 rad
 
 #### 这说明什么
 
-当前 `cancel_goal_async()` 更接近：
+先澄清一个容易误解的点：
 
 ```text
-固定约 52 ms 的停止时间
-不是固定减速度
+这 52 ms 不是 stop_probe 里写死的参数
+也不是安全层显式设置的停止时间
 ```
 
-如果继续外推：
+`stop_probe` 只发一条 5 秒轨迹，然后停止发新动作；watchdog 触发后调用
+`cancel_goal_async()`。52 ms 是控制器取消当前轨迹后的实际过渡行为。
+
+更准确的说法是：
+
+```text
+在两个速度点上，观测到约 52 ms 的停止过渡
+这更像固定时间停车，不是固定减速度
+但两次测量只能说明趋势，不能证明控制器内部就是写死 52 ms
+```
+
+可能和控制器 100 Hz 更新、取消处理或插值方式有关，但还没有验证。
+
+如果按这个趋势继续外推：
 
 ```text
 v=0.49 rad/s -> a≈9.5 rad/s²
