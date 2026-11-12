@@ -287,6 +287,11 @@ python3 project16_ros2_vla_bridge/scripts/stop_probe.py
 # 第 22 天：分析急停过渡（不需要 Gazebo）
 python3 project16_ros2_vla_bridge/scripts/analyze_stop.py
 
+# 第 23 天：Panda + mock hardware（不需要 Gazebo）
+ros2 launch vla_bridge panda_mock_hardware_demo.launch.py
+# 另开终端
+python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_wave.py
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -324,7 +329,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;20 | 2026.11.09 | ROS2 周 Day 12：状态超时、watchdog 取消与安全恢复 |
 | Day&nbsp;21 | 2026.11.10 | ROS2 周 Day 13：安全停止体检、`/joint_states.velocity` 交叉验证与停止曲线 |
 | Day&nbsp;22 | 2026.11.11 | ROS2 周 Day 14：急停过渡量化、减速度计算与理想减速对比 |
-| Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo |
+| Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo；Panda 模型跑通 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -3341,6 +3346,58 @@ state interface：position / velocity / effort？
 **[project16_ros2_vla_bridge/HARDWARE_CONTRACT.md](project16_ros2_vla_bridge/HARDWARE_CONTRACT.md)**
 
 里面按 Panda 7 关节写清了限位、速度、力矩、接口、频率、停止策略和测试阶梯。
+
+#### Panda 模型替换
+
+把原来的 2 关节“棒子”换成 MoveIt2 的 Panda 模型，仍然不启动 Gazebo。
+
+启动：
+
+```bash
+ros2 launch vla_bridge panda_mock_hardware_demo.launch.py
+```
+
+另开终端发一条 7 关节轨迹：
+
+```bash
+python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_wave.py
+```
+
+实测：
+
+```text
+[panda_wave] sending 7-joint trajectory: 2 points over 4.0s
+[panda_wave] goal accepted, waiting for result
+[panda_wave] result: code=0, message=Goal successfully reached!
+```
+
+![Panda + mock hardware + RViz](project16_ros2_vla_bridge/assets/panda_mock_hardware.png)
+
+这次验证的是：
+
+```text
+Panda 模型能在 RViz 显示
+mock hardware 能提供 7 个关节状态
+panda_arm_controller 能接收 FollowJointTrajectory
+7 关节轨迹能执行完成
+```
+
+但注意：
+
+```text
+panda_wave.py 直接发给 panda_arm_controller
+没有经过 safety_filter 和 safe_executor
+safety_filter 目前仍然只认识 joint1/joint2
+```
+
+所以这一步只完成“模型和执行接口”，还没有把安全层迁移到 Panda 的 7 关节。
+
+下一步：
+
+```text
+把 safety_filter 的限位/关节名改成 panda_joint1..7
+让 mock_policy / safe_executor / JTC 跑完整的 Panda 链路
+```
 
 ---
 

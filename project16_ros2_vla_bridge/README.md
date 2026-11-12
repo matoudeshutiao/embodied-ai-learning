@@ -134,11 +134,13 @@ project16_ros2_vla_bridge/
 │   ├── real_controller.png
 │   ├── stop_profile.png
 │   ├── stop_analysis.png
-│   └── stop_analysis_high_speed.png
+│   ├── stop_analysis_high_speed.png
+│   └── panda_mock_hardware.png
 ├── scripts/
 │   ├── test_state_timeout.sh
 │   ├── stop_probe.py
-│   └── analyze_stop.py
+│   ├── analyze_stop.py
+│   └── panda_wave.py
 └── ros2_ws/
     └── src/
         ├── arm_mock_description/
@@ -153,9 +155,11 @@ project16_ros2_vla_bridge/
             ├── resource/vla_bridge
             ├── launch/
             │   ├── real_controller_demo.launch.py
-            │   └── mock_hardware_demo.launch.py
+            │   ├── mock_hardware_demo.launch.py
+            │   └── panda_mock_hardware_demo.launch.py
             ├── rviz/
-            │   └── real_controller_view.rviz
+            │   ├── real_controller_view.rviz
+            │   └── panda_mock_view.rviz
             └── vla_bridge/
                 ├── __init__.py
                 ├── mock_policy.py
@@ -173,6 +177,8 @@ project16_ros2_vla_bridge/
 | `mock_trajectory_server.py` | 第 15 天的假执行器，保留作对照 |
 | `real_controller_demo.launch.py` | 启动 Gazebo、控制器、桥接节点和 RViz |
 | `mock_hardware_demo.launch.py` | 不启动 Gazebo，用 mock hardware 跑同一套控制链 |
+| `panda_mock_hardware_demo.launch.py` | Panda + mock hardware + RViz，7 关节 JTC |
+| `panda_wave.py` | 直接给 `panda_arm_controller` 发一条 7 关节轨迹 |
 | `stop_probe.py` | 发一条慢轨迹并记录 watchdog 停止前后的关节状态 |
 | `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
 | `arm_mock_description/` | mock hardware 的 URDF 和控制器配置 |
@@ -496,7 +502,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–23 天完成；真机接口层 mock hardware 已跑通。
+> 状态：✅ 第 18–23 天完成；真机接口层 mock hardware 与 Panda 模型已跑通。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -2256,6 +2262,113 @@ command/state interface
 ```
 
 下一步按合同实现 fake hardware plugin，再加入延迟、噪声、限位和故障注入。
+
+---
+
+## 21. Panda mock hardware（2026-11-12 同日延伸）
+
+目标：
+
+```text
+把 2 关节 simple_arm 换成 MoveIt2 的 Panda 7 关节模型
+仍然不启动 Gazebo
+```
+
+### 21.1 使用的现成包
+
+```text
+moveit_resources_panda_description
+moveit_resources_panda_moveit_config
+```
+
+关键文件：
+
+```text
+panda.urdf.xacro
+panda.ros2_control.xacro
+ros2_controllers.yaml
+initial_positions.yaml
+```
+
+MoveIt 的 `panda.ros2_control.xacro` 已经支持：
+
+```xml
+<plugin>mock_components/GenericSystem</plugin>
+```
+
+所以不需要自己补 Panda 的 mock hardware。
+
+### 21.2 启动
+
+```bash
+ros2 launch vla_bridge panda_mock_hardware_demo.launch.py
+```
+
+启动链：
+
+```text
+ros2_control_node
+robot_state_publisher
+joint_state_broadcaster
+panda_arm_controller
+RViz
+```
+
+没有 Gazebo、没有 `spawn_entity`、没有 `/clock`。
+
+### 21.3 发一条 7 关节轨迹
+
+另开终端：
+
+```bash
+python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_wave.py
+```
+
+脚本行为：
+
+```text
+读取当前 panda_joint1..7
+2 秒走到目标位姿
+4 秒回到起始位姿
+直接发给 panda_arm_controller
+```
+
+实测：
+
+```text
+[panda_wave] sending 7-joint trajectory: 2 points over 4.0s
+[panda_wave] goal accepted, waiting for result
+[panda_wave] result: code=0, message=Goal successfully reached!
+```
+
+![Panda + mock hardware + RViz](assets/panda_mock_hardware.png)
+
+### 21.4 这次验证了什么
+
+```text
+Panda 模型能在 RViz 显示
+mock hardware 提供 7 个关节状态
+panda_arm_controller 能接收 FollowJointTrajectory
+7 关节轨迹能执行完成
+```
+
+没有验证：
+
+```text
+safety_filter 还不认识 panda_joint1..7
+safe_executor 没有参与这条链路
+没有物理、碰撞、重力、力矩
+```
+
+`panda_wave.py` 是直接发给 `panda_arm_controller` 的，故意绕过了
+`safety_filter` 和 `safe_executor`，只用于验证模型和 action 接口。
+
+### 21.5 下一步
+
+```text
+把 safety_filter 的关节名和限位改成 panda_joint1..7
+让 mock_policy / safe_executor / panda_arm_controller 跑完整链路
+```
 
 ---
 

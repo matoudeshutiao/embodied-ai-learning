@@ -112,3 +112,44 @@ data: 'ok: 5 points'
 一直在动
 ```
 
+## Panda mock hardware 实测
+
+启动：
+
+```bash
+ros2 launch vla_bridge panda_mock_hardware_demo.launch.py
+```
+
+发送 7 关节轨迹：
+
+```bash
+python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_wave.py
+```
+
+日志：
+
+```text
+[panda_wave] sending 7-joint trajectory: 2 points over 4.0s
+[panda_wave] goal accepted, waiting for result
+[panda_wave] result: code=0, message=Goal successfully reached!
+```
+
+截图：
+
+- 原始文件：`personal journal/no_gazebo(humble+panda).png`
+- 项目副本：`project16_ros2_vla_bridge/assets/panda_mock_hardware.png`
+
+用户观察：
+
+```text
+ok了
+```
+
+注意：
+
+```text
+panda_wave.py 直接发给 panda_arm_controller
+没有经过 safety_filter / safe_executor
+safety_filter 目前还是 joint1/joint2
+```
+
