@@ -479,7 +479,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–22 天完成。
+> 状态：✅ 第 18–23 天完成。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -1988,6 +1988,101 @@ joint2 停止后速度穿过 0，有轻微回弹
 
 - [raw.md](../learning_journal/2026-11-11-day22/raw.md)
 - [reflection.md](../learning_journal/2026-11-11-day22/reflection.md)
+
+---
+
+## 19. 第 23 天（2026-11-12）：停止时间是否随速度变化
+
+第 22 天只测了低速。第 23 天把速度提高约 3 倍，检查：
+
+```text
+transition 会保持约 52 ms，还是也变成约 3 倍？
+```
+
+### 19.1 实验
+
+低速基线：
+
+```text
+v before   : 0.0794 rad/s
+transition : 52.5 ms
+deceleration: 1.51 rad/s²
+```
+
+高速实验：
+
+```text
+target1=1.2, target2=-0.8
+trajectory duration=5 s
+watchdog=2 s
+```
+
+命令：
+
+```bash
+python3 project16_ros2_vla_bridge/scripts/stop_probe.py --ros-args -p target1:=1.2 -p target2:=-0.8
+```
+
+### 19.2 结果
+
+```text
+v before       : 0.2448 rad/s
+transition     : 51.7 ms
+deceleration   : 4.74 rad/s²
+stop distance  : joint1=0.00245 rad, joint2=0.00181 rad
+```
+
+| 实验 | v before | transition | deceleration | stop distance |
+| --- | ---: | ---: | ---: | ---: |
+| 低速 | 0.0794 rad/s | 52.5 ms | 1.51 rad/s² | 0.0007 rad |
+| 高速 | 0.2448 rad/s | 51.7 ms | 4.74 rad/s² | 0.00245 rad |
+
+速度约 3.1 倍，过渡时间几乎不变，减速度约 3.1 倍。
+
+### 19.3 图为什么看起来一样
+
+两次图都是近乎垂直的断崖，因为：
+
+```text
+横向 transition 仍约 52 ms
+纵向坐标轴自动缩放到新的速度范围
+```
+
+自动缩放把 3 倍的纵向差异藏起来了。  
+只看形状会以为“没变化”，看数字才知道减速度从 1.51 变成了 4.74。
+
+### 19.4 结论
+
+当前 cancel 更接近：
+
+```text
+固定约 52 ms 停止时间
+不是固定减速度
+```
+
+外推：
+
+```text
+v=0.49 rad/s -> a≈9.5 rad/s²
+v=1.0 rad/s  -> a≈19 rad/s²
+```
+
+真机高速时不能接受这种减速度。  
+受控停止应该限制最大减速度，而不是固定停止时间。
+
+### 19.5 下一步
+
+```text
+1. 选择目标减速度：0.5 或 1.0 rad/s²
+2. 从当前速度和位置生成减速轨迹
+3. 状态正常时受控停止；状态失效时仍然立刻刹车
+4. 在多个速度点重复测试
+```
+
+原始记录：
+
+- [raw.md](../learning_journal/2026-11-12-day23/raw.md)
+- [reflection.md](../learning_journal/2026-11-12-day23/reflection.md)
 
 ---
 

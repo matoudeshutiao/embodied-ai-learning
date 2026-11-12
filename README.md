@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–22 天：VLA/真机桥接、队列、时间对齐与安全层
+├── project16_ros2_vla_bridge/ # 第 15–23 天：VLA/真机桥接、队列、时间对齐与安全层
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -324,6 +324,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;20 | 2026.11.09 | ROS2 周 Day 12：状态超时、watchdog 取消与安全恢复 |
 | Day&nbsp;21 | 2026.11.10 | ROS2 周 Day 13：安全停止体检、`/joint_states.velocity` 交叉验证与停止曲线 |
 | Day&nbsp;22 | 2026.11.11 | ROS2 周 Day 14：急停过渡量化、减速度计算与理想减速对比 |
+| Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比、固定时间停止与减速度外推 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -2330,7 +2331,7 @@ age 太大 → 丢弃过期动作
 
 完整代码、设计取舍和测试见：
 
-**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14–18 节**
+**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14–19 节**
 
 > 第 18 天分两天完成：Day 18 完成队列代码、隔离测试和时间压缩定位；Day 19 完成容量语义对比和动作时间对齐；Day 20 完成状态超时、watchdog 取消与恢复。
 
@@ -3135,6 +3136,107 @@ stop distance  : joint1=0.00070 rad, joint2=0.00075 rad
 
 - [raw.md](learning_journal/2026-11-11-day22/raw.md)
 - [reflection.md](learning_journal/2026-11-11-day22/reflection.md)
+
+---
+
+### 2026.11.12 ｜ 第 23 天 · ROS2 周 Day 15：速度翻倍后，停止时间几乎不变
+
+昨天的低速结果：
+
+```text
+v before   : 0.0794 rad/s
+transition : 52.5 ms
+deceleration: 1.51 rad/s²
+```
+
+今天把速度提高到约 3 倍，看停止时间会不会跟着变。
+
+#### 预测
+
+用户猜：
+
+```text
+B. transition 变成约 100–130 ms
+```
+
+实际是 A。
+
+#### 高速实验
+
+```text
+目标位置：joint1=1.2, joint2=-0.8
+轨迹时长：5 秒
+watchdog：2 秒后取消
+```
+
+结果：
+
+```text
+v before       : 0.2448 rad/s
+transition     : 51.7 ms
+deceleration   : 4.74 rad/s²
+stop distance  : joint1=0.00245 rad, joint2=0.00181 rad
+```
+
+对比：
+
+| 实验 | 速度 before | transition | 减速度 | 停止距离 |
+| --- | ---: | ---: | ---: | ---: |
+| 低速 | 0.0794 rad/s | 52.5 ms | 1.51 rad/s² | 0.0007 rad |
+| 高速 | 0.2448 rad/s | 51.7 ms | 4.74 rad/s² | 0.00245 rad |
+
+速度变成约 3.1 倍，过渡时间几乎不变，减速度也跟着变成约 3.1 倍。
+
+#### 为什么图看起来一样
+
+两次分析的图看起来都是同一条垂直断崖，因为：
+
+```text
+横向：transition 确实还是约 52 ms
+纵向：坐标轴自动缩放到新的速度范围
+```
+
+所以形状相似，但数字完全不同：
+
+```text
+低速：1.51 rad/s²
+高速：4.74 rad/s²
+```
+
+这正是“图看起来一样”的陷阱：自动缩放会把 3 倍的差异藏起来。
+
+#### 这说明什么
+
+当前 `cancel_goal_async()` 更接近：
+
+```text
+固定约 52 ms 的停止时间
+不是固定减速度
+```
+
+如果继续外推：
+
+```text
+v=0.49 rad/s -> a≈9.5 rad/s²
+v=1.0 rad/s  -> a≈19 rad/s²
+```
+
+真机高速时，这种减速度很危险。
+
+所以受控停止应该限制的是**最大减速度**，而不是固定停止时间。
+
+#### 下一步
+
+```text
+1. 目标减速度取 0.5 还是 1.0 rad/s²？
+2. 高速时用受控停止；状态失效时是否仍然立刻刹车？
+3. 受控停止需要从当前速度生成减速轨迹，不能再只发一个目标点。
+```
+
+原始记录：
+
+- [raw.md](learning_journal/2026-11-12-day23/raw.md)
+- [reflection.md](learning_journal/2026-11-12-day23/reflection.md)
 
 ---
 
