@@ -69,3 +69,46 @@ stop distance  : joint1=0.00245 rad, joint2=0.00181 rad
 
 - CSV: `output/stop_probe_20261112_101729.csv`
 - SVG: `output/stop_analysis_20261112_101734.svg`
+
+## 真机接口层第一步：mock hardware 实测
+
+启动：
+
+```bash
+ros2 launch vla_bridge mock_hardware_demo.launch.py
+```
+
+完整一条动作块：
+
+```text
+[mock_policy-7] [INFO] [1794452315.489062468] [mock_policy]: published action chunk: 5 points
+[safe_executor-6] [INFO] [1794452315.489805817] [safe_executor]: queued action: 5 points, in_flight=1, pending=1, busy=False
+[safe_executor-6] [INFO] [1794452315.490021265] [safe_executor]: time aligned: age=0.001s, duration=1.000s
+[safe_executor-6] [INFO] [1794452315.490197135] [safe_executor]: sending action: 5 points, joints=['joint1', 'joint2'], in_flight=1, pending=0
+[ros2_control_node-1] [INFO] [1794452315.490712539] [joint_trajectory_controller]: Received new action goal
+[ros2_control_node-1] [INFO] [1794452315.490746879] [joint_trajectory_controller]: Accepted new action goal
+[safe_executor-6] [INFO] [1794452315.491252389] [safe_executor]: action goal accepted
+[ros2_control_node-1] [INFO] [1794452316.491672793] [joint_trajectory_controller]: Goal reached, success!
+[safe_executor-6] [INFO] [1794452316.544377956] [safe_executor]: action finished: code=0, message=Goal successfully reached!
+[safe_executor-6] [INFO] [1794452316.544833521] [safe_executor]: stats: queued=159, executed=159, canceled=0, failed=0, dropped=0, capacity_dropped=0, age_dropped=0
+```
+
+关节状态频率：
+
+```text
+average rate: 100.048
+	min: 0.009s max: 0.011s std dev: 0.00032s window: 101
+```
+
+安全状态：
+
+```text
+data: 'ok: 5 points'
+```
+
+用户观察：
+
+```text
+一直在动
+```
+

@@ -324,7 +324,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;20 | 2026.11.09 | ROS2 周 Day 12：状态超时、watchdog 取消与安全恢复 |
 | Day&nbsp;21 | 2026.11.10 | ROS2 周 Day 13：安全停止体检、`/joint_states.velocity` 交叉验证与停止曲线 |
 | Day&nbsp;22 | 2026.11.11 | ROS2 周 Day 14：急停过渡量化、减速度计算与理想减速对比 |
-| Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比、固定时间停止与减速度外推 |
+| Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -3252,6 +3252,89 @@ v=1.0 rad/s  -> a≈19 rad/s²
 
 - [raw.md](learning_journal/2026-11-12-day23/raw.md)
 - [reflection.md](learning_journal/2026-11-12-day23/reflection.md)
+
+---
+
+### 2026.11.12 ｜ 第 23 天 · 延伸：真机接口层第一步，去掉 Gazebo
+
+安全层先收尾，开始做真机接口层。
+
+#### 改了什么
+
+```text
+之前：policy → safety → executor → JTC → Gazebo
+现在：policy → safety → executor → JTC → mock hardware
+```
+
+新增：
+
+```text
+arm_mock_description：mock hardware 的 URDF 和控制器配置
+vla_bridge/launch/mock_hardware_demo.launch.py
+```
+
+`mock_components/GenericSystem` 替代 `gazebo_ros2_control/GazeboSystem`，不启动 Gazebo。
+
+#### 实测日志
+
+一条完整的动作块：
+
+```text
+[mock_policy] published action chunk: 5 points
+[safe_executor] queued action: 5 points, in_flight=1, pending=1, busy=False
+[safe_executor] time aligned: age=0.001s, duration=1.000s
+[safe_executor] sending action: 5 points
+[joint_trajectory_controller] Received new action goal
+[joint_trajectory_controller] Accepted new action goal
+[joint_trajectory_controller] Goal reached, success!
+[safe_executor] action finished: code=0, message=Goal successfully reached!
+[safe_executor] stats: queued=159, executed=159, canceled=0,
+               failed=0, dropped=0
+```
+
+安全层：
+
+```text
+/policy/safety_status: ok: 5 points
+```
+
+关节状态频率：
+
+```text
+/joint_states: 100.01 Hz
+```
+
+#### 这说明什么
+
+```text
+1. 执行栈不再依赖 Gazebo
+2. 同一个 FollowJointTrajectory 接口仍然工作
+3. policy、安全层、队列、JTC、/joint_states 都能复用
+4. 159 条动作全部执行，没有丢弃或取消
+```
+
+#### 不能说明什么
+
+```text
+1. mock hardware 没有物理：没有惯性、重力、碰撞和摩擦
+2. 100 Hz 是控制循环频率，不是实时性保证
+3. 没有测试真实电机的力矩、噪声、延迟和限位
+4. 安全层仍然没有硬件急停和最大减速度
+```
+
+这一步证明的是**接口能复用**，不是“已经能上真机”。
+
+#### 下一步
+
+把 mock hardware 的接口合同写清楚：
+
+```text
+command interface：position / velocity / effort？
+state interface：position / velocity / effort？
+单位、限位、更新率、时间戳来源
+```
+
+然后才能替换成真实硬件插件。
 
 ---
 

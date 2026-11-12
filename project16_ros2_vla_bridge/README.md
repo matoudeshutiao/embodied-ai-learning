@@ -479,7 +479,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–23 天完成。
+> 状态：✅ 第 18–23 天完成；真机接口层 mock hardware 已跑通。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -2099,6 +2099,137 @@ v=1.0 rad/s  -> a≈19 rad/s²
 
 - [raw.md](../learning_journal/2026-11-12-day23/raw.md)
 - [reflection.md](../learning_journal/2026-11-12-day23/reflection.md)
+
+---
+
+## 20. 真机接口层第一步（2026-11-12）：mock hardware 去 Gazebo
+
+目标：
+
+```text
+不启动 Gazebo
+用 ros2_control mock hardware 跑同一套控制器
+```
+
+链路：
+
+```text
+mock_policy → safety_filter → safe_executor
+→ joint_trajectory_controller
+→ mock_components/GenericSystem
+```
+
+### 20.1 新增文件
+
+```text
+ros2_ws/src/arm_mock_description/
+├── CMakeLists.txt
+├── package.xml
+├── config/controllers.yaml
+└── urdf/simple_arm_mock.urdf.xacro
+```
+
+```text
+ros2_ws/src/vla_bridge/launch/mock_hardware_demo.launch.py
+```
+
+`simple_arm_mock.urdf.xacro` 去掉了所有 Gazebo 标签，把：
+
+```text
+gazebo_ros2_control/GazeboSystem
+```
+
+换成：
+
+```text
+mock_components/GenericSystem
+```
+
+并打开：
+
+```xml
+<param name="calculate_dynamics">true</param>
+```
+
+### 20.2 启动
+
+```bash
+ros2 launch vla_bridge mock_hardware_demo.launch.py
+```
+
+启动顺序：
+
+```text
+ros2_control_node
+robot_state_publisher
+joint_state_broadcaster
+joint_trajectory_controller
+safety_filter
+safe_executor
+mock_policy
+RViz
+```
+
+没有 Gazebo、没有 `spawn_entity`、没有 `/clock`。
+
+### 20.3 实测日志
+
+```text
+[mock_policy] published action chunk: 5 points
+[safe_executor] queued action: 5 points, in_flight=1, pending=1, busy=False
+[safe_executor] time aligned: age=0.001s, duration=1.000s
+[safe_executor] sending action: 5 points
+[joint_trajectory_controller] Received new action goal
+[joint_trajectory_controller] Accepted new action goal
+[joint_trajectory_controller] Goal reached, success!
+[safe_executor] action finished: code=0, message=Goal successfully reached!
+[safe_executor] stats: queued=159, executed=159, canceled=0,
+               failed=0, dropped=0
+```
+
+安全层：
+
+```text
+/policy/safety_status: ok: 5 points
+```
+
+关节状态：
+
+```text
+/joint_states: 100.01 Hz
+```
+
+### 20.4 结论
+
+```text
+执行栈不再依赖 Gazebo
+同一个 FollowJointTrajectory 接口仍然工作
+policy、安全层、队列、JTC、/joint_states 都能复用
+159 条动作全部执行，没有丢弃或取消
+```
+
+局限：
+
+```text
+mock hardware 没有惯性、重力、碰撞和摩擦
+100 Hz 是控制循环频率，不是实时性保证
+没有测试真实电机的力矩、噪声、延迟和限位
+安全层仍然没有硬件急停和最大减速度
+```
+
+这一步证明的是接口可复用，不是“已经能上真机”。
+
+### 20.5 下一步
+
+先写清楚真机接口合同：
+
+```text
+command interface：position / velocity / effort？
+state interface：position / velocity / effort？
+单位、限位、更新率、时间戳来源
+```
+
+然后替换成真实硬件插件。
 
 ---
 
