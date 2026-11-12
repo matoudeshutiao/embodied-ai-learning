@@ -22,8 +22,42 @@ class MockPolicy(Node):
         self.timer = self.create_timer(1.2, self.tick)
         self.t = 0.0
 
-        self.joint_names = ["joint1", "joint2"]
-        self.get_logger().info("Mock policy started")
+        # 默认保留 2 关节；Panda launch 用参数覆盖成 7 关节。
+        self.declare_parameter("joint_names", ["joint1", "joint2"])
+        self.declare_parameter("home_positions", [0.0, 0.0])
+        self.declare_parameter("amplitudes", [0.3, 0.2])
+        self.declare_parameter(
+            "phase_offsets",
+            [0.0, -math.pi / 2.0],
+        )
+
+        self.joint_names = list(
+            self.get_parameter("joint_names").value
+        )
+        self.home_positions = list(
+            self.get_parameter("home_positions").value
+        )
+        self.amplitudes = list(
+            self.get_parameter("amplitudes").value
+        )
+        self.phase_offsets = list(
+            self.get_parameter("phase_offsets").value
+        )
+
+        count = len(self.joint_names)
+        if not (
+            len(self.home_positions) == count
+            and len(self.amplitudes) == count
+            and len(self.phase_offsets) == count
+        ):
+            raise ValueError(
+                "joint_names/home_positions/amplitudes/phase_offsets "
+                "must have the same length"
+            )
+
+        self.get_logger().info(
+            f"Mock policy started, joints={self.joint_names}"
+        )
 
     def tick(self):
         traj = JointTrajectory()
@@ -36,10 +70,14 @@ class MockPolicy(Node):
             t = (i + 1) * 0.2
 
             point.positions = [
-                0.3 * math.sin(self.t + t),
-                -0.2 * math.cos(self.t + t),
+                self.home_positions[index]
+                + self.amplitudes[index]
+                * math.sin(
+                    self.t + t + self.phase_offsets[index]
+                )
+                for index in range(len(self.joint_names))
             ]
-            point.velocities = [0.0, 0.0]
+            point.velocities = [0.0] * len(self.joint_names)
             point.time_from_start = Duration(
                 sec=int(t),
                 nanosec=int((t % 1.0) * 1e9),

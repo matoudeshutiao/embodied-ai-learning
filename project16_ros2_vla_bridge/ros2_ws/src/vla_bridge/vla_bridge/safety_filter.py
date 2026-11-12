@@ -37,14 +37,34 @@ class SafetyFilter(Node):
 
         # 软限位必须和 URDF 的 joint limit 保持一致。
         # 这里只是软件保护，真机还必须有硬件急停和机械限位。
+        # 默认保留 2 关节，Panda launch 会用参数覆盖成 7 关节。
+        self.declare_parameter("joint_names", ["joint1", "joint2"])
+        self.declare_parameter("lower_limits", [-2.967, -2.0])
+        self.declare_parameter("upper_limits", [2.967, 2.0])
+        self.declare_parameter("velocity_limits", [1.5, 1.5])
+
+        names = list(self.get_parameter("joint_names").value)
+        lower = list(self.get_parameter("lower_limits").value)
+        upper = list(self.get_parameter("upper_limits").value)
+        velocity = list(self.get_parameter("velocity_limits").value)
+
+        if not (len(names) == len(lower) == len(upper) == len(velocity)):
+            raise ValueError(
+                "joint_names/lower_limits/upper_limits/velocity_limits "
+                "must have the same length"
+            )
+
         self.position_limits = {
-            "joint1": (-2.967, 2.967),
-            "joint2": (-2.0, 2.0),
+            name: (float(lower[i]), float(upper[i]))
+            for i, name in enumerate(names)
         }
         self.velocity_limits = {
-            "joint1": 1.5,
-            "joint2": 1.5,
+            name: float(velocity[i])
+            for i, name in enumerate(names)
         }
+        self.get_logger().info(
+            f"Safety joints: {names}"
+        )
 
         # /joint_states 超过这个时间没更新，就认为状态过期。
         # 真机上绝不能拿旧关节位置继续做安全判断。
