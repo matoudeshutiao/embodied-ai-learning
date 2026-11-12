@@ -153,3 +153,66 @@ panda_wave.py 直接发给 panda_arm_controller
 safety_filter 目前还是 joint1/joint2
 ```
 
+## Panda 7 关节完整链路
+
+启动：
+
+```bash
+ros2 launch vla_bridge panda_full_chain_demo.launch.py
+```
+
+实测日志：
+
+```text
+[ros2_control_node-1] [panda_arm_controller]: Accepted new action goal
+[safe_executor-6]: action goal accepted
+[ros2_control_node-1] [panda_arm_controller]: Goal reached, success!
+[safe_executor-6]: action finished: code=0, message=Goal successfully reached!
+[safe_executor-6]: stats: queued=69, executed=69, canceled=0,
+                   failed=0, dropped=0, capacity_dropped=0, age_dropped=0
+[mock_policy-7]: published action chunk: 5 points
+[safe_executor-6]: queued action: 5 points, in_flight=1, pending=1, busy=False
+[safe_executor-6]: time aligned: age=0.002s, duration=1.000s
+[safe_executor-6]: sending action: 5 points,
+                   joints=['panda_joint1', ..., 'panda_joint7']
+```
+
+安全状态：
+
+```text
+/policy/safety_status: ok: 5 points
+```
+
+`/joint_states`：
+
+```text
+name:
+- panda_finger_joint1
+- panda_joint1
+- panda_joint2
+- panda_finger_joint2
+- panda_joint3
+- panda_joint4
+- panda_joint5
+- panda_joint6
+- panda_joint7
+
+position: 正常变化
+velocity: 全部 0.0
+effort: 全部 .nan
+```
+
+用户观察：
+
+```text
+有在动
+```
+
+限制：
+
+```text
+MoveIt 的 mock hardware 没有打开 calculate_dynamics
+velocity/effort 不可信
+只能验证位置控制
+```
+

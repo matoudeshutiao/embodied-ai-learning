@@ -150,6 +150,17 @@ velocity：安全层、停止策略
 effort：负载/碰撞/异常检测
 ```
 
+当前 Panda mock hardware 实测：
+
+```text
+velocity：全部 0.0
+effort：全部 NaN
+```
+
+原因是 MoveIt 的 `panda.ros2_control.xacro` 没有打开 `calculate_dynamics`。
+因此 mock 只能验证位置控制，不能拿它的 velocity/effort 做安全判断。
+真机合同要求真实 state interface，或者给 mock/fake hardware 补上动力学计算。
+
 ### 4.3 controller 与 action
 
 目标 action：

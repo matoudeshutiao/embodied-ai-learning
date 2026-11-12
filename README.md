@@ -292,6 +292,9 @@ ros2 launch vla_bridge panda_mock_hardware_demo.launch.py
 # 另开终端
 python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_wave.py
 
+# 第 23 天：Panda 7 关节完整安全链路
+ros2 launch vla_bridge panda_full_chain_demo.launch.py
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -329,7 +332,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;20 | 2026.11.09 | ROS2 周 Day 12：状态超时、watchdog 取消与安全恢复 |
 | Day&nbsp;21 | 2026.11.10 | ROS2 周 Day 13：安全停止体检、`/joint_states.velocity` 交叉验证与停止曲线 |
 | Day&nbsp;22 | 2026.11.11 | ROS2 周 Day 14：急停过渡量化、减速度计算与理想减速对比 |
-| Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo；Panda 模型跑通 |
+| Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo；Panda 7 关节完整链路跑通 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -3392,12 +3395,59 @@ safety_filter 目前仍然只认识 joint1/joint2
 
 所以这一步只完成“模型和执行接口”，还没有把安全层迁移到 Panda 的 7 关节。
 
-下一步：
+#### 完整 7 关节安全链路
+
+随后把 `safety_filter` 和 `mock_policy` 改成可配置关节：
 
 ```text
-把 safety_filter 的限位/关节名改成 panda_joint1..7
-让 mock_policy / safe_executor / JTC 跑完整的 Panda 链路
+safety_filter：joint_names + lower/upper/velocity limits
+mock_policy：joint_names + home_positions + amplitudes + phase_offsets
+safe_executor：action_name 改成 panda_arm_controller
 ```
+
+启动：
+
+```bash
+ros2 launch vla_bridge panda_full_chain_demo.launch.py
+```
+
+实测：
+
+```text
+safe_executor stats:
+queued=69, executed=69, canceled=0, failed=0, dropped=0
+
+/policy/safety_status:
+ok: 5 points
+
+safe_executor sending action:
+joints=['panda_joint1', ..., 'panda_joint7']
+
+panda_arm_controller:
+Accepted new action goal
+Goal reached, success!
+```
+
+这说明：
+
+```text
+mock_policy 能生成 7 关节动作
+safety_filter 认识 7 个 Panda 关节
+safe_executor 能队列、时间对齐、转发
+panda_arm_controller 能执行 7 关节轨迹
+Panda 在 RViz 里持续运动
+```
+
+但 `/joint_states` 里还有两个 mock hardware 的局限：
+
+```text
+velocity 全部是 0.0
+effort 全部是 NaN
+```
+
+原因是 MoveIt 的 `panda.ros2_control.xacro` 没有打开
+`calculate_dynamics`。这不妨碍位置控制，但**不能拿这些 velocity/effort
+做安全判断**。真机必须提供真实状态，或者给 mock hardware 打开动力学计算。
 
 ---
 

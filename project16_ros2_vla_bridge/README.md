@@ -156,7 +156,8 @@ project16_ros2_vla_bridge/
             ├── launch/
             │   ├── real_controller_demo.launch.py
             │   ├── mock_hardware_demo.launch.py
-            │   └── panda_mock_hardware_demo.launch.py
+            │   ├── panda_mock_hardware_demo.launch.py
+            │   └── panda_full_chain_demo.launch.py
             ├── rviz/
             │   ├── real_controller_view.rviz
             │   └── panda_mock_view.rviz
@@ -178,6 +179,7 @@ project16_ros2_vla_bridge/
 | `real_controller_demo.launch.py` | 启动 Gazebo、控制器、桥接节点和 RViz |
 | `mock_hardware_demo.launch.py` | 不启动 Gazebo，用 mock hardware 跑同一套控制链 |
 | `panda_mock_hardware_demo.launch.py` | Panda + mock hardware + RViz，7 关节 JTC |
+| `panda_full_chain_demo.launch.py` | Panda + safety_filter + safe_executor + mock_policy 完整链路 |
 | `panda_wave.py` | 直接给 `panda_arm_controller` 发一条 7 关节轨迹 |
 | `stop_probe.py` | 发一条慢轨迹并记录 watchdog 停止前后的关节状态 |
 | `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
@@ -2363,11 +2365,95 @@ safe_executor 没有参与这条链路
 `panda_wave.py` 是直接发给 `panda_arm_controller` 的，故意绕过了
 `safety_filter` 和 `safe_executor`，只用于验证模型和 action 接口。
 
-### 21.5 下一步
+### 21.5 完整 7 关节安全链路
+
+`23 日` 随后把安全层和 policy 改成可配置关节：
 
 ```text
-把 safety_filter 的关节名和限位改成 panda_joint1..7
-让 mock_policy / safe_executor / panda_arm_controller 跑完整链路
+safety_filter:
+  joint_names / lower_limits / upper_limits / velocity_limits
+
+mock_policy:
+  joint_names / home_positions / amplitudes / phase_offsets
+
+safe_executor:
+  action_name = /panda_arm_controller/follow_joint_trajectory
+```
+
+启动：
+
+```bash
+ros2 launch vla_bridge panda_full_chain_demo.launch.py
+```
+
+实测：
+
+```text
+stats: queued=69, executed=69, canceled=0,
+       failed=0, dropped=0
+
+/policy/safety_status: ok: 5 points
+
+safe_executor sending action:
+joints=['panda_joint1', 'panda_joint2', 'panda_joint3',
+        'panda_joint4', 'panda_joint5', 'panda_joint6',
+        'panda_joint7']
+
+panda_arm_controller:
+Accepted new action goal
+Goal reached, success!
+```
+
+这证明：
+
+```text
+mock_policy 能生成 7 关节动作
+safety_filter 认识 7 个 Panda 关节
+safe_executor 队列/时间对齐/转发正常
+panda_arm_controller 能执行 7 关节轨迹
+Panda 在 RViz 里持续运动
+```
+
+### 21.6 mock hardware 的状态局限
+
+`/joint_states` 实测：
+
+```text
+name:
+  panda_finger_joint1
+  panda_joint1 ... panda_joint7
+  panda_finger_joint2
+
+velocity: 全部 0.0
+effort:   全部 NaN
+```
+
+原因是 MoveIt 的 `panda.ros2_control.xacro` 没有打开
+`calculate_dynamics`：
+
+```xml
+<plugin>mock_components/GenericSystem</plugin>
+```
+
+所以：
+
+```text
+位置控制正常
+速度状态不可信
+力矩状态不可用
+```
+
+这不妨碍当前的位置控制链路，但**不能拿 mock 的 velocity/effort
+做安全判断**。真机必须提供真实 state interface，或者给 mock hardware
+打开动力学计算。
+
+### 21.7 下一步
+
+```text
+1. 给 Panda mock hardware 打开 calculate_dynamics
+   或用自定义 fake hardware plugin 提供 velocity
+2. 在 7 关节上重新测状态超时、watchdog、停止策略
+3. 再考虑接入感知/世界模型
 ```
 
 ---
