@@ -3534,6 +3534,16 @@ traj.header.stamp = Time()
 
 零时间戳约定是“立即开始”，所以脚本不再依赖 `use_sim_time`。
 
+清掉旧 Gazebo/controller_manager 后实测：
+
+```text
+python3 .../panda_wave.py
+→ goal accepted
+→ 4 秒后 code=0, Goal successfully reached!
+```
+
+不加 `use_sim_time` 也能执行。
+
 #### 最终结果
 
 机械臂：

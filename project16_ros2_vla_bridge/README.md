@@ -2570,6 +2570,16 @@ trajectory.header.stamp = Time()
 
 JTC 约定零时间戳表示“立即开始”，脚本不再依赖 `use_sim_time`。
 
+清掉旧 Gazebo/controller_manager 后实测：
+
+```text
+python3 .../panda_wave.py
+→ goal accepted
+→ 4 秒后 code=0, Goal successfully reached!
+```
+
+不加 `use_sim_time` 也能执行。
+
 ### 22.4 实测
 
 机械臂：

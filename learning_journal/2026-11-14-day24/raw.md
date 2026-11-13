@@ -99,3 +99,25 @@ open again: code=0, message=Goal successfully reached!
 ```text
 两个都动了
 ```
+
+## 零时间戳验证
+
+清掉旧 Gazebo/controller_manager 后，不带 `use_sim_time` 直接运行：
+
+```bash
+python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_wave.py
+```
+
+结果：
+
+```text
+sending 7-joint trajectory: 2 points over 4.0s
+goal accepted, waiting for result
+result: code=0, message=Goal successfully reached!
+```
+
+用户观察：
+
+```text
+ok了
+```
