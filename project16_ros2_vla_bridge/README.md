@@ -2562,6 +2562,14 @@ goal accepted, waiting for result
 
 脚本使用系统时间，JTC 使用 Gazebo 的 `/clock`，一直等不到轨迹开始时间。
 
+后续改成零时间戳：
+
+```python
+trajectory.header.stamp = Time()
+```
+
+JTC 约定零时间戳表示“立即开始”，脚本不再依赖 `use_sim_time`。
+
 ### 22.4 实测
 
 机械臂：
@@ -2587,15 +2595,18 @@ open again: position=0.040 → code=0
 
 ### 22.5 重要修正
 
-外部脚本在 Gazebo 里必须使用仿真时间：
+现在测试脚本使用零时间戳，不需要再手动加参数：
 
 ```bash
-python3 .../panda_wave.py --ros-args -p use_sim_time:=true
+python3 .../panda_wave.py
 ```
 
 ```bash
-python3 .../panda_gripper_test.py --ros-args -p use_sim_time:=true
+python3 .../panda_gripper_test.py
 ```
+
+如果以后要发送**定时轨迹**（指定未来开始时间），才需要正确设置
+`use_sim_time` 或使用 Gazebo 时间。
 
 Gazebo 界面显示 “not responding” 时，`gzserver` 可能仍在正常运行；
 可以先点 Wait，或者 Force Quit `gzclient`，用 RViz 观察。

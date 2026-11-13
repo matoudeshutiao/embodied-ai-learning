@@ -4,7 +4,7 @@
 import time
 
 import rclpy
-from builtin_interfaces.msg import Duration
+from builtin_interfaces.msg import Duration, Time
 from control_msgs.action import FollowJointTrajectory
 from rclpy.action import ActionClient
 from rclpy.executors import ExternalShutdownException
@@ -35,7 +35,8 @@ class GripperTest(Node):
 
     def send_position(self, position, seconds, label):
         trajectory = JointTrajectory()
-        trajectory.header.stamp = self.get_clock().now().to_msg()
+        # 零时间戳表示“从现在开始”，兼容 Gazebo 仿真时间和 mock 系统时间。
+        trajectory.header.stamp = Time()
         trajectory.joint_names = JOINTS
 
         point = JointTrajectoryPoint()

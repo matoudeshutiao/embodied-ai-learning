@@ -9,7 +9,7 @@
 import time
 
 import rclpy
-from builtin_interfaces.msg import Duration
+from builtin_interfaces.msg import Duration, Time
 from control_msgs.action import FollowJointTrajectory
 from rclpy.action import ActionClient
 from rclpy.executors import ExternalShutdownException
@@ -83,7 +83,8 @@ class PandaWave(Node):
         ]
 
         traj = JointTrajectory()
-        traj.header.stamp = self.get_clock().now().to_msg()
+        # 零时间戳表示“从现在开始”，兼容 Gazebo 仿真时间和 mock 系统时间。
+        traj.header.stamp = Time()
         traj.joint_names = JOINTS
 
         point = JointTrajectoryPoint()

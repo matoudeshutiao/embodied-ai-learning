@@ -3526,11 +3526,13 @@ Gazebo：use_sim_time=True，使用 /clock
 脚本：没设置 use_sim_time，使用系统时间
 ```
 
-JTC 在等一个“未来”的轨迹开始时间。加参数后解决：
+JTC 在等一个“未来”的轨迹开始时间。后续改成**零时间戳**：
 
-```bash
-python3 .../panda_wave.py --ros-args -p use_sim_time:=true
+```python
+traj.header.stamp = Time()
 ```
+
+零时间戳约定是“立即开始”，所以脚本不再依赖 `use_sim_time`。
 
 #### 最终结果
 
@@ -3562,7 +3564,7 @@ open again: position=0.040 → code=0
 1. URDF 能规划 ≠ 能被 Gazebo 物理仿真
 2. Gazebo 需要 inertial，MoveIt 不需要
 3. xacro include 的文件也要有合法根节点
-4. Gazebo 用 /clock 时，外部脚本必须设置 use_sim_time
+4. 立即执行的测试轨迹用零时间戳，避免绑定 Gazebo 或系统时间源
 5. Gazebo 界面“not responding”不一定代表 gzserver 挂了
 ```
 
