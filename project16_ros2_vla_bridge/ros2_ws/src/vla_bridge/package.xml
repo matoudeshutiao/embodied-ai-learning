@@ -24,6 +24,7 @@
   <exec_depend>rviz2</exec_depend>
   <exec_depend>arm_description</exec_depend>
   <exec_depend>arm_mock_description</exec_depend>
+  <exec_depend>panda_gazebo_description</exec_depend>
   <exec_depend>moveit_resources_panda_moveit_config</exec_depend>
   <exec_depend>mock_components</exec_depend>
 
