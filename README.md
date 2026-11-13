@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–23 天：VLA/真机桥接、队列、时间对齐与安全层
+├── project16_ros2_vla_bridge/ # 第 15–24 天：VLA/真机桥接、队列、时间对齐、安全层与 Panda Gazebo
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -333,6 +333,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;21 | 2026.11.10 | ROS2 周 Day 13：安全停止体检、`/joint_states.velocity` 交叉验证与停止曲线 |
 | Day&nbsp;22 | 2026.11.11 | ROS2 周 Day 14：急停过渡量化、减速度计算与理想减速对比 |
 | Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo；Panda 7 关节完整链路跑通 |
+| Day&nbsp;24 | 2026.11.14 | ROS2 周 Day 16：Panda 进 Gazebo、inertial/xacro/时间源调试、7 关节与夹爪实测 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -2339,7 +2340,7 @@ age 太大 → 丢弃过期动作
 
 完整代码、设计取舍和测试见：
 
-**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14–19 节**
+**[project16_ros2_vla_bridge/README.md](project16_ros2_vla_bridge/README.md) 第 14–22 节**
 
 > 第 18 天分两天完成：Day 18 完成队列代码、隔离测试和时间压缩定位；Day 19 完成容量语义对比和动作时间对齐；Day 20 完成状态超时、watchdog 取消与恢复。
 
@@ -3448,6 +3449,130 @@ effort 全部是 NaN
 原因是 MoveIt 的 `panda.ros2_control.xacro` 没有打开
 `calculate_dynamics`。这不妨碍位置控制，但**不能拿这些 velocity/effort
 做安全判断**。真机必须提供真实状态，或者给 mock hardware 打开动力学计算。
+
+---
+
+### 2026.11.14 ｜ 第 24 天 · ROS2 周 Day 16：Panda 进 Gazebo，Day 1
+
+今天目标只有一个：
+
+```text
+Panda 在 Gazebo 里站起来
+7 个关节能动
+夹爪能开合
+```
+
+#### 踩过的坑
+
+**1. MoveIt 的 Panda URDF 没有 inertial**
+
+Gazebo 日志：
+
+```text
+Skipping joint ... not in the gazebo model
+```
+
+检查：
+
+```text
+grep -c "<inertial" /tmp/panda.urdf → 0
+```
+
+MoveIt 的 Panda 模型是给规划用的，不含质量/惯性；Gazebo 需要 inertial 才能建出完整关节模型。
+
+解决：
+
+```text
+PyBullet Panda 的 inertial
++ MoveIt2 的 DAE/STL 网格
++ 自己的 ros2_control/Gazebo 插件
+```
+
+**2. `panda_body.urdf` 是 fragment**
+
+xacro 报错：
+
+```text
+XML parsing error: junk after document element
+```
+
+原因是有多个顶层元素，没有单个 `<robot>` 根节点。补上根节点后解决。
+
+**3. 旧 Gazebo 进程残留**
+
+```text
+[gzserver-1]: process has died exit code 255
+[spawn_entity]: Spawn status: Entity [panda] already exists.
+Controller already loaded
+Failed to activate controller
+```
+
+旧 `gzserver`/`gzclient`/spawner 没退干净，新的 `spawn_entity` 连到了旧 Gazebo。清掉旧进程后恢复。
+
+**4. 时间源不一致**
+
+`panda_wave.py`：
+
+```text
+goal accepted, waiting for result
+```
+
+然后一直不结束。
+
+原因：
+
+```text
+Gazebo：use_sim_time=True，使用 /clock
+脚本：没设置 use_sim_time，使用系统时间
+```
+
+JTC 在等一个“未来”的轨迹开始时间。加参数后解决：
+
+```bash
+python3 .../panda_wave.py --ros-args -p use_sim_time:=true
+```
+
+#### 最终结果
+
+机械臂：
+
+```text
+sending 7-joint trajectory: 2 points over 4.0s
+goal accepted, waiting for result
+result: code=0, message=Goal successfully reached!
+```
+
+夹爪：
+
+```text
+open:  position=0.040 → code=0
+close: position=0.000 → code=0
+open again: position=0.040 → code=0
+```
+
+用户观察：
+
+```text
+两个都动了
+```
+
+#### 今天学到的
+
+```text
+1. URDF 能规划 ≠ 能被 Gazebo 物理仿真
+2. Gazebo 需要 inertial，MoveIt 不需要
+3. xacro include 的文件也要有合法根节点
+4. Gazebo 用 /clock 时，外部脚本必须设置 use_sim_time
+5. Gazebo 界面“not responding”不一定代表 gzserver 挂了
+```
+
+#### 下一步
+
+```text
+Day 2：桌子、方块、盒子、相机、TF、目标检测
+```
+
+先让 Gazebo 里有一个完整的桌面场景，再谈 MoveIt2 抓取。
 
 ---
 

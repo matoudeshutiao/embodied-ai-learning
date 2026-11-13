@@ -140,7 +140,8 @@ project16_ros2_vla_bridge/
 │   ├── test_state_timeout.sh
 │   ├── stop_probe.py
 │   ├── analyze_stop.py
-│   └── panda_wave.py
+│   ├── panda_wave.py
+│   └── panda_gripper_test.py
 └── ros2_ws/
     └── src/
         ├── arm_mock_description/
@@ -148,6 +149,12 @@ project16_ros2_vla_bridge/
         │   ├── package.xml
         │   ├── config/controllers.yaml
         │   └── urdf/simple_arm_mock.urdf.xacro
+        ├── panda_gazebo_description/
+        │   ├── CMakeLists.txt
+        │   ├── package.xml
+        │   ├── config/controllers.yaml
+        │   ├── urdf/panda_body.urdf
+        │   └── urdf/panda_gazebo.urdf.xacro
         └── vla_bridge/
             ├── package.xml
             ├── setup.py
@@ -157,7 +164,8 @@ project16_ros2_vla_bridge/
             │   ├── real_controller_demo.launch.py
             │   ├── mock_hardware_demo.launch.py
             │   ├── panda_mock_hardware_demo.launch.py
-            │   └── panda_full_chain_demo.launch.py
+            │   ├── panda_full_chain_demo.launch.py
+            │   └── panda_gazebo_demo.launch.py
             ├── rviz/
             │   ├── real_controller_view.rviz
             │   └── panda_mock_view.rviz
@@ -180,7 +188,9 @@ project16_ros2_vla_bridge/
 | `mock_hardware_demo.launch.py` | 不启动 Gazebo，用 mock hardware 跑同一套控制链 |
 | `panda_mock_hardware_demo.launch.py` | Panda + mock hardware + RViz，7 关节 JTC |
 | `panda_full_chain_demo.launch.py` | Panda + safety_filter + safe_executor + mock_policy 完整链路 |
+| `panda_gazebo_demo.launch.py` | Panda + Gazebo Classic + 7 关节 + 夹爪 |
 | `panda_wave.py` | 直接给 `panda_arm_controller` 发一条 7 关节轨迹 |
+| `panda_gripper_test.py` | 测试 Gazebo 夹爪开合 |
 | `stop_probe.py` | 发一条慢轨迹并记录 watchdog 停止前后的关节状态 |
 | `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
 | `arm_mock_description/` | mock hardware 的 URDF 和控制器配置 |
@@ -504,7 +514,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–23 天完成；真机接口层 mock hardware 与 Panda 模型已跑通。
+> 状态：✅ 第 18–24 天完成；真机接口层 mock hardware、Panda mock 与 Panda Gazebo Day 1 已跑通。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -2454,6 +2464,146 @@ effort:   全部 NaN
    或用自定义 fake hardware plugin 提供 velocity
 2. 在 7 关节上重新测状态超时、watchdog、停止策略
 3. 再考虑接入感知/世界模型
+```
+
+---
+
+## 22. 第 24 天（2026-11-14）：Panda 进 Gazebo，Day 1
+
+目标：
+
+```text
+Panda 在 Gazebo 里站立
+7 个关节能动
+夹爪能开合
+```
+
+不接相机、MoveIt2、抓取。
+
+### 22.1 新增包
+
+```text
+panda_gazebo_description/
+├── config/controllers.yaml
+├── urdf/panda_body.urdf
+└── urdf/panda_gazebo.urdf.xacro
+```
+
+```text
+vla_bridge/launch/panda_gazebo_demo.launch.py
+scripts/panda_gripper_test.py
+```
+
+`panda_body.urdf` 由 PyBullet Panda 生成：
+
+```text
+PyBullet 的 inertial
++ MoveIt2 的 DAE/STL 网格
+- panda_grasptarget
+- mimic joint
+```
+
+`panda_gazebo.urdf.xacro` 再补：
+
+```text
+world link + fixed joint
+Gazebo ros2_control 插件
+7 个臂关节 + 2 个手指接口
+```
+
+### 22.2 启动
+
+```bash
+ros2 launch vla_bridge panda_gazebo_demo.launch.py
+```
+
+控制器：
+
+```text
+joint_state_broadcaster
+panda_arm_controller
+panda_gripper_controller
+```
+
+### 22.3 踩坑记录
+
+**MoveIt URDF 没有 inertial**
+
+```text
+grep -c "<inertial" → 0
+```
+
+Gazebo 无法建出关节，日志：
+
+```text
+Skipping joint ... not in the gazebo model
+```
+
+**xacro fragment 没有根节点**
+
+```text
+XML parsing error: junk after document element
+```
+
+**旧 Gazebo 进程残留**
+
+```text
+gzserver exit code 255
+Entity [panda] already exists
+Controller already loaded
+Failed to activate
+```
+
+**时间源不一致**
+
+```text
+goal accepted, waiting for result
+```
+
+脚本使用系统时间，JTC 使用 Gazebo 的 `/clock`，一直等不到轨迹开始时间。
+
+### 22.4 实测
+
+机械臂：
+
+```text
+[panda_wave] sending 7-joint trajectory: 2 points over 4.0s
+[panda_wave] result: code=0, message=Goal successfully reached!
+```
+
+夹爪：
+
+```text
+open:  position=0.040 → code=0
+close: position=0.000 → code=0
+open again: position=0.040 → code=0
+```
+
+用户观察：
+
+```text
+两个都动了
+```
+
+### 22.5 重要修正
+
+外部脚本在 Gazebo 里必须使用仿真时间：
+
+```bash
+python3 .../panda_wave.py --ros-args -p use_sim_time:=true
+```
+
+```bash
+python3 .../panda_gripper_test.py --ros-args -p use_sim_time:=true
+```
+
+Gazebo 界面显示 “not responding” 时，`gzserver` 可能仍在正常运行；
+可以先点 Wait，或者 Force Quit `gzclient`，用 RViz 观察。
+
+### 22.6 下一步
+
+```text
+Day 2：桌子、方块、盒子、相机、TF、目标检测
 ```
 
 ---
