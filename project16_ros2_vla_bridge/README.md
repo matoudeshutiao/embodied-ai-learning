@@ -167,7 +167,8 @@ project16_ros2_vla_bridge/
             │   ├── panda_mock_hardware_demo.launch.py
             │   ├── panda_full_chain_demo.launch.py
             │   ├── panda_gazebo_demo.launch.py
-            │   └── panda_table_demo.launch.py
+            │   ├── panda_table_demo.launch.py
+            │   └── panda_moveit_gazebo.launch.py
             ├── rviz/
             │   ├── real_controller_view.rviz
             │   ├── panda_mock_view.rviz
@@ -193,6 +194,7 @@ project16_ros2_vla_bridge/
 | `panda_full_chain_demo.launch.py` | Panda + safety_filter + safe_executor + mock_policy 完整链路 |
 | `panda_gazebo_demo.launch.py` | Panda + Gazebo Classic + 7 关节 + 夹爪 |
 | `panda_table_demo.launch.py` | 桌面场景 + RGB-D 相机 + HSV 检测 + RViz |
+| `panda_moveit_gazebo.launch.py` | Gazebo + MoveIt2 move_group + MoveIt RViz |
 | `panda_wave.py` | 直接给 `panda_arm_controller` 发一条 7 关节轨迹 |
 | `panda_gripper_test.py` | 测试 Gazebo 夹爪开合 |
 | `panda_color_detector.py` | HSV 检测 + 深度反投影到 `panda_link0` |
@@ -519,7 +521,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–24 天完成；真机接口层 mock hardware、Panda mock、Panda Gazebo Day 1/2 已跑通。
+> 状态：✅ 第 18–24 天完成；真机接口层 mock hardware、Panda mock、Panda Gazebo Day 1/2、MoveIt2 接入已跑通。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -2720,6 +2722,108 @@ Gazebo RGB-D
 
 ```text
 MoveIt2：pre-grasp → grasp → lift → place
+```
+
+---
+
+## 24. MoveIt2 接入 Gazebo（2026-11-14）
+
+### 24.1 新增 launch
+
+```text
+vla_bridge/launch/panda_moveit_gazebo.launch.py
+```
+
+结构：
+
+```text
+Gazebo + Panda + panda_arm_controller
++ move_group
++ MoveIt RViz
+```
+
+MoveIt 配置复用：
+
+```text
+panda.srdf
+KDL 运动学
+OMPL
+moveit_controllers.yaml
+```
+
+其中 `moveit_controllers.yaml` 已经指向：
+
+```text
+panda_arm_controller/follow_joint_trajectory
+```
+
+`robot_description` 换成：
+
+```text
+panda_gazebo.urdf.xacro
+```
+
+### 24.2 move_group 日志
+
+```text
+Added FollowJointTrajectory controller for panda_arm_controller
+Using planning interface 'OMPL'
+Trajectory execution is managing controllers
+You can start planning now!
+```
+
+### 24.3 RViz 参数冲突
+
+RViz 一开始完全不启动，日志里没有 `rviz2` 行。
+
+原因：
+
+```text
+panda_moveit_gazebo 用 start_rviz 控制 MoveIt RViz
+panda_table_demo 也传 start_rviz=false
+同名 launch 参数覆盖，MoveIt RViz 条件一直为 false
+```
+
+修复：
+
+```text
+父 launch 参数改为 start_moveit_rviz
+```
+
+### 24.4 RViz 配置
+
+MoveIt 默认 `moveit.rviz` 的 Fixed Frame 是 `base_link`，  
+但我们的 TF 根是 `panda_link0`。
+
+本地配置：
+
+```text
+/home/wsq/panda_moveit_view.rviz
+Fixed Frame: panda_link0
+```
+
+启动：
+
+```bash
+ros2 launch vla_bridge panda_moveit_gazebo.launch.py rviz_config:=/home/wsq/panda_moveit_view.rviz
+```
+
+现在 RViz 能启动，MotionPlanning 面板可见。
+
+### 24.5 已知警告
+
+```text
+virtual joint child 'panda_link0' does not match URDF frame 'world'
+Assuming fixed joint
+```
+
+固定底座暂时可接受，后面统一 world/panda_link0 的 TF 关系。
+
+### 24.6 下一步
+
+```text
+RViz 里先 Plan，再 Execute
+验证 MoveIt2 → panda_arm_controller → Gazebo
 ```
 
 ---

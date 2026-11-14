@@ -333,7 +333,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;21 | 2026.11.10 | ROS2 周 Day 13：安全停止体检、`/joint_states.velocity` 交叉验证与停止曲线 |
 | Day&nbsp;22 | 2026.11.11 | ROS2 周 Day 14：急停过渡量化、减速度计算与理想减速对比 |
 | Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo；Panda 7 关节完整链路跑通 |
-| Day&nbsp;24 | 2026.11.14 | ROS2 周 Day 16：Panda 进 Gazebo、inertial/xacro/时间源调试；桌面场景、RGB-D 相机与检测 |
+| Day&nbsp;24 | 2026.11.14 | ROS2 周 Day 16：Panda 进 Gazebo；桌面场景、RGB-D 检测；MoveIt2 接入与 RViz 参数冲突 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -3629,10 +3629,83 @@ HSV 检测
 Gazebo 里看不到相机本体，因为相机模型只有 `<sensor>`，没有 `<visual>`；
 但 `/camera/image_raw` 和目标位姿都正常。
 
+#### MoveIt2 接入 Gazebo
+
+新增：
+
+```text
+panda_moveit_gazebo.launch.py
+```
+
+它复用官方 Panda 的：
+
+```text
+panda.srdf
+KDL 运动学
+OMPL
+moveit_controllers.yaml
+```
+
+并把 `robot_description` 换成 Gazebo 版 Panda，控制器直接指向：
+
+```text
+panda_arm_controller/follow_joint_trajectory
+```
+
+`move_group` 启动日志：
+
+```text
+Added FollowJointTrajectory controller for panda_arm_controller
+Using planning interface 'OMPL'
+Trajectory execution is managing controllers
+You can start planning now!
+```
+
+#### RViz 为什么不启动
+
+这次卡了很久，根因不是 RViz：
+
+```text
+panda_moveit_gazebo 用 start_rviz 控制自己的 RViz
+panda_table_demo 也传了 start_rviz=false
+同名参数覆盖，父 launch 的 RViz 条件永远为 false
+```
+
+修复：
+
+```text
+父 launch 改用自己的参数名 start_moveit_rviz
+```
+
+另外 MoveIt 默认 RViz 的 Fixed Frame 是 `base_link`，但 Panda 的 TF 根是 `panda_link0`，所以做了一份本地配置：
+
+```text
+/home/wsq/panda_moveit_view.rviz
+Fixed Frame: panda_link0
+```
+
+启动：
+
+```bash
+ros2 launch vla_bridge panda_moveit_gazebo.launch.py rviz_config:=/home/wsq/panda_moveit_view.rviz
+```
+
+现在 RViz 能启动并显示 MotionPlanning 面板。
+
+MoveIt 还有一个警告：
+
+```text
+virtual joint child 'panda_link0' does not match URDF frame 'world'
+Assuming fixed joint
+```
+
+固定底座暂时可以接受，后面统一 world/panda_link0 的 TF 关系。
+
 #### 下一步
 
 ```text
-MoveIt2：pre-grasp → grasp → lift → place
+RViz 里先 Plan，再 Execute
+验证 MoveIt2 → panda_arm_controller → Gazebo
 ```
 
 ---

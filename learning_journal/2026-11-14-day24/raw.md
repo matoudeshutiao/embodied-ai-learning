@@ -182,3 +182,62 @@ x=0.45, y=-0.15, z=0.40
 
 - 原始文件：`personal journal/11141.png`
 - 项目副本：`project16_ros2_vla_bridge/assets/panda_table_scene.png`
+
+## MoveIt2 接入
+
+启动：
+
+```bash
+ros2 launch vla_bridge panda_moveit_gazebo.launch.py rviz_config:=/home/wsq/panda_moveit_view.rviz
+```
+
+`move_group` 日志：
+
+```text
+Added FollowJointTrajectory controller for panda_arm_controller
+Using planning interface 'OMPL'
+Trajectory execution is managing controllers
+You can start planning now!
+```
+
+RViz 一直不启动，日志里没有 `rviz2`。
+
+原因：
+
+```text
+panda_moveit_gazebo 用 start_rviz 控制 MoveIt RViz
+panda_table_demo 也传了 start_rviz=false
+同名参数覆盖，MoveIt RViz 条件一直为 false
+```
+
+修复：
+
+```text
+父 launch 改用 start_moveit_rviz
+```
+
+RViz 配置：
+
+```text
+/home/wsq/panda_moveit_view.rviz
+Fixed Frame: panda_link0
+```
+
+用户观察：
+
+```text
+哦，有了
+```
+
+已知警告：
+
+```text
+virtual joint child 'panda_link0' does not match URDF frame 'world'
+Assuming fixed joint
+```
+
+下一步：
+
+```text
+RViz 里先 Plan，再 Execute
+```
