@@ -24,7 +24,7 @@ def generate_launch_description():
         "moveit_resources_panda_moveit_config"
     )
 
-    start_rviz = LaunchConfiguration("start_rviz")
+    start_rviz = LaunchConfiguration("start_moveit_rviz")
     rviz_config = LaunchConfiguration("rviz_config")
     xacro_file = os.path.join(
         panda_share, "urdf", "panda_gazebo.urdf.xacro"
@@ -88,7 +88,7 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument(
-                "start_rviz",
+                "start_moveit_rviz",
                 default_value="true",
                 description="Start MoveIt RViz MotionPlanning.",
             ),
