@@ -32,6 +32,9 @@
   <exec_depend>arm_mock_description</exec_depend>
   <exec_depend>panda_gazebo_description</exec_depend>
   <exec_depend>moveit_resources_panda_moveit_config</exec_depend>
+  <exec_depend>moveit_configs_utils</exec_depend>
+  <exec_depend>moveit_ros_move_group</exec_depend>
+  <exec_depend>moveit_planners_ompl</exec_depend>
   <exec_depend>mock_components</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
