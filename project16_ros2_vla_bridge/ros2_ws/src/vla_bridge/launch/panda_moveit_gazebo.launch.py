@@ -99,6 +99,6 @@ def generate_launch_description():
             ),
             gazebo_demo,
             TimerAction(period=12.0, actions=[move_group]),
-            TimerAction(period=14.0, actions=[rviz]),
+            rviz,
         ]
     )
