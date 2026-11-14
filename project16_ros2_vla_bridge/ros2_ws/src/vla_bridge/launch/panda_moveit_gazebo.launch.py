@@ -25,6 +25,7 @@ def generate_launch_description():
     )
 
     start_rviz = LaunchConfiguration("start_rviz")
+    rviz_config = LaunchConfiguration("rviz_config")
     xacro_file = os.path.join(
         panda_share, "urdf", "panda_gazebo.urdf.xacro"
     )
@@ -65,13 +66,15 @@ def generate_launch_description():
         arguments=["--ros-args", "--log-level", "info"],
     )
 
-    rviz_file = os.path.join(moveit_share, "launch", "moveit.rviz")
+    default_rviz_config = os.path.join(
+        moveit_share, "launch", "moveit.rviz"
+    )
     rviz = Node(
         package="rviz2",
         executable="rviz2",
         name="rviz2",
         output="screen",
-        arguments=["-d", rviz_file],
+        arguments=["-d", rviz_config],
         parameters=[
             moveit_config.robot_description,
             moveit_config.robot_description_semantic,
@@ -88,6 +91,11 @@ def generate_launch_description():
                 "start_rviz",
                 default_value="true",
                 description="Start MoveIt RViz MotionPlanning.",
+            ),
+            DeclareLaunchArgument(
+                "rviz_config",
+                default_value=default_rviz_config,
+                description="RViz config file for MoveIt.",
             ),
             gazebo_demo,
             TimerAction(period=12.0, actions=[move_group]),
