@@ -1,0 +1,158 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="panda_table">
+    <include>
+      <uri>model://sun</uri>
+    </include>
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <physics type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+
+    <model name="table">
+      <static>true</static>
+      <pose>0.55 0 0.175 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.80 0.80 0.35</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.80 0.80 0.35</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.45 0.35 0.25 1</ambient>
+            <diffuse>0.55 0.42 0.30 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="red_cube">
+      <pose>0.45 -0.15 0.375 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.05 0.05 0.05</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.05 0.05 0.05</size></box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.05 0.05 1</ambient>
+            <diffuse>0.9 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="green_cube">
+      <pose>0.55 0.00 0.375 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.05 0.05 0.05</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.05 0.05 0.05</size></box>
+          </geometry>
+          <material>
+            <ambient>0.05 0.7 0.10 1</ambient>
+            <diffuse>0.05 0.8 0.10 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="blue_cube">
+      <pose>0.65 0.15 0.375 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.05 0.05 0.05</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.05 0.05 0.05</size></box>
+          </geometry>
+          <material>
+            <ambient>0.05 0.10 0.8 1</ambient>
+            <diffuse>0.05 0.10 0.9 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="blue_box">
+      <static>true</static>
+      <pose>0.55 0.24 0.38 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.16 0.16 0.10</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.16 0.16 0.10</size></box>
+          </geometry>
+          <material>
+            <ambient>0.05 0.10 0.7 1</ambient>
+            <diffuse>0.05 0.10 0.8 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 固定俯视 RGB-D 相机 -->
+    <model name="overhead_camera">
+      <static>true</static>
+      <pose>0.55 0 1.15 0 1.5708 0</pose>
+      <link name="camera_link">
+        <sensor name="camera" type="depth">
+          <always_on>true</always_on>
+          <update_rate>15</update_rate>
+          <camera name="camera">
+            <horizontal_fov>1.047198</horizontal_fov>
+            <image>
+              <width>320</width>
+              <height>240</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip>
+              <near>0.05</near>
+              <far>3.0</far>
+            </clip>
+          </camera>
+          <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+            <camera_name>camera</camera_name>
+            <frame_name>camera_optical_frame</frame_name>
+            <min_depth>0.05</min_depth>
+            <max_depth>3.0</max_depth>
+            <remapping>camera/image_raw:=/camera/image_raw</remapping>
+            <remapping>camera/image_depth:=/camera/depth/image_raw</remapping>
+            <remapping>camera/camera_info:=/camera/camera_info</remapping>
+            <remapping>camera/camera_info_depth:=/camera/depth/camera_info</remapping>
+            <remapping>camera/points:=/camera/points</remapping>
+          </plugin>
+        </sensor>
+      </link>
+    </model>
+  </world>
+</sdf>

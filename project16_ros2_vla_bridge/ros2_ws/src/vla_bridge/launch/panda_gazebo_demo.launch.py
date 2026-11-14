@@ -32,7 +32,9 @@ def generate_launch_description():
         panda_share, "urdf", "panda_gazebo.urdf.xacro"
     )
     rviz_file = os.path.join(vla_share, "rviz", "panda_mock_view.rviz")
+    empty_world = os.path.join(gazebo_share, "worlds", "empty.world")
     start_rviz = LaunchConfiguration("start_rviz")
+    world = LaunchConfiguration("world")
 
     robot_description = ParameterValue(
         Command([FindExecutable(name="xacro"), " ", xacro_file]),
@@ -42,7 +44,8 @@ def generate_launch_description():
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(gazebo_share, "launch", "gazebo.launch.py")
-        )
+        ),
+        launch_arguments={"world": world}.items(),
     )
 
     robot_state_publisher = Node(
@@ -128,6 +131,11 @@ def generate_launch_description():
                 "start_rviz",
                 default_value="true",
                 description="Start RViz with the Panda model.",
+            ),
+            DeclareLaunchArgument(
+                "world",
+                default_value=empty_world,
+                description="Gazebo world file.",
             ),
             gazebo,
             robot_state_publisher,
