@@ -153,6 +153,7 @@ project16_ros2_vla_bridge/
         │   ├── CMakeLists.txt
         │   ├── package.xml
         │   ├── config/controllers.yaml
+        │   ├── worlds/panda_table.world
         │   ├── urdf/panda_body.urdf
         │   └── urdf/panda_gazebo.urdf.xacro
         └── vla_bridge/
@@ -165,10 +166,12 @@ project16_ros2_vla_bridge/
             │   ├── mock_hardware_demo.launch.py
             │   ├── panda_mock_hardware_demo.launch.py
             │   ├── panda_full_chain_demo.launch.py
-            │   └── panda_gazebo_demo.launch.py
+            │   ├── panda_gazebo_demo.launch.py
+            │   └── panda_table_demo.launch.py
             ├── rviz/
             │   ├── real_controller_view.rviz
-            │   └── panda_mock_view.rviz
+            │   ├── panda_mock_view.rviz
+            │   └── panda_vision_view.rviz
             └── vla_bridge/
                 ├── __init__.py
                 ├── mock_policy.py
@@ -189,8 +192,10 @@ project16_ros2_vla_bridge/
 | `panda_mock_hardware_demo.launch.py` | Panda + mock hardware + RViz，7 关节 JTC |
 | `panda_full_chain_demo.launch.py` | Panda + safety_filter + safe_executor + mock_policy 完整链路 |
 | `panda_gazebo_demo.launch.py` | Panda + Gazebo Classic + 7 关节 + 夹爪 |
+| `panda_table_demo.launch.py` | 桌面场景 + RGB-D 相机 + HSV 检测 + RViz |
 | `panda_wave.py` | 直接给 `panda_arm_controller` 发一条 7 关节轨迹 |
 | `panda_gripper_test.py` | 测试 Gazebo 夹爪开合 |
+| `panda_color_detector.py` | HSV 检测 + 深度反投影到 `panda_link0` |
 | `stop_probe.py` | 发一条慢轨迹并记录 watchdog 停止前后的关节状态 |
 | `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
 | `arm_mock_description/` | mock hardware 的 URDF 和控制器配置 |
@@ -514,7 +519,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–24 天完成；真机接口层 mock hardware、Panda mock 与 Panda Gazebo Day 1 已跑通。
+> 状态：✅ 第 18–24 天完成；真机接口层 mock hardware、Panda mock、Panda Gazebo Day 1/2 已跑通。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -2625,6 +2630,96 @@ Gazebo 界面显示 “not responding” 时，`gzserver` 可能仍在正常运�
 
 ```text
 Day 2：桌子、方块、盒子、相机、TF、目标检测
+```
+
+---
+
+## 23. Panda Gazebo Day 2：桌面场景与 RGB-D 检测
+
+### 23.1 场景
+
+新增：
+
+```text
+panda_gazebo_description/worlds/panda_table.world
+vla_bridge/launch/panda_table_demo.launch.py
+vla_bridge/vla_bridge/panda_color_detector.py
+vla_bridge/rviz/panda_vision_view.rviz
+```
+
+场景内容：
+
+```text
+桌子
+红 / 绿 / 蓝三个方块
+蓝色盒子
+固定俯视 RGB-D 相机
+```
+
+### 23.2 相机
+
+话题：
+
+```text
+/camera/image_raw
+/camera/depth/image_raw
+/camera/camera_info
+/camera/points
+/vision/debug_image
+```
+
+频率：
+
+```text
+/camera/image_raw ≈ 14.7 Hz
+```
+
+相机在 Gazebo 里不可见，因为模型只有 `<sensor>`，没有 `<visual>`；
+但传感器和话题正常。
+
+### 23.3 检测
+
+检测节点：
+
+```text
+panda_color_detector
+```
+
+输出：
+
+```text
+/vision/debug_image
+/vision/target_pose
+/vision/target_marker
+```
+
+红色方块：
+
+```text
+真实位置：x=0.45, y=-0.15, z=0.40
+检测输出：x=0.4526, y=-0.1448, z=0.4000
+```
+
+误差约 3–5 mm。
+
+![Panda 桌面场景与相机检测](assets/panda_table_scene.png)
+
+### 23.4 验证链路
+
+```text
+Gazebo RGB-D
+→ camera_optical_frame
+→ TF
+→ panda_link0
+→ HSV 检测
+→ 深度反投影
+→ /vision/target_pose
+```
+
+### 23.5 下一步
+
+```text
+MoveIt2：pre-grasp → grasp → lift → place
 ```
 
 ---

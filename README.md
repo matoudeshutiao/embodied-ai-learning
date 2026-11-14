@@ -333,7 +333,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;21 | 2026.11.10 | ROS2 周 Day 13：安全停止体检、`/joint_states.velocity` 交叉验证与停止曲线 |
 | Day&nbsp;22 | 2026.11.11 | ROS2 周 Day 14：急停过渡量化、减速度计算与理想减速对比 |
 | Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo；Panda 7 关节完整链路跑通 |
-| Day&nbsp;24 | 2026.11.14 | ROS2 周 Day 16：Panda 进 Gazebo、inertial/xacro/时间源调试、7 关节与夹爪实测 |
+| Day&nbsp;24 | 2026.11.14 | ROS2 周 Day 16：Panda 进 Gazebo、inertial/xacro/时间源调试；桌面场景、RGB-D 相机与检测 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -3578,13 +3578,62 @@ open again: position=0.040 → code=0
 5. Gazebo 界面“not responding”不一定代表 gzserver 挂了
 ```
 
+#### Day 2：桌面场景、RGB-D 相机与检测
+
+Gazebo 里加入：
+
+```text
+桌子
+红 / 绿 / 蓝三个方块
+蓝色盒子
+固定俯视 RGB-D 相机
+```
+
+相机话题：
+
+```text
+/camera/image_raw
+/camera/depth/image_raw
+/camera/camera_info
+/camera/points
+/vision/debug_image
+```
+
+图像频率：
+
+```text
+/camera/image_raw ≈ 14.7 Hz
+```
+
+检测结果：
+
+```text
+红色方块真实位置：x=0.45, y=-0.15, z=0.40
+检测输出：       x=0.4526, y=-0.1448, z=0.4000
+```
+
+误差约 3–5 mm。
+
+![Panda 桌面场景与相机检测](project16_ros2_vla_bridge/assets/panda_table_scene.png)
+
+这一步验证了：
+
+```text
+Gazebo 桌面场景
+RGB-D 相机
+camera_optical_frame → panda_link0 TF
+HSV 检测
+深度反投影
+```
+
+Gazebo 里看不到相机本体，因为相机模型只有 `<sensor>`，没有 `<visual>`；
+但 `/camera/image_raw` 和目标位姿都正常。
+
 #### 下一步
 
 ```text
-Day 2：桌子、方块、盒子、相机、TF、目标检测
+MoveIt2：pre-grasp → grasp → lift → place
 ```
-
-先让 Gazebo 里有一个完整的桌面场景，再谈 MoveIt2 抓取。
 
 ---
 

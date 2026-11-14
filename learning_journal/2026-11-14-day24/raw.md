@@ -121,3 +121,64 @@ result: code=0, message=Goal successfully reached!
 ```text
 ok了
 ```
+
+## Day 2：桌面场景、相机与检测
+
+启动：
+
+```bash
+ros2 launch vla_bridge panda_table_demo.launch.py
+```
+
+相机话题：
+
+```text
+/camera/camera_info
+/camera/depth/camera_info
+/camera/depth/image_raw
+/camera/image_raw
+/camera/points
+/vision/debug_image
+```
+
+图像频率：
+
+```text
+average rate: 14.738
+```
+
+目标位姿：
+
+```text
+header:
+  frame_id: panda_link0
+pose:
+  position:
+    x: 0.45256638775392183
+    y: -0.14479174047828586
+    z: 0.40000148603032437
+```
+
+红色方块真实位置：
+
+```text
+x=0.45, y=-0.15, z=0.40
+```
+
+用户观察：
+
+```text
+加载出来箱子了，但是我没有看到相机
+```
+
+说明：
+
+```text
+相机模型只有 <sensor>，没有 <visual>
+所以 Gazebo 里看不到相机本体，但话题和图像正常
+```
+
+截图：
+
+- 原始文件：`personal journal/11141.png`
+- 项目副本：`project16_ros2_vla_bridge/assets/panda_table_scene.png`
