@@ -7,7 +7,7 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/link0.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link0.stl" />
       </geometry>
       <material name="panda_white">
     		<color rgba="1. 1. 1. 1." />
@@ -15,7 +15,7 @@
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/link0.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link0.stl" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -28,13 +28,13 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/link1.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link1.stl" />
       </geometry>
       <material name="panda_white" />
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/link1.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link1.stl" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -55,13 +55,13 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/link2.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link2.stl" />
       </geometry>
       <material name="panda_white" />
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/link2.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link2.stl" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -82,7 +82,7 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/link3.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link3.stl" />
       </geometry>
       <material name="panda_red">
     		<color rgba="1. 1. 1. 1." />
@@ -90,7 +90,7 @@
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/link3.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link3.stl" />
       </geometry>
     </collision>
   </link>
@@ -110,13 +110,13 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/link4.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link4.stl" />
       </geometry>
       <material name="panda_white" />
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/link4.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link4.stl" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -137,13 +137,13 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/link5.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link5.stl" />
       </geometry>
       <material name="panda_white" />
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/link5.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link5.stl" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -164,13 +164,13 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/link6.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link6.stl" />
       </geometry>
       <material name="panda_white" />
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/link6.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link6.stl" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -191,13 +191,13 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/link7.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link7.stl" />
       </geometry>
       <material name="panda_white" />
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/link7.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/link7.stl" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -236,13 +236,13 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/hand.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/hand.stl" />
       </geometry>
       <material name="panda_white" />
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/hand.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/hand.stl" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -262,13 +262,13 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/finger.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/finger.stl" />
       </geometry>
       <material name="panda_white" />
     </visual>
     <collision>
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/finger.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/finger.stl" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -290,14 +290,14 @@
     <visual>
       <origin rpy="0 0 3.14159265359" xyz="0 0 0" />
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/visual/finger.dae" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/finger.stl" />
       </geometry>
       <material name="panda_white" />
     </visual>
     <collision>
       <origin rpy="0 0 3.14159265359" xyz="0 0 0" />
       <geometry>
-        <mesh filename="package://moveit_resources_panda_description/meshes/collision/finger.stl" />
+        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/finger.stl" />
       </geometry>
       <material name="panda_white" />
     </collision>
