@@ -67,6 +67,13 @@ def generate_launch_description():
             "-topic", "robot_description",
             "-entity", "panda",
             "-timeout", "60.0",
+            "-J", "panda_joint1", "0.0",
+            "-J", "panda_joint2", "-0.785398",
+            "-J", "panda_joint3", "0.0",
+            "-J", "panda_joint4", "-2.356194",
+            "-J", "panda_joint5", "0.0",
+            "-J", "panda_joint6", "1.570796",
+            "-J", "panda_joint7", "0.785398",
         ],
         output="screen",
     )
