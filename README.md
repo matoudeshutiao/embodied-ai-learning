@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–24 天：VLA/真机桥接、队列、时间对齐、安全层与 Panda Gazebo
+├── project16_ros2_vla_bridge/ # 第 15–26 天：VLA/真机桥接、队列、安全层、Panda Gazebo 与 MoveIt2 抓取
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -335,6 +335,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo；Panda 7 关节完整链路跑通 |
 | Day&nbsp;24 | 2026.11.14 | ROS2 周 Day 16：Panda 进 Gazebo；桌面场景、RGB-D 检测；MoveIt2 接入与 RViz 参数冲突 |
 | Day&nbsp;25 | 2026.11.15 | ROS2 周 Day 17：Panda 初始位姿、planning scene、MoveIt2 pre-grasp 与 `/move_action` |
+| Day&nbsp;26 | 2026.11.16 | ROS2 周 Day 18：最小抓取流程 `panda_pick`（实现，待实测） |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -3808,6 +3809,94 @@ source ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/dev_sync_vla.sh
 
 ```text
 grasp pose → 夹爪闭合 → lift → place
+```
+
+---
+
+### 2026.11.16 ｜ 第 26 天 · ROS2 周 Day 18：最小抓取流程 `panda_pick`
+
+今天先不做 place，只做“抓起来”。
+
+#### 流程
+
+新增：
+
+```text
+panda_pick.py
+```
+
+顺序：
+
+```text
+1. 等到 /vision/target_pose
+2. 张开夹爪 0.04
+3. MoveIt 到 pre-grasp（z + 0.20）
+4. 下探到 grasp（z + 0.10）
+5. 闭合夹爪 0.00
+6. 抬起到 lift（z + 0.30）
+```
+
+MoveIt 使用：
+
+```text
+/move_action
+```
+
+夹爪使用：
+
+```text
+/panda_gripper_controller/follow_joint_trajectory
+```
+
+#### planning scene 处理
+
+红方块现在还是 planning scene 里的障碍物。  
+下探前需要先 REMOVE：
+
+```text
+red_cube → CollisionObject.REMOVE
+```
+
+同时把 `panda_scene` 改成只发布 3 次，避免它不断把红方块重新加回来。
+
+#### 运行
+
+```bash
+source ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/dev_sync_vla.sh
+```
+
+```bash
+ros2 launch vla_bridge panda_moveit_gazebo.launch.py rviz_config:=/home/wsq/panda_moveit_view.rviz
+```
+
+另开终端：
+
+```bash
+ros2 run vla_bridge panda_pick
+```
+
+#### 当前状态
+
+```text
+代码完成
+语法检查通过
+VM 实跑待补
+```
+
+还没有验证：
+
+```text
+夹爪高度是否正好夹住方块
+红方块是否真的跟着手抬起
+是否会出现夹空/碰倒
+```
+
+#### 下一步
+
+```text
+实跑 panda_pick
+根据结果调 grasp z 和夹爪开合
+再做 place
 ```
 
 ---

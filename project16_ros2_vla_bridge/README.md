@@ -184,6 +184,7 @@ project16_ros2_vla_bridge/
                 ├── panda_home.py
                 ├── panda_scene.py
                 ├── panda_move_to_target.py
+                ├── panda_pick.py
                 └── mock_trajectory_server.py
 ```
 
@@ -206,6 +207,7 @@ project16_ros2_vla_bridge/
 | `panda_home.py` | 启动后把 Panda 移到合法初始位姿 |
 | `panda_scene.py` | 把桌面/方块/盒子发布到 MoveIt planning scene |
 | `panda_move_to_target.py` | 目标上方 pre-grasp 的 MoveGroup 客户端 |
+| `panda_pick.py` | open → pre-grasp → grasp → close → lift |
 | `dev_sync_vla.sh` | 一键 pull/同步/build/source |
 | `stop_probe.py` | 发一条慢轨迹并记录 watchdog 停止前后的关节状态 |
 | `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
@@ -530,7 +532,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–25 天完成；真机接口层 mock hardware、Panda mock、Panda Gazebo Day 1/2、MoveIt2 pre-grasp 已跑通。
+> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 已实现，VM 实测待补。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -2929,6 +2931,75 @@ source ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/dev_sync_vla.sh
 
 ```text
 grasp pose → 夹爪闭合 → lift → place
+```
+
+---
+
+## 26. 第 26 天（2026-11-16）：最小抓取流程 `panda_pick`
+
+### 26.1 状态机
+
+```text
+WAIT_TARGET
+→ OPEN_GRIPPER
+→ PRE_GRASP
+→ GRASP
+→ CLOSE_GRIPPER
+→ LIFT
+```
+
+### 26.2 关键动作
+
+MoveIt：
+
+```text
+/move_action
+panda_arm
+panda_link8
+位置 + 朝下姿态约束
+```
+
+夹爪：
+
+```text
+/panda_gripper_controller/follow_joint_trajectory
+panda_finger_joint1/2
+0.04 张开
+0.00 闭合
+```
+
+### 26.3 planning scene
+
+下探前删除红方块：
+
+```text
+red_cube → CollisionObject.REMOVE
+```
+
+`panda_scene` 改为只发布 3 次，避免把红方块重新加回来。
+
+### 26.4 当前状态
+
+```text
+代码完成
+语法检查通过
+VM 实跑待补
+```
+
+未验证：
+
+```text
+抓取高度
+夹爪是否夹空
+方块是否跟着抬起
+```
+
+### 26.5 下一步
+
+```text
+实跑 panda_pick
+调 grasp z / 夹爪开合
+再做 place
 ```
 
 ---
