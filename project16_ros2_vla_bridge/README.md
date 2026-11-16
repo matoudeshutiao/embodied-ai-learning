@@ -141,7 +141,8 @@ project16_ros2_vla_bridge/
 │   ├── stop_probe.py
 │   ├── analyze_stop.py
 │   ├── panda_wave.py
-│   └── panda_gripper_test.py
+│   ├── panda_gripper_test.py
+│   └── dev_sync_vla.sh
 └── ros2_ws/
     └── src/
         ├── arm_mock_description/
@@ -179,6 +180,10 @@ project16_ros2_vla_bridge/
                 ├── safety_filter.py
                 ├── safe_executor.py
                 ├── queue_probe.py
+                ├── panda_color_detector.py
+                ├── panda_home.py
+                ├── panda_scene.py
+                ├── panda_move_to_target.py
                 └── mock_trajectory_server.py
 ```
 
@@ -198,6 +203,10 @@ project16_ros2_vla_bridge/
 | `panda_wave.py` | 直接给 `panda_arm_controller` 发一条 7 关节轨迹 |
 | `panda_gripper_test.py` | 测试 Gazebo 夹爪开合 |
 | `panda_color_detector.py` | HSV 检测 + 深度反投影到 `panda_link0` |
+| `panda_home.py` | 启动后把 Panda 移到合法初始位姿 |
+| `panda_scene.py` | 把桌面/方块/盒子发布到 MoveIt planning scene |
+| `panda_move_to_target.py` | 目标上方 pre-grasp 的 MoveGroup 客户端 |
+| `dev_sync_vla.sh` | 一键 pull/同步/build/source |
 | `stop_probe.py` | 发一条慢轨迹并记录 watchdog 停止前后的关节状态 |
 | `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
 | `arm_mock_description/` | mock hardware 的 URDF 和控制器配置 |
@@ -521,7 +530,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–24 天完成；真机接口层 mock hardware、Panda mock、Panda Gazebo Day 1/2、MoveIt2 接入已跑通。
+> 状态：✅ 第 18–25 天完成；真机接口层 mock hardware、Panda mock、Panda Gazebo Day 1/2、MoveIt2 pre-grasp 已跑通。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -2824,6 +2833,102 @@ Assuming fixed joint
 ```text
 RViz 里先 Plan，再 Execute
 验证 MoveIt2 → panda_arm_controller → Gazebo
+```
+
+---
+
+## 25. 第 25 天（2026-11-15）：MoveIt2 pre-grasp
+
+### 25.1 初始位姿问题
+
+MoveIt 报：
+
+```text
+Starting state is just outside bounds (joint 'panda_joint4')
+Start state appears to be in collision
+panda_link5 和 panda_link7 接触
+OMPL: Skipping invalid start state
+```
+
+原因：
+
+```text
+panda_joint4 合法范围 -3.0718 ~ -0.0698
+Gazebo 默认关节全为 0
+```
+
+Humble 的 `spawn_entity.py` 不支持 `-J`，所以不能靠 spawn 参数设初值。
+
+新增 `panda_home`：
+
+```text
+启动后通过 panda_arm_controller 移动到合法初始位姿
+```
+
+### 25.2 桌面 collision scene
+
+新增 `panda_scene`，发布到 `/planning_scene`：
+
+```text
+table
+red_cube
+green_cube
+blue_cube
+blue_box
+```
+
+### 25.3 MoveGroup action
+
+MoveIt2 实际 action 是：
+
+```text
+/move_action
+```
+
+不是 `/move_group`。
+
+### 25.4 pre-grasp
+
+新增 `panda_move_to_target`：
+
+```text
+订阅 /vision/target_pose
+目标 z + 0.20 m
+MoveGroup /move_action
+位置 + 朝下姿态约束
+```
+
+实测：
+
+```text
+pre-grasp target: x=0.453, y=-0.145, z=0.600
+sending MoveGroup pre-grasp request
+pre-grasp execution succeeded
+```
+
+### 25.5 姿势为什么不自然
+
+```text
+Panda 7 自由度冗余
+多组 IK 都满足位置/朝向
+OMPL RRTConnect 只保证可行、无碰撞
+没有肘部/腕部 natural posture 约束
+```
+
+### 25.6 一键同步
+
+```text
+scripts/dev_sync_vla.sh
+```
+
+```bash
+source ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/dev_sync_vla.sh
+```
+
+### 25.7 下一步
+
+```text
+grasp pose → 夹爪闭合 → lift → place
 ```
 
 ---

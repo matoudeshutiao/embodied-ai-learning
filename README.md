@@ -334,6 +334,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;22 | 2026.11.11 | ROS2 周 Day 14：急停过渡量化、减速度计算与理想减速对比 |
 | Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo；Panda 7 关节完整链路跑通 |
 | Day&nbsp;24 | 2026.11.14 | ROS2 周 Day 16：Panda 进 Gazebo；桌面场景、RGB-D 检测；MoveIt2 接入与 RViz 参数冲突 |
+| Day&nbsp;25 | 2026.11.15 | ROS2 周 Day 17：Panda 初始位姿、planning scene、MoveIt2 pre-grasp 与 `/move_action` |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -3706,6 +3707,107 @@ Assuming fixed joint
 ```text
 RViz 里先 Plan，再 Execute
 验证 MoveIt2 → panda_arm_controller → Gazebo
+```
+
+---
+
+### 2026.11.15 ｜ 第 25 天 · ROS2 周 Day 17：MoveIt2 pre-grasp 与初始位姿修复
+
+今天把 MoveIt2 从“能启动”推进到“能执行 pre-grasp”。
+
+#### 1. Gazebo 初始关节全是 0
+
+MoveIt 规划失败：
+
+```text
+Starting state is just outside bounds (joint 'panda_joint4')
+Start state appears to be in collision
+panda_link5 和 panda_link7 接触
+OMPL: Skipping invalid start state
+```
+
+原因：
+
+```text
+panda_joint4 合法范围是 -3.0718 ~ -0.0698
+Gazebo 默认所有关节 = 0
+```
+
+#### 2. spawn_entity.py 没有 -J
+
+这个 Humble 版本的 `spawn_entity.py` 不支持 `-J`，所以 spawn 直接失败。
+
+改成新增：
+
+```text
+panda_home
+```
+
+启动后用 `panda_arm_controller` 把 Panda 移到合法初始位姿。
+
+#### 3. MoveGroup action 不是 /move_group
+
+实际 action server 是：
+
+```text
+/move_action
+```
+
+`panda_move_to_target` 已改为连接 `/move_action`。
+
+#### 4. 桌面进入 planning scene
+
+新增：
+
+```text
+panda_scene
+```
+
+把桌子、三个方块、蓝盒发布到 `/planning_scene`，MoveIt 才会避障。
+
+#### 5. pre-grasp 成功
+
+`panda_move_to_target` 订阅 `/vision/target_pose`，规划到红方块上方 20 cm：
+
+```text
+pre-grasp target: x=0.453, y=-0.145, z=0.600
+sending MoveGroup pre-grasp request
+pre-grasp execution succeeded
+```
+
+#### 6. 为什么姿势看起来别扭
+
+MoveIt 的规划结果：
+
+```text
+Panda 是 7 自由度，有冗余
+同一末端位姿有多组 IK
+OMPL/RRTConnect 只保证可行、无碰撞
+不保证肘部朝上、腕部自然、路径短得像人
+```
+
+当前只约束了位置和大约朝下，没有 natural posture 约束，所以选了一个合法但奇怪的解。
+
+#### 7. 一键同步脚本
+
+新增：
+
+```text
+dev_sync_vla.sh
+```
+
+用法：
+
+```bash
+source ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/dev_sync_vla.sh
+```
+
+自动完成 `git pull`、同步、build、source。
+
+#### 下一步
+
+```text
+grasp pose → 夹爪闭合 → lift → place
 ```
 
 ---
