@@ -55,6 +55,12 @@ def generate_launch_description():
         launch_arguments={"start_rviz": "false"}.items(),
     )
 
+    panda_scene = Node(
+        package="vla_bridge",
+        executable="panda_scene",
+        output="screen",
+    )
+
     move_group = Node(
         package="moveit_ros_move_group",
         executable="move_group",
@@ -99,6 +105,7 @@ def generate_launch_description():
             ),
             gazebo_demo,
             TimerAction(period=16.0, actions=[move_group]),
+            TimerAction(period=18.0, actions=[panda_scene]),
             rviz,
         ]
     )

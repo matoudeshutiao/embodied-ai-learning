@@ -39,6 +39,7 @@ setup(
             "queue_probe = vla_bridge.queue_probe:main",
             "panda_color_detector = vla_bridge.panda_color_detector:main",
             "panda_home = vla_bridge.panda_home:main",
+            "panda_scene = vla_bridge.panda_scene:main",
         ],
     },
 )
