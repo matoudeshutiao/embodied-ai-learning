@@ -98,7 +98,7 @@ def generate_launch_description():
                 description="RViz config file for MoveIt.",
             ),
             gazebo_demo,
-            TimerAction(period=12.0, actions=[move_group]),
+            TimerAction(period=16.0, actions=[move_group]),
             rviz,
         ]
     )
