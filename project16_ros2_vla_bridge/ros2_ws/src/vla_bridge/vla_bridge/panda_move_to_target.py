@@ -22,7 +22,7 @@ class PandaMoveToTarget(Node):
         self.offset = float(
             self.get_parameter("pre_grasp_offset").value
         )
-        self.client = ActionClient(self, MoveGroup, "/move_group")
+        self.client = ActionClient(self, MoveGroup, "/move_action")
         self.create_subscription(
             PoseStamped,
             "/vision/target_pose",
@@ -40,7 +40,7 @@ class PandaMoveToTarget(Node):
             return
 
         if not self.client.wait_for_server(timeout_sec=10.0):
-            self.get_logger().error("/move_group action not ready")
+            self.get_logger().error("/move_action action not ready")
             return
 
         target = PoseStamped()
