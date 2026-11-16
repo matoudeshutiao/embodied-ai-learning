@@ -15,6 +15,7 @@ class PandaScene(Node):
             PlanningScene, "/planning_scene", 10
         )
         self.sent = False
+        self.publish_count = 0
         self.timer = self.create_timer(1.0, self.publish_scene)
 
     @staticmethod
@@ -48,9 +49,12 @@ class PandaScene(Node):
             self.box("blue_box", (0.55, 0.24, 0.38), (0.16, 0.16, 0.10)),
         ]
         self.pub.publish(scene)
+        self.publish_count += 1
         if not self.sent:
             self.get_logger().info("published table scene to MoveIt")
             self.sent = True
+        if self.publish_count >= 3:
+            self.timer.cancel()
 
 
 def main(args=None):
