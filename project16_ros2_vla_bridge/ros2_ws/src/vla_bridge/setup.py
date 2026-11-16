@@ -40,6 +40,7 @@ setup(
             "panda_color_detector = vla_bridge.panda_color_detector:main",
             "panda_home = vla_bridge.panda_home:main",
             "panda_scene = vla_bridge.panda_scene:main",
+            "panda_move_to_target = vla_bridge.panda_move_to_target:main",
         ],
     },
 )
