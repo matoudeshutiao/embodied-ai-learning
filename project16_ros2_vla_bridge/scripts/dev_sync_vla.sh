@@ -21,8 +21,10 @@ REPO="$HOME/embodied-ai-learning"
 WS="$HOME/ros2_ws"
 SRC="$REPO/project16_ros2_vla_bridge/ros2_ws/src/vla_bridge"
 DST="$WS/src/vla_bridge"
+PANDA_SRC="$REPO/project16_ros2_vla_bridge/ros2_ws/src/panda_gazebo_description"
+PANDA_DST="$WS/src/panda_gazebo_description"
 
-for path in "$REPO" "$WS" "$SRC" "$DST"; do
+for path in "$REPO" "$WS" "$SRC" "$DST" "$PANDA_SRC" "$PANDA_DST"; do
   if [ ! -d "$path" ]; then
     echo "ERROR: 目录不存在: $path"
     return 1
@@ -48,13 +50,16 @@ fi
 echo "== sync vla_bridge =="
 cp -r "$SRC/." "$DST/" || return 1
 
+echo "== sync panda_gazebo_description =="
+cp -r "$PANDA_SRC/." "$PANDA_DST/" || return 1
+
 cd "$WS" || return 1
 
 echo "== source ROS2 =="
 source /opt/ros/humble/setup.bash || return 1
 
-echo "== colcon build vla_bridge =="
-if ! colcon build --symlink-install --packages-select vla_bridge; then
+echo "== colcon build =="
+if ! colcon build --symlink-install --packages-select panda_gazebo_description vla_bridge; then
   echo "ERROR: colcon build 失败。"
   return 1
 fi
