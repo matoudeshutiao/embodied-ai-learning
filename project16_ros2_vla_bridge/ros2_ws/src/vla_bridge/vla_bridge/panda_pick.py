@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """最小抓取流程：开夹爪 → pre-grasp → 下探 → 闭合 → 抬起。"""
 
+import time
+
 import rclpy
 from builtin_interfaces.msg import Duration, Time
 from control_msgs.action import FollowJointTrajectory
+from gazebo_msgs.srv import GetModelState
 from geometry_msgs.msg import Pose, PoseStamped
 from moveit_msgs.action import MoveGroup
 from moveit_msgs.msg import (
@@ -17,6 +20,7 @@ from moveit_msgs.msg import (
 )
 from rclpy.action import ActionClient
 from rclpy.node import Node
+from sensor_msgs.msg import JointState
 from shape_msgs.msg import SolidPrimitive
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
@@ -28,10 +32,14 @@ class PandaPick(Node):
     def __init__(self):
         super().__init__("panda_pick")
         self.target = None
+        self.finger_positions = {}
         self.scene_pub = self.create_publisher(
             PlanningScene, "/planning_scene", 10
         )
         self.move_client = ActionClient(self, MoveGroup, "/move_action")
+        self.model_client = self.create_client(
+            GetModelState, "/gazebo/get_model_state"
+        )
         self.gripper_client = ActionClient(
             self,
             FollowJointTrajectory,
@@ -43,6 +51,41 @@ class PandaPick(Node):
             self.on_target,
             10,
         )
+        self.create_subscription(
+            JointState,
+            "/joint_states",
+            self.on_joint_state,
+            20,
+        )
+
+    def on_joint_state(self, msg):
+        values = dict(zip(msg.name, msg.position))
+        for name in FINGERS:
+            if name in values:
+                self.finger_positions[name] = values[name]
+
+    def settle(self, seconds=0.5):
+        end = time.monotonic() + seconds
+        while rclpy.ok() and time.monotonic() < end:
+            rclpy.spin_once(self, timeout_sec=0.1)
+
+    def get_cube_z(self):
+        if not self.model_client.service_is_ready():
+            if not self.model_client.wait_for_service(timeout_sec=2.0):
+                self.get_logger().warn(
+                    "/gazebo/get_model_state not available"
+                )
+                return None
+
+        request = GetModelState.Request()
+        request.model_name = "red_cube"
+        request.relative_entity_name = "world"
+        future = self.model_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
+        if future.result() is None:
+            self.get_logger().warn("get_model_state failed")
+            return None
+        return float(future.result().pose.position.z)
 
     def on_target(self, msg):
         if self.target is None:
@@ -179,6 +222,10 @@ class PandaPick(Node):
         x = self.target.pose.position.x
         y = self.target.pose.position.y
         z = self.target.pose.position.z
+        before_z = self.get_cube_z()
+        self.get_logger().info(
+            f"cube z before pick: {before_z}"
+        )
 
         self.remove_red_cube()
         for _ in range(5):
@@ -192,9 +239,44 @@ class PandaPick(Node):
             return
         if not self.gripper(0.0, "close"):
             return
+
+        self.settle(0.5)
+        fingers = [
+            self.finger_positions.get(name) for name in FINGERS
+        ]
+        finger_gap = (
+            None
+            if any(value is None for value in fingers)
+            else sum(fingers) / len(fingers)
+        )
+        self.get_logger().info(
+            f"finger positions after close: {fingers}, "
+            f"average={finger_gap}"
+        )
+
         if not self.move_to(x, y, z + 0.30, "lift"):
             return
-        self.get_logger().info("pick sequence finished")
+        self.settle(0.5)
+        after_z = self.get_cube_z()
+        self.get_logger().info(
+            f"cube z after lift: {after_z}"
+        )
+
+        finger_ok = finger_gap is not None and finger_gap > 0.005
+        lift_ok = (
+            before_z is not None
+            and after_z is not None
+            and (after_z - before_z) > 0.05
+        )
+        if finger_ok and lift_ok:
+            self.get_logger().info("GRASP SUCCESS")
+        else:
+            self.get_logger().error(
+                "GRASP FAILED: "
+                f"finger_gap={finger_gap}, "
+                f"cube_dz={None if after_z is None or before_z is None else after_z - before_z}"
+            )
+            self.gripper(0.04, "open")
 
 
 def main(args=None):

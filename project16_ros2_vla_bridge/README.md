@@ -532,7 +532,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 已实现，VM 实测待补。
+> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证，待重测。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -2978,27 +2978,74 @@ red_cube → CollisionObject.REMOVE
 
 `panda_scene` 改为只发布 3 次，避免把红方块重新加回来。
 
-### 26.4 当前状态
+### 26.4 第一次实跑：抓空
+
+日志：
 
 ```text
-代码完成
-语法检查通过
-VM 实跑待补
+gripper open:  code=0
+pre-grasp:     code=1
+grasp:         code=1
+gripper close: code=0
+lift:          code=1
+pick sequence finished
 ```
 
-未验证：
+所有 action 都成功，但红方块还在桌上，夹爪抓歪了。
+
+![抓取失败：方块仍在桌上](assets/panda_pick_failed.png)
+
+根因：
 
 ```text
-抓取高度
-夹爪是否夹空
-方块是否跟着抬起
+MoveIt code=1 只说明轨迹执行到了
+不说明夹爪真的夹住物体
 ```
 
-### 26.5 下一步
+### 26.5 抓取验证
+
+新增两个检查：
 
 ```text
-实跑 panda_pick
-调 grasp z / 夹爪开合
+1. 夹爪闭合后的手指位置
+2. Gazebo 中 red_cube 的 z 高度变化
+```
+
+手指：
+
+```text
+/joint_states
+average(panda_finger_joint1, panda_finger_joint2) > 0.005
+```
+
+物体：
+
+```text
+/gazebo/get_model_state
+after_z - before_z > 0.05
+```
+
+失败时输出：
+
+```text
+GRASP FAILED
+```
+
+并张开夹爪释放。
+
+### 26.6 当前状态
+
+```text
+验证代码已加
+VM 重测待补
+```
+
+### 26.7 下一步
+
+```text
+重跑 panda_pick
+看 finger_gap 和 cube_dz
+调 grasp z / 姿态
 再做 place
 ```
 

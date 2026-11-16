@@ -335,7 +335,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;23 | 2026.11.12 | ROS2 周 Day 15：速度翻倍后的停止时间对比；真机接口层 mock hardware 去 Gazebo；Panda 7 关节完整链路跑通 |
 | Day&nbsp;24 | 2026.11.14 | ROS2 周 Day 16：Panda 进 Gazebo；桌面场景、RGB-D 检测；MoveIt2 接入与 RViz 参数冲突 |
 | Day&nbsp;25 | 2026.11.15 | ROS2 周 Day 17：Panda 初始位姿、planning scene、MoveIt2 pre-grasp 与 `/move_action` |
-| Day&nbsp;26 | 2026.11.16 | ROS2 周 Day 18：最小抓取流程 `panda_pick`（实现，待实测） |
+| Day&nbsp;26 | 2026.11.16 | ROS2 周 Day 18：最小抓取流程 `panda_pick`、失败复盘与夹爪/物体双重验证 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -3875,27 +3875,75 @@ ros2 launch vla_bridge panda_moveit_gazebo.launch.py rviz_config:=/home/wsq/pand
 ros2 run vla_bridge panda_pick
 ```
 
+#### 实测失败
+
+第一次实跑：
+
+```text
+gripper open:  code=0
+pre-grasp:     code=1
+grasp:         code=1
+gripper close: code=0
+lift:          code=1
+pick sequence finished
+```
+
+所有 action 都返回成功，但红方块还在桌上，夹爪抓歪了。
+
+![抓取失败：方块仍在桌上](project16_ros2_vla_bridge/assets/panda_pick_failed.png)
+
+问题：
+
+```text
+MoveIt 执行成功 = 轨迹走到了
+不等于夹爪真的夹住了物体
+```
+
+#### 已加验证
+
+新增两层检查：
+
+```text
+1. 夹爪闭合后的手指位置
+2. Gazebo 里红方块的 z 高度变化
+```
+
+手指：
+
+```text
+/joint_states
+panda_finger_joint1/2
+average > 0.005 才认为夹住了东西
+```
+
+物体：
+
+```text
+/gazebo/get_model_state
+model_name = red_cube
+after_z - before_z > 0.05 才认为抬起来了
+```
+
+失败时不再打印 `pick sequence finished`，而是：
+
+```text
+GRASP FAILED
+```
+
+并张开夹爪释放。
+
 #### 当前状态
 
 ```text
-代码完成
-语法检查通过
-VM 实跑待补
-```
-
-还没有验证：
-
-```text
-夹爪高度是否正好夹住方块
-红方块是否真的跟着手抬起
-是否会出现夹空/碰倒
+抓取验证代码已加
+VM 重测待补
 ```
 
 #### 下一步
 
 ```text
-实跑 panda_pick
-根据结果调 grasp z 和夹爪开合
+重跑 panda_pick
+根据 finger_gap / cube_dz 调整 grasp z 和姿态
 再做 place
 ```
 

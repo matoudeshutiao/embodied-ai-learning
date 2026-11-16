@@ -51,17 +51,45 @@ ros2 launch vla_bridge panda_moveit_gazebo.launch.py rviz_config:=/home/wsq/pand
 ros2 run vla_bridge panda_pick
 ```
 
+## 第一次实跑：抓空
+
+日志：
+
+```text
+[panda_pick]: gripper open: code=0, ok=True
+[panda_pick]: pre-grasp: x=0.453, y=-0.145, z=0.600
+[panda_pick]: pre-grasp: code=1, ok=True
+[panda_pick]: grasp: x=0.453, y=-0.145, z=0.500
+[panda_pick]: grasp: code=1, ok=True
+[panda_pick]: gripper close: code=0, ok=True
+[panda_pick]: lift: x=0.453, y=-0.145, z=0.700
+[panda_pick]: lift: code=1, ok=True
+[panda_pick]: pick sequence finished
+```
+
+用户观察：
+
+```text
+确实是抓了但是没有抓取成功，抓歪了然后还告诉我执行完毕
+```
+
+截图：
+
+- 原始文件：`personal journal/failed_fetch.png`
+- 项目副本：`project16_ros2_vla_bridge/assets/panda_pick_failed.png`
+
+## 加验证
+
+```text
+1. /joint_states 的 finger 平均位置 > 0.005
+2. /gazebo/get_model_state 的 red_cube z 增加 > 0.05
+```
+
+失败时输出 `GRASP FAILED`，并张开夹爪。
+
 ## 当前状态
 
 ```text
-代码完成
-语法检查通过
-VM 实跑待补
+验证代码已加
+VM 重测待补
 ```
-
-## 还没验证
-
-- 夹爪下探高度是否合适
-- 夹爪闭合后是否真的夹住
-- 方块是否跟着抬起
-- 是否会夹空或碰倒
