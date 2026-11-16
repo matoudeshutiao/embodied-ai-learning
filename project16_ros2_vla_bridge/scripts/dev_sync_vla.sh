@@ -37,9 +37,12 @@ fi
 cd "$REPO" || return 1
 
 echo "== git pull =="
-if ! git pull; then
-  echo "ERROR: git pull 失败，检查 GitHub 网络后再试。"
-  return 1
+if [ "${SKIP_PULL:-0}" = "1" ]; then
+  echo "SKIP_PULL=1, using local repository"
+else
+  if ! git pull; then
+    echo "WARN: git pull 失败，继续使用本地仓库。"
+  fi
 fi
 
 echo "== sync vla_bridge =="
