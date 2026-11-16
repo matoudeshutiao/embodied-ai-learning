@@ -8,6 +8,7 @@ from moveit_msgs.msg import (
     BoundingVolume,
     Constraints,
     MoveItErrorCodes,
+    OrientationConstraint,
     PositionConstraint,
 )
 from rclpy.action import ActionClient
@@ -74,8 +75,19 @@ class PandaMoveToTarget(Node):
         region.primitive_poses = [pose]
         constraint.constraint_region = region
 
+        orientation = OrientationConstraint()
+        orientation.header.frame_id = "panda_link0"
+        orientation.link_name = "panda_link8"
+        orientation.orientation.x = 1.0
+        orientation.orientation.w = 0.0
+        orientation.absolute_x_axis_tolerance = 0.2
+        orientation.absolute_y_axis_tolerance = 0.2
+        orientation.absolute_z_axis_tolerance = 0.2
+        orientation.weight = 1.0
+
         constraints = Constraints()
         constraints.position_constraints = [constraint]
+        constraints.orientation_constraints = [orientation]
         constraints.name = "pre_grasp"
 
         goal = MoveGroup.Goal()
