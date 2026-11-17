@@ -4,7 +4,7 @@
 import time
 
 import rclpy
-from builtin_interfaces.msg import Duration, Time
+from builtin_interfaces.msg import Duration, Time as MsgTime
 from control_msgs.action import FollowJointTrajectory
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose, PoseStamped
@@ -20,7 +20,7 @@ from moveit_msgs.msg import (
 )
 from rclpy.action import ActionClient
 from rclpy.node import Node
-from rclpy.time import Time
+from rclpy.time import Time as RosTime
 from sensor_msgs.msg import JointState
 from shape_msgs.msg import SolidPrimitive
 from tf2_ros import Buffer, TransformListener
@@ -116,7 +116,7 @@ class PandaPick(Node):
     def link_xyz(self, frame):
         try:
             transform = self.tf_buffer.lookup_transform(
-                "panda_link0", frame, Time()
+                "panda_link0", frame, RosTime()
             )
             p = transform.transform.translation
             return (float(p.x), float(p.y), float(p.z))
@@ -214,7 +214,7 @@ class PandaPick(Node):
 
     def gripper(self, position, label):
         trajectory = JointTrajectory()
-        trajectory.header.stamp = Time()
+        trajectory.header.stamp = MsgTime()
         trajectory.joint_names = FINGERS
 
         point = JointTrajectoryPoint()
