@@ -234,7 +234,15 @@ class PandaPick(Node):
             self.get_logger().error("gripper action not ready")
             return
 
+        self.get_logger().info("waiting for /vision/target_pose")
+        deadline = time.monotonic() + 10.0
         while rclpy.ok() and self.target is None:
+            if time.monotonic() > deadline:
+                self.get_logger().warn(
+                    "no /vision/target_pose after 10s; "
+                    "cube may be out of camera view"
+                )
+                return
             rclpy.spin_once(self, timeout_sec=0.1)
         if self.target is None:
             return
