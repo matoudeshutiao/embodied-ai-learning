@@ -154,9 +154,6 @@ class PandaPick(Node):
 
     def remove_red_cube(self):
         self.remove_collision("red_cube")
-        # 抓取时需要贴近桌面；规划器先忽略桌子，
-        # Gazebo 物理里的桌子仍然存在。
-        self.remove_collision("table")
 
     def move_to(self, x, y, z, label):
         constraint = PositionConstraint()
