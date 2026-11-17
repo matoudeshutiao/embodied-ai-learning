@@ -28,7 +28,12 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 
 FINGERS = ["panda_finger_joint1", "panda_finger_joint2"]
-SIDE_QY = 0.7071067811865476
+
+# panda_hand_joint 固定 yaw=-45°，这里换算到链末端 panda_link8。
+SIDE_QX = 0.2705980500730985
+SIDE_QY = 0.6532814824381883
+SIDE_QZ = 0.2705980500730985
+SIDE_QW = 0.6532814824381883
 
 
 class PandaSidePick(Node):
@@ -150,12 +155,14 @@ class PandaSidePick(Node):
         region.primitive_poses = [pose]
         position.constraint_region = region
 
-        # 侧向抓取：hand 的 z 轴朝 +x，手指沿 world y 闭合。
+        # 侧向抓取：link8 的 z 轴朝 +x，手指沿 world y 闭合。
         orientation = OrientationConstraint()
         orientation.header.frame_id = "panda_link0"
-        orientation.link_name = "panda_hand"
+        orientation.link_name = "panda_link8"
+        orientation.orientation.x = SIDE_QX
         orientation.orientation.y = SIDE_QY
-        orientation.orientation.w = SIDE_QY
+        orientation.orientation.z = SIDE_QZ
+        orientation.orientation.w = SIDE_QW
         orientation.absolute_x_axis_tolerance = 0.1
         orientation.absolute_y_axis_tolerance = 0.1
         orientation.absolute_z_axis_tolerance = 0.1
