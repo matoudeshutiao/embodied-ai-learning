@@ -45,7 +45,10 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(gazebo_share, "launch", "gazebo.launch.py")
         ),
-        launch_arguments={"world": world}.items(),
+        launch_arguments={
+            "world": world,
+            "extra_gazebo_args": "-slibgazebo_ros_state.so",
+        }.items(),
     )
 
     robot_state_publisher = Node(

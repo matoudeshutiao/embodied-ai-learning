@@ -37,6 +37,14 @@ class PandaPick(Node):
         super().__init__("panda_pick")
         self.target = None
         self.finger_positions = {}
+        self.declare_parameter("pre_grasp_offset", 0.20)
+        self.declare_parameter("grasp_offset", 0.04)
+        self.pre_grasp_offset = float(
+            self.get_parameter("pre_grasp_offset").value
+        )
+        self.grasp_offset = float(
+            self.get_parameter("grasp_offset").value
+        )
         self.scene_pub = self.create_publisher(
             PlanningScene, "/planning_scene", 10
         )
@@ -238,9 +246,9 @@ class PandaPick(Node):
 
         if not self.gripper(0.04, "open"):
             return
-        if not self.move_to(x, y, z + 0.20, "pre-grasp"):
+        if not self.move_to(x, y, z + self.pre_grasp_offset, "pre-grasp"):
             return
-        if not self.move_to(x, y, z + 0.075, "grasp"):
+        if not self.move_to(x, y, z + self.grasp_offset, "grasp"):
             return
         if not self.gripper(0.0, "close"):
             return
