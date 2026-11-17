@@ -86,9 +86,9 @@ class PandaMoveToTarget(Node):
         orientation.orientation.x = GRASP_QX
         orientation.orientation.y = GRASP_QY
         orientation.orientation.w = 0.0
-        orientation.absolute_x_axis_tolerance = 0.2
-        orientation.absolute_y_axis_tolerance = 0.2
-        orientation.absolute_z_axis_tolerance = 0.2
+        orientation.absolute_x_axis_tolerance = 0.1
+        orientation.absolute_y_axis_tolerance = 0.1
+        orientation.absolute_z_axis_tolerance = 0.1
         orientation.weight = 1.0
 
         constraints = Constraints()
