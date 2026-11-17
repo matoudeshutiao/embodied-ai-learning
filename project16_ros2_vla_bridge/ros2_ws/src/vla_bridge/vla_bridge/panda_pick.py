@@ -20,8 +20,10 @@ from moveit_msgs.msg import (
 )
 from rclpy.action import ActionClient
 from rclpy.node import Node
+from rclpy.time import Time
 from sensor_msgs.msg import JointState
 from shape_msgs.msg import SolidPrimitive
+from tf2_ros import Buffer, TransformListener
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 
@@ -49,7 +51,9 @@ class PandaPick(Node):
             PlanningScene, "/planning_scene", 10
         )
         self.move_client = ActionClient(self, MoveGroup, "/move_action")
-        self.model_z = None
+        self.cube_pose = None
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
         self.gripper_client = ActionClient(
             self,
             FollowJointTrajectory,
@@ -91,7 +95,9 @@ class PandaPick(Node):
             self.model_z = float(msg.pose[index].position.z)
 
     def get_cube_z(self):
-        self.model_z = None
+        self.cube_pose = None
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
         deadline = time.monotonic() + 2.0
         while rclpy.ok() and self.model_z is None:
             if time.monotonic() > deadline:
@@ -251,6 +257,13 @@ class PandaPick(Node):
             return
         if not self.move_to(x, y, z + self.grasp_offset, "grasp"):
             return
+        cube_pose = self.get_cube_pose()
+        self.get_logger().info(
+            f"cube before close: {cube_pose}, "
+            f"link8: {self.link_xyz('panda_link8')}, "
+            f"leftfinger: {self.link_xyz('panda_leftfinger')}, "
+            f"rightfinger: {self.link_xyz('panda_rightfinger')}"
+        )
         if not self.gripper(0.0, "close"):
             return
 
