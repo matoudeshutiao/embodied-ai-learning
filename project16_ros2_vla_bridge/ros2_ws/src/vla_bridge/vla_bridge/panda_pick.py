@@ -6,7 +6,7 @@ import time
 import rclpy
 from builtin_interfaces.msg import Duration, Time
 from control_msgs.action import FollowJointTrajectory
-from gazebo_msgs.srv import GetModelState
+from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose, PoseStamped
 from moveit_msgs.action import MoveGroup
 from moveit_msgs.msg import (
@@ -49,9 +49,7 @@ class PandaPick(Node):
             PlanningScene, "/planning_scene", 10
         )
         self.move_client = ActionClient(self, MoveGroup, "/move_action")
-        self.model_client = self.create_client(
-            GetModelState, "/gazebo/get_model_state"
-        )
+        self.model_z = None
         self.gripper_client = ActionClient(
             self,
             FollowJointTrajectory,
@@ -69,6 +67,12 @@ class PandaPick(Node):
             self.on_joint_state,
             20,
         )
+        self.create_subscription(
+            ModelStates,
+            "/model_states",
+            self.on_model_states,
+            10,
+        )
 
     def on_joint_state(self, msg):
         values = dict(zip(msg.name, msg.position))
@@ -81,23 +85,20 @@ class PandaPick(Node):
         while rclpy.ok() and time.monotonic() < end:
             rclpy.spin_once(self, timeout_sec=0.1)
 
-    def get_cube_z(self):
-        if not self.model_client.service_is_ready():
-            if not self.model_client.wait_for_service(timeout_sec=2.0):
-                self.get_logger().warn(
-                    "/gazebo/get_model_state not available"
-                )
-                return None
+    def on_model_states(self, msg):
+        if "red_cube" in msg.name:
+            index = msg.name.index("red_cube")
+            self.model_z = float(msg.pose[index].position.z)
 
-        request = GetModelState.Request()
-        request.model_name = "red_cube"
-        request.relative_entity_name = "world"
-        future = self.model_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
-        if future.result() is None:
-            self.get_logger().warn("get_model_state failed")
-            return None
-        return float(future.result().pose.position.z)
+    def get_cube_z(self):
+        self.model_z = None
+        deadline = time.monotonic() + 2.0
+        while rclpy.ok() and self.model_z is None:
+            if time.monotonic() > deadline:
+                self.get_logger().warn("/model_states has no red_cube")
+                return None
+            rclpy.spin_once(self, timeout_sec=0.1)
+        return self.model_z
 
     def on_target(self, msg):
         if self.target is None:
