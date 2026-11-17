@@ -336,6 +336,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;24 | 2026.11.14 | ROS2 周 Day 16：Panda 进 Gazebo；桌面场景、RGB-D 检测；MoveIt2 接入与 RViz 参数冲突 |
 | Day&nbsp;25 | 2026.11.15 | ROS2 周 Day 17：Panda 初始位姿、planning scene、MoveIt2 pre-grasp 与 `/move_action` |
 | Day&nbsp;26 | 2026.11.16 | ROS2 周 Day 18：最小抓取流程 `panda_pick`、失败复盘与夹爪/物体双重验证 |
+| Day&nbsp;27 | 2026.11.17 | ROS2 周 Day 19：侧向抓取、MoveIt 目标采样失败与 IK/姿态诊断（进行中） |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -3946,6 +3947,174 @@ VM 重测待补
 根据 finger_gap / cube_dz 调整 grasp z 和姿态
 再做 place
 ```
+
+---
+
+### 2026.11.17 ｜ 第 27 天 · ROS2 周 Day 19：侧向抓取设计与 MoveIt 目标采样失败
+
+> 状态：进行中。侧抓节点已写完，但还没有成功抓起方块；用户反思待补。
+
+#### 为什么从竖直抓取改成侧向抓取
+
+Day 26 的 `panda_pick` 用竖直下爪，夹爪在方块顶部闭合。
+下探高度受桌子限制，手指没有真正包住方块两侧，方块容易被推走。
+
+这次保留桌子碰撞对象，不再通过删除桌子绕过问题，只把红方块从 planning scene 移除，改成：
+
+```text
+水平夹爪
+panda_hand 的 z 轴朝 world +x
+手指沿 world y 闭合
+从方块侧面夹住
+```
+
+#### 新增 `panda_side_pick.py`
+
+初始参数：
+
+```text
+pre_x_offset   = 0.20
+grasp_x_offset = 0.12
+side_z_offset  = 0.02
+lift_height    = 0.20
+close_position = 0.02
+```
+
+对应位姿：
+
+```text
+pre-grasp: (0.250, -0.150, 0.395)
+grasp:     (0.330, -0.150, 0.395)
+```
+
+#### 失败 1：pre-grasp 目标采样失败
+
+节点日志：
+
+```text
+side pre-grasp: x=0.250, y=-0.150, z=0.395
+side pre-grasp: code=99999, ok=False
+```
+
+MoveIt 日志：
+
+```text
+More than 80% of the sampled goal states fail to satisfy the constraints
+Unable to sample any valid states for goal tree
+ParallelPlan::solve(): Unable to find solution ... in 5.009499 seconds
+```
+
+`code=99999` 是 MoveIt 的通用 FAILURE，通常只说明规划失败，不说明具体原因。
+
+#### IK 诊断
+
+对 `x=0.250, z=0.395` 做 IK：
+
+```text
+error_code.val = 1
+panda_joint4 = -3.0717998598841323
+```
+
+`panda_joint4` 的软下限是 `-3.0718`，这组解把肘关节压到了极限。
+手腕往远离底座的方向移动后：
+
+```text
+x=0.37, z=0.395
+error_code.val = 1
+panda_joint4 = -2.6990
+```
+
+说明原来的 pre-grasp 太靠近底座，关节余量很小；随后 goal sampler 也确实失败。
+
+#### 失败 2：上方下探，位置满足但姿态不满足
+
+修改为同一 x 的上方下探：
+
+```text
+grasp_x_offset = 0.10
+pre_z_offset   = 0.12
+
+pre-grasp: (0.350, -0.150, 0.515)
+grasp:     (0.350, -0.150, 0.395)
+```
+
+节点日志：
+
+```text
+side pre-grasp: x=0.350, y=-0.150, z=0.515
+side pre-grasp: code=99999, ok=False
+```
+
+MoveIt 日志：
+
+```text
+Position constraint satisfied on link 'panda_link8'.
+Desired: 0.350000, -0.150000, 0.514801
+Current: 0.349167, -0.146951, 0.510227
+
+Orientation constraint violated for link 'panda_hand'.
+Quaternion desired: 0.000000 0.707107 0.000000 0.707107
+Quaternion actual:  0.879186 -0.466865 -0.056169 -0.076905
+error: x=1.713462, y=1.380042, z=0.451822
+tolerance: x=0.100000, y=0.100000, z=0.100000
+```
+
+结论：
+
+```text
+位置能到
+采样阶段没有找到满足 panda_hand 姿态约束的状态
+这次日志指向姿态约束，不是位置/桌高
+是否完全无 IK，还没有单独用 /compute_ik 确认
+```
+
+#### 规划场景时序
+
+`panda_side_pick` 会先删除 planning scene 里的红方块，但 `panda_scene` 可能随后再次发布桌子场景，把红方块加回来。
+
+现在的节点会在删除前等 3 秒，确保 `panda_scene` 的 3 次发布结束。
+重复运行时可能看到：
+
+```text
+Tried to remove world object 'red_cube', but it does not exist in this scene.
+```
+
+这是正常的，表示上一次已经删除过。
+
+#### 当前进度和困难
+
+```text
+侧抓节点已写
+两个 pre 位姿都未规划成功
+还没有成功抓起方块
+没有新的成功截图
+```
+
+主要困难：
+
+1. MoveIt 的 `99999` 不告诉具体原因，必须结合 `move_group` 日志和 `/compute_ik` 才能区分“无 IK”与“碰撞”。
+2. IK 有解不代表规划能采样到：`joint4` 到极限时，可行域太窄。
+3. 高位侧向姿态不一定更容易：位置约束满足后，`panda_hand` 姿态仍可能无解。
+4. 规划场景和 Gazebo 物体需要保持同步，否则会出现“计划删了但又被加回来”。
+
+#### 下一步
+
+不改代码，先用运行时参数降 pre 高度：
+
+```bash
+ros2 run vla_bridge panda_side_pick --ros-args -p pre_z_offset:=0.05
+```
+
+如果仍失败，再测：
+
+```bash
+ros2 run vla_bridge panda_side_pick --ros-args -p pre_z_offset:=0.0
+```
+
+#### 原始记录
+
+- [raw.md](learning_journal/2026-11-17-day27/raw.md)
+- [reflection.md](learning_journal/2026-11-17-day27/reflection.md)
 
 ---
 

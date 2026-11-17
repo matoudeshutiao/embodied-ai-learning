@@ -532,7 +532,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证，待重测。
+> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中，两个 pre 位姿均未规划成功。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -3048,6 +3048,199 @@ VM 重测待补
 调 grasp z / 姿态
 再做 place
 ```
+
+---
+
+## 27. 第 27 天（2026-11-17）：侧向抓取与目标采样失败
+
+> 状态：进行中。`panda_side_pick` 已写完，但还没有成功抓起方块；用户反思待补。
+>
+> 调试从 11-17 延续到 11-18 凌晨。
+
+### 27.1 为什么改侧抓
+
+Day 26 的竖直下爪受桌子高度限制，夹爪没有真正包住方块两侧，闭合时容易把方块推走。
+
+这次保留桌子碰撞对象，不删桌子，只把红方块从 planning scene 移除，改成：
+
+```text
+panda_hand 的 z 轴朝 world +x
+手指沿 world y 闭合
+手腕从方块侧面接近
+```
+
+### 27.2 初始侧抓参数
+
+新增：
+
+```text
+vla_bridge/panda_side_pick.py
+```
+
+初始参数：
+
+```text
+pre_x_offset   = 0.20
+grasp_x_offset = 0.12
+side_z_offset  = 0.02
+lift_height    = 0.20
+close_position = 0.02
+```
+
+位姿：
+
+```text
+pre-grasp: (0.250, -0.150, 0.395)
+grasp:     (0.330, -0.150, 0.395)
+```
+
+第一次提交：
+
+```text
+cbbdbcb feat: add side grasp node
+```
+
+### 27.3 失败 1：pre-grasp 目标采样失败
+
+节点日志：
+
+```text
+side pre-grasp: x=0.250, y=-0.150, z=0.395
+side pre-grasp: code=99999, ok=False
+```
+
+从规划请求到失败约 5.13 秒，接近 `allowed_planning_time=5.0`。
+
+move_group：
+
+```text
+More than 80% of the sampled goal states fail to satisfy the constraints
+Unable to sample any valid states for goal tree
+ParallelPlan::solve(): Unable to find solution ... in 5.009499 seconds
+```
+
+`99999` 是通用 FAILURE，不是具体原因。
+
+### 27.4 IK 诊断：joint4 到极限
+
+`x=0.25, z=0.395`：
+
+```text
+error_code.val = 1
+panda_joint4 = -3.0717998598841323
+```
+
+`panda_joint4` 的软下限：
+
+```text
+-3.0718
+```
+
+`x=0.37, z=0.395`：
+
+```text
+error_code.val = 1
+panda_joint4 = -2.69902739960677
+```
+
+结论：
+
+```text
+pre-grasp 太靠近底座
+IK 虽有解，但肘关节在极限，可能使 goal sampler 很难采到
+```
+
+### 27.5 失败 2：上方下探，位置满足但姿态失败
+
+修改：
+
+```text
+grasp_x_offset: 0.12 → 0.10
+新增 pre_z_offset = 0.12
+pre-grasp 和 grasp 使用同一个 x
+```
+
+新位姿：
+
+```text
+pre-grasp: (0.350, -0.150, 0.515)
+grasp:     (0.350, -0.150, 0.395)
+```
+
+提交：
+
+```text
+2c8e89c fix: approach side grasp from above
+```
+
+节点日志：
+
+```text
+side pre-grasp: x=0.350, y=-0.150, z=0.515
+side pre-grasp: code=99999, ok=False
+```
+
+move_group：
+
+```text
+Position constraint satisfied on link 'panda_link8'.
+Desired: 0.350000, -0.150000, 0.514801
+Current: 0.349167, -0.146951, 0.510227
+
+Orientation constraint violated for link 'panda_hand'.
+Quaternion desired: 0.000000 0.707107 0.000000 0.707107
+Quaternion actual:  0.879186 -0.466865 -0.056169 -0.076905
+error: x=1.713462, y=1.380042, z=0.451822
+tolerance: x=0.100000, y=0.100000, z=0.100000
+```
+
+结论：
+
+```text
+位置约束满足
+采样阶段没有找到满足 panda_hand 姿态约束的状态
+这次日志指向姿态约束，不是位置/桌高
+是否完全无 IK，还没有单独用 /compute_ik 确认
+```
+
+### 27.6 规划场景时序
+
+`panda_side_pick` 删除红方块后，`panda_scene` 可能再次发布场景，把红方块加回来。
+
+节点在删除前等待 3 秒，确保 `panda_scene` 的 3 次发布结束。
+重复运行会出现：
+
+```text
+Tried to remove world object 'red_cube', but it does not exist in this scene.
+```
+
+这是上一次已经删除过的正常现象。
+
+### 27.7 当前状态
+
+```text
+侧抓节点已写
+两个 pre 位姿都未规划成功
+还没有成功抓起方块
+没有新的成功截图
+```
+
+当前准备测试：
+
+```bash
+ros2 run vla_bridge panda_side_pick --ros-args -p pre_z_offset:=0.05
+```
+
+如果仍失败，再测：
+
+```bash
+ros2 run vla_bridge panda_side_pick --ros-args -p pre_z_offset:=0.0
+```
+
+### 27.8 原始记录
+
+- [raw.md](../learning_journal/2026-11-17-day27/raw.md)
+- [reflection.md](../learning_journal/2026-11-17-day27/reflection.md)
 
 ---
 
