@@ -16,6 +16,11 @@ from rclpy.node import Node
 from shape_msgs.msg import SolidPrimitive
 
 
+# panda_hand_joint 固定 yaw=-45°，这里用 +45° 补偿。
+GRASP_QX = 0.9238795325
+GRASP_QY = 0.3826834324
+
+
 class PandaMoveToTarget(Node):
     def __init__(self):
         super().__init__("panda_move_to_target")
@@ -78,7 +83,8 @@ class PandaMoveToTarget(Node):
         orientation = OrientationConstraint()
         orientation.header.frame_id = "panda_link0"
         orientation.link_name = "panda_link8"
-        orientation.orientation.x = 1.0
+        orientation.orientation.x = GRASP_QX
+        orientation.orientation.y = GRASP_QY
         orientation.orientation.w = 0.0
         orientation.absolute_x_axis_tolerance = 0.2
         orientation.absolute_y_axis_tolerance = 0.2

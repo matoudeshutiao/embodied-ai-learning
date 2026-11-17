@@ -27,6 +27,10 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 FINGERS = ["panda_finger_joint1", "panda_finger_joint2"]
 
+# panda_hand_joint 固定 yaw=-45°，这里用 +45° 补偿。
+GRASP_QX = 0.9238795325
+GRASP_QY = 0.3826834324
+
 
 class PandaPick(Node):
     def __init__(self):
@@ -132,7 +136,8 @@ class PandaPick(Node):
         orientation = OrientationConstraint()
         orientation.header.frame_id = "panda_link0"
         orientation.link_name = "panda_link8"
-        orientation.orientation.x = 1.0
+        orientation.orientation.x = GRASP_QX
+        orientation.orientation.y = GRASP_QY
         orientation.orientation.w = 0.0
         orientation.absolute_x_axis_tolerance = 0.2
         orientation.absolute_y_axis_tolerance = 0.2
@@ -235,7 +240,7 @@ class PandaPick(Node):
             return
         if not self.move_to(x, y, z + 0.20, "pre-grasp"):
             return
-        if not self.move_to(x, y, z + 0.10, "grasp"):
+        if not self.move_to(x, y, z + 0.075, "grasp"):
             return
         if not self.gripper(0.0, "close"):
             return
