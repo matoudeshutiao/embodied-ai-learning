@@ -40,8 +40,8 @@ class PandaPick(Node):
         self.target = None
         self.finger_positions = {}
         self.declare_parameter("pre_grasp_offset", 0.20)
-        self.declare_parameter("grasp_offset", 0.04)
-        self.declare_parameter("close_position", 0.02)
+        self.declare_parameter("grasp_offset", 0.085)
+        self.declare_parameter("close_position", 0.027)
         self.pre_grasp_offset = float(
             self.get_parameter("pre_grasp_offset").value
         )
@@ -274,17 +274,20 @@ class PandaPick(Node):
         if self.target is None:
             return
 
-        x = self.target.pose.position.x
-        y = self.target.pose.position.y
-        z = self.target.pose.position.z
-        before_z = self.get_cube_z()
+        # 用 Gazebo 里的实际方块位姿，不用视觉 z。
+        cube = self.get_cube_pose()
+        if cube is None:
+            return
+        x, y, z = cube
+        before_z = z
         self.get_logger().info(
-            f"cube z before pick: {before_z}"
+            f"vertical grasp cube: x={x:.3f}, y={y:.3f}, z={z:.3f}"
         )
 
+        # 等 panda_scene 的 3 次发布结束，避免它重新加回红方块。
+        self.settle(3.0)
         self.remove_red_cube()
-        for _ in range(5):
-            rclpy.spin_once(self, timeout_sec=0.1)
+        self.settle(0.3)
 
         if not self.gripper(0.04, "open"):
             return
