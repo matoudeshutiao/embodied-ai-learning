@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""侧向抓取：夹爪从机器人一侧水平接近方块。"""
+"""侧向抓取：水平夹爪先到方块上方，再下探从两侧夹住。"""
 
 import time
 
@@ -38,19 +38,19 @@ class PandaSidePick(Node):
         self.cube_pose = None
         self.finger_positions = {}
 
-        self.declare_parameter("pre_x_offset", 0.20)
-        self.declare_parameter("grasp_x_offset", 0.12)
+        self.declare_parameter("grasp_x_offset", 0.10)
         self.declare_parameter("side_z_offset", 0.02)
+        self.declare_parameter("pre_z_offset", 0.12)
         self.declare_parameter("lift_height", 0.20)
         self.declare_parameter("close_position", 0.02)
-        self.pre_x_offset = float(
-            self.get_parameter("pre_x_offset").value
-        )
         self.grasp_x_offset = float(
             self.get_parameter("grasp_x_offset").value
         )
         self.side_z_offset = float(
             self.get_parameter("side_z_offset").value
+        )
+        self.pre_z_offset = float(
+            self.get_parameter("pre_z_offset").value
         )
         self.lift_height = float(
             self.get_parameter("lift_height").value
@@ -254,16 +254,18 @@ class PandaSidePick(Node):
             f"side grasp cube: x={cx:.3f}, y={cy:.3f}, z={cz:.3f}"
         )
 
+        # 等 panda_scene 的 3 次发布结束，避免它把红方块重新加回来。
+        self.settle(3.0)
         self.remove_red_cube()
         self.settle(0.3)
 
         if not self.gripper(0.04, "open"):
             return
-        pre_x = cx - self.pre_x_offset
         grasp_x = cx - self.grasp_x_offset
         z = cz + self.side_z_offset
+        pre_z = z + self.pre_z_offset
 
-        if not self.move_to(pre_x, cy, z, "side pre-grasp"):
+        if not self.move_to(grasp_x, cy, pre_z, "side pre-grasp"):
             return
         if not self.move_to(grasp_x, cy, z, "side grasp"):
             return
