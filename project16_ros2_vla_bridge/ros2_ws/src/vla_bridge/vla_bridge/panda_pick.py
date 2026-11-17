@@ -41,11 +41,15 @@ class PandaPick(Node):
         self.finger_positions = {}
         self.declare_parameter("pre_grasp_offset", 0.20)
         self.declare_parameter("grasp_offset", 0.04)
+        self.declare_parameter("close_position", 0.02)
         self.pre_grasp_offset = float(
             self.get_parameter("pre_grasp_offset").value
         )
         self.grasp_offset = float(
             self.get_parameter("grasp_offset").value
+        )
+        self.close_position = float(
+            self.get_parameter("close_position").value
         )
         self.scene_pub = self.create_publisher(
             PlanningScene, "/planning_scene", 10
@@ -290,10 +294,13 @@ class PandaPick(Node):
             f"leftfinger: {self.link_xyz('panda_leftfinger')}, "
             f"rightfinger: {self.link_xyz('panda_rightfinger')}"
         )
-        if not self.gripper(0.0, "close"):
+        if not self.gripper(self.close_position, "close"):
             return
 
         self.settle(0.5)
+        self.get_logger().info(
+            f"cube after close: {self.get_cube_pose()}"
+        )
         fingers = [
             self.finger_positions.get(name) for name in FINGERS
         ]
@@ -310,7 +317,9 @@ class PandaPick(Node):
         if not self.move_to(x, y, z + 0.30, "lift"):
             return
         self.settle(0.5)
-        after_z = self.get_cube_z()
+        after_pose = self.get_cube_pose()
+        after_z = None if after_pose is None else after_pose[2]
+        self.get_logger().info(f"cube after lift pose: {after_pose}")
         self.get_logger().info(
             f"cube z after lift: {after_z}"
         )
