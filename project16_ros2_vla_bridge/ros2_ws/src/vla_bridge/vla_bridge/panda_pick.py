@@ -138,17 +138,25 @@ class PandaPick(Node):
                 f"z={msg.pose.position.z:.3f}"
             )
 
-    def remove_red_cube(self):
+    def remove_collision(self, object_id):
         scene = PlanningScene()
         scene.is_diff = True
         scene.robot_state.is_diff = True
         obj = CollisionObject()
         obj.header.frame_id = "panda_link0"
-        obj.id = "red_cube"
+        obj.id = object_id
         obj.operation = CollisionObject.REMOVE
         scene.world.collision_objects = [obj]
         self.scene_pub.publish(scene)
-        self.get_logger().info("removed red_cube from planning scene")
+        self.get_logger().info(
+            f"removed {object_id} from planning scene"
+        )
+
+    def remove_red_cube(self):
+        self.remove_collision("red_cube")
+        # 抓取时需要贴近桌面；规划器先忽略桌子，
+        # Gazebo 物理里的桌子仍然存在。
+        self.remove_collision("table")
 
     def move_to(self, x, y, z, label):
         constraint = PositionConstraint()
