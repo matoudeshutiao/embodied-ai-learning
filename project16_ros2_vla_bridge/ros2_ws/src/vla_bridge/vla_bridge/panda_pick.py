@@ -92,19 +92,37 @@ class PandaPick(Node):
     def on_model_states(self, msg):
         if "red_cube" in msg.name:
             index = msg.name.index("red_cube")
-            self.model_z = float(msg.pose[index].position.z)
+            pose = msg.pose[index].position
+            self.cube_pose = (
+                float(pose.x),
+                float(pose.y),
+                float(pose.z),
+            )
 
-    def get_cube_z(self):
+    def get_cube_pose(self):
         self.cube_pose = None
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
         deadline = time.monotonic() + 2.0
-        while rclpy.ok() and self.model_z is None:
+        while rclpy.ok() and self.cube_pose is None:
             if time.monotonic() > deadline:
                 self.get_logger().warn("/model_states has no red_cube")
                 return None
             rclpy.spin_once(self, timeout_sec=0.1)
-        return self.model_z
+        return self.cube_pose
+
+    def get_cube_z(self):
+        pose = self.get_cube_pose()
+        return None if pose is None else pose[2]
+
+    def link_xyz(self, frame):
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                "panda_link0", frame, Time()
+            )
+            p = transform.transform.translation
+            return (float(p.x), float(p.y), float(p.z))
+        except Exception as exc:
+            self.get_logger().warn(f"TF {frame} failed: {exc}")
+            return None
 
     def on_target(self, msg):
         if self.target is None:
