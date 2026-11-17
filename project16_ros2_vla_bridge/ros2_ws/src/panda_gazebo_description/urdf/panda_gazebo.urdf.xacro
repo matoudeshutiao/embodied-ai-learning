@@ -67,6 +67,28 @@
     </joint>
   </ros2_control>
 
+  <!-- 夹爪接触参数：默认值太滑，抓取会打滑。 -->
+  <gazebo reference="panda_leftfinger">
+    <mu1>1.2</mu1>
+    <mu2>1.2</mu2>
+    <kp>1e6</kp>
+    <kd>100</kd>
+    <maxVel>0.01</maxVel>
+    <minDepth>0.001</minDepth>
+  </gazebo>
+  <gazebo reference="panda_rightfinger">
+    <mu1>1.2</mu1>
+    <mu2>1.2</mu2>
+    <kp>1e6</kp>
+    <kd>100</kd>
+    <maxVel>0.01</maxVel>
+    <minDepth>0.001</minDepth>
+  </gazebo>
+  <gazebo reference="panda_hand">
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
+  </gazebo>
+
   <gazebo>
     <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
       <parameters>$(find panda_gazebo_description)/config/controllers.yaml</parameters>
