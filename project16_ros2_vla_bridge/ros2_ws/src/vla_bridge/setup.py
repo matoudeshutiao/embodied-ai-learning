@@ -42,6 +42,7 @@ setup(
             "panda_scene = vla_bridge.panda_scene:main",
             "panda_move_to_target = vla_bridge.panda_move_to_target:main",
             "panda_pick = vla_bridge.panda_pick:main",
+            "panda_side_pick = vla_bridge.panda_side_pick:main",
         ],
     },
 )
