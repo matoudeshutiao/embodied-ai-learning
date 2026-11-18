@@ -52,8 +52,8 @@ class PandaPick(Node):
         self.joint_positions = {}
         self.declare_parameter("pre_grasp_offset", 0.20)
         self.declare_parameter("grasp_offset", 0.095)
-        self.declare_parameter("gripper_effort", 1.0)
-        self.declare_parameter("effort_limit", 1.0)
+        self.declare_parameter("gripper_effort", 10.0)
+        self.declare_parameter("effort_limit", 10.0)
         self.declare_parameter("fixed_cube_test", False)
         self.pre_grasp_offset = float(
             self.get_parameter("pre_grasp_offset").value
@@ -333,7 +333,7 @@ class PandaPick(Node):
         msg = Float64MultiArray()
         msg.data = [value, value]
         self.get_logger().info(
-            f"gripper {label}: effort={value:.2f} Nm"
+            f"gripper {label}: effort={value:.2f} N"
         )
         end = time.monotonic() + seconds
         while rclpy.ok() and time.monotonic() < end:
@@ -469,7 +469,7 @@ class PandaPick(Node):
             self.effort(self.gripper_effort, 0.6, "open")
             return
 
-        if not self.move_to(x, y, z + 0.30, "lift"):
+        if not self.move_cartesian_to(x, y, z + 0.30, "cartesian lift"):
             return
         self.settle(0.5)
         after_pose = self.get_cube_pose()
