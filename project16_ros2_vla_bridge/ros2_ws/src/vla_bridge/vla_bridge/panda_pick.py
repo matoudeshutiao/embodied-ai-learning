@@ -260,9 +260,19 @@ class PandaPick(Node):
             f"vertical grasp cube: x={x:.3f}, y={y:.3f}, z={z:.3f}"
         )
 
-        # 等 panda_scene 的 3 次发布结束，避免它重新加回红方块。
+        fixed_cube_test = bool(
+            self.get_parameter("fixed_cube_test").value
+        )
+
+        # 等 panda_scene 的 3 次发布结束。
         self.settle(3.0)
-        self.remove_red_cube()
+        if fixed_cube_test:
+            # 固定测试时保留 planning scene 里的方块，让 MoveIt 绕开。
+            self.get_logger().info(
+                "fixed cube test: keep red_cube in planning scene"
+            )
+        else:
+            self.remove_red_cube()
         self.settle(0.3)
 
         self.effort(self.gripper_effort, 0.6, "open")
@@ -276,9 +286,6 @@ class PandaPick(Node):
             f"link8: {self.link_xyz('panda_link8')}, "
             f"leftfinger: {self.link_xyz('panda_leftfinger')}, "
             f"rightfinger: {self.link_xyz('panda_rightfinger')}"
-        )
-        fixed_cube_test = bool(
-            self.get_parameter("fixed_cube_test").value
         )
         if fixed_cube_test:
             self.get_logger().info(
