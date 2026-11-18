@@ -267,9 +267,9 @@
       <material name="panda_white" />
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0 0 0.0225" />
+      <origin rpy="0 0 0" xyz="0 0.01313537 0.02699037" />
       <geometry>
-        <box size="0.02 0.02 0.045" />
+        <box size="0.02097427 0.02653603 0.05371734" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -296,9 +296,9 @@
       <material name="panda_white" />
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0 0 0.0225" />
+      <origin rpy="0 0 0" xyz="0 -0.01313537 0.02699037" />
       <geometry>
-        <box size="0.02 0.02 0.045" />
+        <box size="0.02097427 0.02653603 0.05371734" />
       </geometry>
       <material name="panda_white" />
     </collision>

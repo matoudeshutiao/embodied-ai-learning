@@ -40,7 +40,7 @@ class PandaPick(Node):
         self.target = None
         self.finger_positions = {}
         self.declare_parameter("pre_grasp_offset", 0.20)
-        self.declare_parameter("grasp_offset", 0.085)
+        self.declare_parameter("grasp_offset", 0.095)
         self.declare_parameter("close_position", 0.027)
         self.declare_parameter("fixed_cube_test", True)
         self.pre_grasp_offset = float(
@@ -334,7 +334,10 @@ class PandaPick(Node):
         )
 
         if fixed_cube_test:
-            contact_ok = finger_gap is not None and finger_gap > 0.005
+            contact_ok = all(
+                value is not None and value > 0.005
+                for value in fingers
+            )
             if contact_ok:
                 self.get_logger().info(
                     f"FIXED CUBE CONTACT OK: gap={finger_gap:.4f}"
