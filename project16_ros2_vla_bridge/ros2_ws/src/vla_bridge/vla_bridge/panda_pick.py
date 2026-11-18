@@ -266,18 +266,15 @@ class PandaPick(Node):
 
         # 等 panda_scene 的 3 次发布结束。
         self.settle(3.0)
-        if fixed_cube_test:
-            # 固定测试时保留 planning scene 里的方块，让 MoveIt 绕开。
-            self.get_logger().info(
-                "fixed cube test: keep red_cube in planning scene"
-            )
-        else:
-            self.remove_red_cube()
-        self.settle(0.3)
 
         self.effort(self.gripper_effort, 0.6, "open")
         if not self.move_to(x, y, z + self.pre_grasp_offset, "pre-grasp"):
             return
+
+        # 先到方块上方，再删除 planning scene 里的方块。
+        # 这样长路径会绕开方块，最后只做垂直下探。
+        self.remove_red_cube()
+        self.settle(0.3)
         if not self.move_to(x, y, z + self.grasp_offset, "grasp"):
             return
         cube_pose = self.get_cube_pose()
