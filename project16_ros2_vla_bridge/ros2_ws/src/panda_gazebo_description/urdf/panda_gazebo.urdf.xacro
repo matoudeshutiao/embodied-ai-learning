@@ -69,16 +69,16 @@
 
   <!-- 夹爪接触参数：默认值太滑，抓取会打滑。 -->
   <gazebo reference="panda_leftfinger">
-    <mu1>1.2</mu1>
-    <mu2>1.2</mu2>
+    <mu1>2.0</mu1>
+    <mu2>2.0</mu2>
     <kp>1e6</kp>
     <kd>100</kd>
     <maxVel>0.01</maxVel>
     <minDepth>0.001</minDepth>
   </gazebo>
   <gazebo reference="panda_rightfinger">
-    <mu1>1.2</mu1>
-    <mu2>1.2</mu2>
+    <mu1>2.0</mu1>
+    <mu2>2.0</mu2>
     <kp>1e6</kp>
     <kd>100</kd>
     <maxVel>0.01</maxVel>
