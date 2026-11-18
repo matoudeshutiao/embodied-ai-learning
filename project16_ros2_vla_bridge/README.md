@@ -3346,6 +3346,8 @@ GRASP FAILED: cube_dz = -0.0008016
 
 仍然没有抬起来。
 
+![Day 28 抓取失败：effort 闭合后仍未抬起方块](assets/day28_grasp_attempt.png)
+
 ### 28.5 当前状态
 
 ```text

@@ -4212,6 +4212,8 @@ GRASP FAILED: cube_dz = -0.0008016
 
 但方块仍然没有被抬起来。
 
+![Day 28 抓取失败：effort 闭合后仍未抬起方块](project16_ros2_vla_bridge/assets/day28_grasp_attempt.png)
+
 #### 当前结论
 
 ```text

@@ -204,4 +204,6 @@ C:\Users\28400\Desktop\abandon_backup_2026-11-18.zip
 
 ## 截图
 
-今天没有新的成功截图；最终测试仍是 `GRASP FAILED`。
+![Day 28 抓取测试：方块仍在桌面](assets/day28_grasp_attempt.png)
+
+最终测试仍然是 `GRASP FAILED`。
