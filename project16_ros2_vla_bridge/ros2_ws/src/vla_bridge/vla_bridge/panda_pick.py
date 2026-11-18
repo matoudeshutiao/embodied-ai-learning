@@ -54,7 +54,7 @@ class PandaPick(Node):
         self.declare_parameter("grasp_offset", 0.095)
         self.declare_parameter("gripper_effort", 1.0)
         self.declare_parameter("effort_limit", 1.0)
-        self.declare_parameter("fixed_cube_test", True)
+        self.declare_parameter("fixed_cube_test", False)
         self.pre_grasp_offset = float(
             self.get_parameter("pre_grasp_offset").value
         )
@@ -453,9 +453,9 @@ class PandaPick(Node):
         )
 
         if fixed_cube_test:
-            # 手指宽度 0.02097、方块宽 0.05，理论接触位置约 0.0355。
+            # 手指内表面在关节原点，方块半宽 0.025，接触位置约 0.025。
             contact_ok = all(
-                value is not None and value > 0.030
+                value is not None and value > 0.020
                 for value in fingers
             )
             if contact_ok:

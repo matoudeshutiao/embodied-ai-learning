@@ -65,7 +65,6 @@
     </model>
 
     <model name="red_cube">
-      <static>true</static>
       <pose>0.45 -0.15 0.376 0 0 0</pose>
       <link name="link">
         <inertial>
