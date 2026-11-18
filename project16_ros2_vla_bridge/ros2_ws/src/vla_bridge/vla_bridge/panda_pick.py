@@ -53,6 +53,7 @@ class PandaPick(Node):
         self.declare_parameter("pre_grasp_offset", 0.20)
         self.declare_parameter("grasp_offset", 0.095)
         self.declare_parameter("gripper_effort", 1.0)
+        self.declare_parameter("effort_limit", 1.0)
         self.declare_parameter("fixed_cube_test", True)
         self.pre_grasp_offset = float(
             self.get_parameter("pre_grasp_offset").value
@@ -63,6 +64,9 @@ class PandaPick(Node):
         self.gripper_effort = float(
             self.get_parameter("gripper_effort").value
         )
+        self.effort_limit = abs(float(
+            self.get_parameter("effort_limit").value
+        ))
         self.scene_pub = self.create_publisher(
             PlanningScene, "/planning_scene", 10
         )
@@ -320,6 +324,12 @@ class PandaPick(Node):
         return ok
 
     def effort(self, value, seconds, label):
+        if abs(value) > self.effort_limit:
+            self.get_logger().warn(
+                f"effort {value:.2f} exceeds limit "
+                f"{self.effort_limit:.2f}, clamped"
+            )
+            value = max(-self.effort_limit, min(self.effort_limit, value))
         msg = Float64MultiArray()
         msg.data = [value, value]
         self.get_logger().info(
@@ -330,6 +340,36 @@ class PandaPick(Node):
             self.effort_pub.publish(msg)
             rclpy.spin_once(self, timeout_sec=0.05)
             time.sleep(0.05)
+
+    def wait_finger_stable(
+        self, timeout=2.0, stable_time=0.5, epsilon=0.0005
+    ):
+        start = time.monotonic()
+        last = None
+        stable_since = None
+        while rclpy.ok() and time.monotonic() - start < timeout:
+            rclpy.spin_once(self, timeout_sec=0.05)
+            values = [
+                self.finger_positions.get(name) for name in FINGERS
+            ]
+            if any(value is None for value in values):
+                last = None
+                stable_since = None
+                time.sleep(0.02)
+                continue
+            if last is not None and all(
+                abs(value - previous) < epsilon
+                for value, previous in zip(values, last)
+            ):
+                if stable_since is None:
+                    stable_since = time.monotonic()
+                elif time.monotonic() - stable_since >= stable_time:
+                    return True
+            else:
+                stable_since = None
+            last = values
+            time.sleep(0.02)
+        return False
 
     def run(self):
         if not self.move_client.wait_for_server(timeout_sec=30.0):
@@ -393,8 +433,9 @@ class PandaPick(Node):
                 "fixed cube test mode: effort close, lift skipped"
             )
         self.effort(-self.gripper_effort, 2.0, "close")
+        stable = self.wait_finger_stable()
+        self.get_logger().info(f"fingers stable: {stable}")
 
-        self.settle(0.5)
         self.get_logger().info(
             f"cube after close: {self.get_cube_pose()}"
         )

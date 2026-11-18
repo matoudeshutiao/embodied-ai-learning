@@ -13,7 +13,7 @@ controller_manager:
       type: joint_trajectory_controller/JointTrajectoryController
 
     panda_gripper_effort_controller:
-      type: forward_command_controller/ForwardCommandController
+      type: effort_controllers/JointGroupEffortController
 
 
 panda_arm_controller:
@@ -54,4 +54,3 @@ panda_gripper_effort_controller:
     joints:
       - panda_finger_joint1
       - panda_finger_joint2
-    interface_name: effort
