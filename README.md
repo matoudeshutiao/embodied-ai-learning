@@ -337,6 +337,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;25 | 2026.11.15 | ROS2 周 Day 17：Panda 初始位姿、planning scene、MoveIt2 pre-grasp 与 `/move_action` |
 | Day&nbsp;26 | 2026.11.16 | ROS2 周 Day 18：最小抓取流程 `panda_pick`、失败复盘与夹爪/物体双重验证 |
 | Day&nbsp;27 | 2026.11.17 | ROS2 周 Day 19：侧向抓取、MoveIt 目标采样失败与 IK/姿态诊断（进行中） |
+| Day&nbsp;28 | 2026.11.18 | ROS2 周 Day 20：固定方块控制变量、effort 夹爪、笛卡尔下降/抬升与摩擦不足（未完成） |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -4115,6 +4116,134 @@ ros2 run vla_bridge panda_side_pick --ros-args -p pre_z_offset:=0.0
 
 - [raw.md](learning_journal/2026-11-17-day27/raw.md)
 - [reflection.md](learning_journal/2026-11-17-day27/reflection.md)
+
+---
+
+### 2026.11.18 ｜ 第 28 天 · ROS2 周 Day 20：控制变量法、effort 夹爪与摩擦不足
+
+> 状态：未完成。已经能到达抓取位姿，但抬升仍然失败。
+
+#### 今天的收获
+
+用户原话：
+
+> 学到了控制变量法进行调试，当观察到多次抓取每次物块都被挤开考虑到了物理信息如抓夹闭合宽度和box大小，最后控制箱子固定，观察到穿模现象，多次调试数学参数发现没有解决根本问题，于是引入力控概念，最后成功到达目标位置（尚未解决抓取摩擦力过小抓不住问题）
+
+#### 1. 固定方块，隔离变量
+
+给红方块加：
+
+```xml
+<static>true</static>
+```
+
+目的不是让穿模消失，而是让物块不能被推走，从而只看手指有没有真正被方块挡住。
+
+固定测试结果：
+
+```text
+finger positions after close: [0.0251, 0.0241]
+average = 0.0246
+```
+
+方块半宽是 `0.025`，视觉上手指停在表面，不再明显穿模。
+
+#### 2. 从 position 切到 effort
+
+手指是 prismatic joint，之前只有：
+
+```text
+command_interface: position
+```
+
+现在改成：
+
+```text
+command_interface: effort
+effort_controllers/JointGroupEffortController
+```
+
+夹紧力：
+
+```text
+gripper_effort = 10 N
+effort_limit   = 10 N
+```
+
+注意手指 joint 的 effort 上限是 `20 N`，所以没有直接使用 30 N。
+
+#### 3. 路径修复
+
+- pre-grasp 时保留 planning scene 里的方块，让长路径绕开
+- 到达上方后再删除方块
+- 下探和抬升都改用 `/compute_cartesian_path`
+
+最终：
+
+```text
+pre-grasp: code=1
+cartesian descent: code=0
+cartesian lift: code=0
+```
+
+路径和末端位置已经不是主要问题。
+
+#### 4. 动态方块抬升仍然失败
+
+关闭固定测试，恢复动态方块，最终日志：
+
+```text
+gripper close: effort=-10.00 N
+fingers stable: True
+finger positions after close: [0.0258, 0.0225]
+average = 0.0241
+
+cartesian lift: code=0, ok=True
+cube after lift: z = 0.3739997551033577
+GRASP FAILED: cube_dz = -0.0008016
+```
+
+摩擦参数已经提高到：
+
+```text
+红方块: mu=2.0, mu2=1.5
+手指:   mu1=2.0, mu2=2.0
+```
+
+但方块仍然没有被抬起来。
+
+#### 当前结论
+
+```text
+路径规划：已解决
+垂直下探/抬升：已改为笛卡尔
+手指穿模：视觉上已明显改善
+夹爪控制：已从 position 切到 effort
+抓取抬升：仍然失败
+```
+
+现在的主要矛盾已经不是 MoveIt，而是：
+
+```text
+法向力是否足够
+接触面积是否足够
+摩擦模型/接触参数是否合理
+手指是否夹在方块有效位置
+```
+
+#### 下一步
+
+不继续盲调高度和力。优先做：
+
+1. 记录闭合后的手指位置和方块位姿
+2. 检查手指与方块的实际接触面/接触点
+3. 评估 ODE 摩擦参数和接触刚度
+4. 如果仍然不行，再考虑更换更大的测试物块或使用专门的 grasp fix 插件
+
+#### 原始记录
+
+- [raw.md](learning_journal/2026-11-18-day28/raw.md)
+- [reflection.md](learning_journal/2026-11-18-day28/reflection.md)
 
 ---
 

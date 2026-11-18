@@ -532,7 +532,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中，两个 pre 位姿均未规划成功。
+> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿，但摩擦不足仍无法抬升。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -3241,6 +3241,138 @@ ros2 run vla_bridge panda_side_pick --ros-args -p pre_z_offset:=0.0
 
 - [raw.md](../learning_journal/2026-11-17-day27/raw.md)
 - [reflection.md](../learning_journal/2026-11-17-day27/reflection.md)
+
+---
+
+## 28. 第 28 天（2026-11-18）：控制变量、effort 夹爪与摩擦不足
+
+> 状态：未完成。已经能到达抓取位姿，但抬升仍然失败。
+>
+> 用户原话：“学到了控制变量法进行调试……最后成功到达目标位置（尚未解决抓取摩擦力过小抓不住问题）”。
+
+### 28.1 固定方块，隔离变量
+
+在 `panda_table.world` 给红方块加：
+
+```xml
+<static>true</static>
+```
+
+目的不是消除穿模，而是让物块不能被推走，单独观察手指是否停在物块表面。
+
+固定测试：
+
+```text
+finger positions after close: [0.0251, 0.0241]
+average = 0.0246
+```
+
+方块半宽 `0.025`，手指停在这个位置，视觉上明显穿模减少。
+
+### 28.2 手指从 position 改 effort
+
+原来的手指：
+
+```yaml
+command_interfaces:
+  - position
+```
+
+现在：
+
+```xml
+<command_interface name="effort"/>
+```
+
+控制器：
+
+```yaml
+panda_gripper_effort_controller:
+  type: effort_controllers/JointGroupEffortController
+```
+
+`panda_pick`：
+
+```text
+gripper_effort = 10 N
+effort_limit   = 10 N
+```
+
+手指是 prismatic joint，effort 单位是 N，不是 Nm。URDF 上限是 20 N。
+
+### 28.3 笛卡尔下降和抬升
+
+流程：
+
+```text
+保留方块规划 pre-grasp
+→ 到上方后删除 planning scene 方块
+→ /compute_cartesian_path 垂直下探
+→ effort 闭合
+→ /compute_cartesian_path 垂直抬升
+```
+
+日志：
+
+```text
+pre-grasp: code=1
+cartesian descent: code=0
+cartesian lift: code=0
+```
+
+路径和末端位置已不是主要问题。
+
+### 28.4 动态方块仍然滑脱
+
+恢复动态方块后：
+
+```text
+gripper close: effort=-10.00 N
+fingers stable: True
+finger positions after close: [0.0258, 0.0225]
+average = 0.0241
+
+cartesian lift: code=0, ok=True
+cube after lift: z = 0.3739997551033577
+GRASP FAILED: cube_dz = -0.0008016
+```
+
+摩擦参数：
+
+```text
+红方块: mu=2.0, mu2=1.5
+手指:   mu1=2.0, mu2=2.0
+```
+
+仍然没有抬起来。
+
+### 28.5 当前状态
+
+```text
+路径规划：已解决
+垂直下探/抬升：已改为笛卡尔
+手指穿模：视觉上已明显改善
+夹爪控制：已从 position 切到 effort
+抓取抬升：仍然失败
+```
+
+现在的主要问题不是 MoveIt，而是接触力能否形成足够的切向摩擦：
+
+```text
+法向力
+接触面积/接触点
+ODE 摩擦与接触参数
+手指是否夹在方块有效位置
+```
+
+### 28.6 下一步
+
+不继续盲调高度和力。先记录闭合后的手指位置、方块位姿和实际接触点，再评估 ODE 摩擦参数；如果仍不行，再考虑更大的测试物块或专门的 grasp fix 插件。
+
+### 28.7 原始记录
+
+- [raw.md](../learning_journal/2026-11-18-day28/raw.md)
+- [reflection.md](../learning_journal/2026-11-18-day28/reflection.md)
 
 ---
 
