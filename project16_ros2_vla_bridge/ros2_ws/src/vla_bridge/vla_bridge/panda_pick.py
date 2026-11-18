@@ -42,6 +42,7 @@ class PandaPick(Node):
         self.declare_parameter("pre_grasp_offset", 0.20)
         self.declare_parameter("grasp_offset", 0.085)
         self.declare_parameter("close_position", 0.027)
+        self.declare_parameter("fixed_cube_test", True)
         self.pre_grasp_offset = float(
             self.get_parameter("pre_grasp_offset").value
         )
@@ -302,7 +303,17 @@ class PandaPick(Node):
             f"leftfinger: {self.link_xyz('panda_leftfinger')}, "
             f"rightfinger: {self.link_xyz('panda_rightfinger')}"
         )
-        if not self.gripper(self.close_position, "close"):
+        fixed_cube_test = bool(
+            self.get_parameter("fixed_cube_test").value
+        )
+        close_cmd = 0.0 if fixed_cube_test else self.close_position
+        if fixed_cube_test:
+            self.get_logger().info(
+                "fixed cube test mode: close to 0.0, lift skipped"
+            )
+
+        close_ok = self.gripper(close_cmd, "close")
+        if not close_ok and not fixed_cube_test:
             return
 
         self.settle(0.5)
@@ -321,6 +332,19 @@ class PandaPick(Node):
             f"finger positions after close: {fingers}, "
             f"average={finger_gap}"
         )
+
+        if fixed_cube_test:
+            contact_ok = finger_gap is not None and finger_gap > 0.005
+            if contact_ok:
+                self.get_logger().info(
+                    f"FIXED CUBE CONTACT OK: gap={finger_gap:.4f}"
+                )
+            else:
+                self.get_logger().error(
+                    f"FIXED CUBE CONTACT FAILED: gap={finger_gap}"
+                )
+            self.gripper(0.04, "open")
+            return
 
         if not self.move_to(x, y, z + 0.30, "lift"):
             return
