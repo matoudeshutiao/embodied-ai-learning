@@ -267,8 +267,9 @@
       <material name="panda_white" />
     </visual>
     <collision>
+      <origin rpy="0 0 0" xyz="0 0 0.0225" />
       <geometry>
-        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/finger.stl" />
+        <box size="0.02 0.02 0.045" />
       </geometry>
       <material name="panda_white" />
     </collision>
@@ -295,9 +296,9 @@
       <material name="panda_white" />
     </visual>
     <collision>
-      <origin rpy="0 0 3.14159265359" xyz="0 0 0" />
+      <origin rpy="0 0 0" xyz="0 0 0.0225" />
       <geometry>
-        <mesh filename="file:///opt/ros/humble/share/moveit_resources_panda_description/meshes/collision/finger.stl" />
+        <box size="0.02 0.02 0.045" />
       </geometry>
       <material name="panda_white" />
     </collision>
