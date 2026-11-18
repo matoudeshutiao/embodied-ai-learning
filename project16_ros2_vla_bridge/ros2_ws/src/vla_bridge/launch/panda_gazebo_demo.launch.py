@@ -83,10 +83,10 @@ def generate_launch_description():
         arguments=["panda_arm_controller"],
         output="screen",
     )
-    panda_gripper_controller = Node(
+    panda_gripper_effort_controller = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["panda_gripper_controller"],
+        arguments=["panda_gripper_effort_controller"],
         output="screen",
     )
 
@@ -124,7 +124,7 @@ def generate_launch_description():
                     period=1.0,
                     actions=[
                         panda_arm_controller,
-                        panda_gripper_controller,
+                        panda_gripper_effort_controller,
                     ],
                 )
             ],

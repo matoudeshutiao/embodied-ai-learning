@@ -54,14 +54,14 @@
       <state_interface name="velocity"/>
     </joint>
 
-    <!-- Gazebo 里两个手指都用位置控制，避免依赖 mimic 支持。 -->
+    <!-- 手指使用 effort，让接触力参与 Gazebo 物理。 -->
     <joint name="panda_finger_joint1">
-      <command_interface name="position"/>
+      <command_interface name="effort"/>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
     </joint>
     <joint name="panda_finger_joint2">
-      <command_interface name="position"/>
+      <command_interface name="effort"/>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
     </joint>

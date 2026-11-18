@@ -4,8 +4,6 @@
 import time
 
 import rclpy
-from builtin_interfaces.msg import Duration, Time as MsgTime
-from control_msgs.action import FollowJointTrajectory
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose, PoseStamped
 from moveit_msgs.action import MoveGroup
@@ -23,8 +21,8 @@ from rclpy.node import Node
 from rclpy.time import Time as RosTime
 from sensor_msgs.msg import JointState
 from shape_msgs.msg import SolidPrimitive
+from std_msgs.msg import Float64MultiArray
 from tf2_ros import Buffer, TransformListener
-from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 
 FINGERS = ["panda_finger_joint1", "panda_finger_joint2"]
@@ -41,7 +39,7 @@ class PandaPick(Node):
         self.finger_positions = {}
         self.declare_parameter("pre_grasp_offset", 0.20)
         self.declare_parameter("grasp_offset", 0.095)
-        self.declare_parameter("close_position", 0.027)
+        self.declare_parameter("gripper_effort", 1.0)
         self.declare_parameter("fixed_cube_test", True)
         self.pre_grasp_offset = float(
             self.get_parameter("pre_grasp_offset").value
@@ -49,21 +47,21 @@ class PandaPick(Node):
         self.grasp_offset = float(
             self.get_parameter("grasp_offset").value
         )
-        self.close_position = float(
-            self.get_parameter("close_position").value
+        self.gripper_effort = float(
+            self.get_parameter("gripper_effort").value
         )
         self.scene_pub = self.create_publisher(
             PlanningScene, "/planning_scene", 10
         )
         self.move_client = ActionClient(self, MoveGroup, "/move_action")
+        self.effort_pub = self.create_publisher(
+            Float64MultiArray,
+            "/panda_gripper_effort_controller/commands",
+            10,
+        )
         self.cube_pose = None
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
-        self.gripper_client = ActionClient(
-            self,
-            FollowJointTrajectory,
-            "/panda_gripper_controller/follow_joint_trajectory",
-        )
         self.create_subscription(
             PoseStamped,
             "/vision/target_pose",
@@ -222,44 +220,21 @@ class PandaPick(Node):
         )
         return ok
 
-    def gripper(self, position, label):
-        trajectory = JointTrajectory()
-        trajectory.header.stamp = MsgTime()
-        trajectory.joint_names = FINGERS
-
-        point = JointTrajectoryPoint()
-        point.positions = [position, position]
-        point.time_from_start = Duration(sec=1, nanosec=0)
-        trajectory.points.append(point)
-
-        goal = FollowJointTrajectory.Goal()
-        goal.trajectory = trajectory
-
+    def effort(self, value, seconds, label):
+        msg = Float64MultiArray()
+        msg.data = [value, value]
         self.get_logger().info(
-            f"gripper {label}: position={position:.3f}"
+            f"gripper {label}: effort={value:.2f} Nm"
         )
-        send_future = self.gripper_client.send_goal_async(goal)
-        rclpy.spin_until_future_complete(self, send_future)
-        handle = send_future.result()
-        if handle is None or not handle.accepted:
-            self.get_logger().error(f"gripper {label}: rejected")
-            return False
-
-        result_future = handle.get_result_async()
-        rclpy.spin_until_future_complete(self, result_future)
-        result = result_future.result().result
-        ok = result.error_code == 0
-        self.get_logger().info(
-            f"gripper {label}: code={result.error_code}, ok={ok}"
-        )
-        return ok
+        end = time.monotonic() + seconds
+        while rclpy.ok() and time.monotonic() < end:
+            self.effort_pub.publish(msg)
+            rclpy.spin_once(self, timeout_sec=0.05)
+            time.sleep(0.05)
 
     def run(self):
         if not self.move_client.wait_for_server(timeout_sec=30.0):
             self.get_logger().error("/move_action not ready")
-            return
-        if not self.gripper_client.wait_for_server(timeout_sec=30.0):
-            self.get_logger().error("gripper action not ready")
             return
 
         self.get_logger().info("waiting for /vision/target_pose")
@@ -290,8 +265,7 @@ class PandaPick(Node):
         self.remove_red_cube()
         self.settle(0.3)
 
-        if not self.gripper(0.04, "open"):
-            return
+        self.effort(self.gripper_effort, 0.6, "open")
         if not self.move_to(x, y, z + self.pre_grasp_offset, "pre-grasp"):
             return
         if not self.move_to(x, y, z + self.grasp_offset, "grasp"):
@@ -306,15 +280,11 @@ class PandaPick(Node):
         fixed_cube_test = bool(
             self.get_parameter("fixed_cube_test").value
         )
-        close_cmd = 0.0 if fixed_cube_test else self.close_position
         if fixed_cube_test:
             self.get_logger().info(
-                "fixed cube test mode: close to 0.0, lift skipped"
+                "fixed cube test mode: effort close, lift skipped"
             )
-
-        close_ok = self.gripper(close_cmd, "close")
-        if not close_ok and not fixed_cube_test:
-            return
+        self.effort(-self.gripper_effort, 2.0, "close")
 
         self.settle(0.5)
         self.get_logger().info(
@@ -334,8 +304,9 @@ class PandaPick(Node):
         )
 
         if fixed_cube_test:
+            # 手指宽度 0.02097、方块宽 0.05，理论接触位置约 0.0355。
             contact_ok = all(
-                value is not None and value > 0.005
+                value is not None and value > 0.030
                 for value in fingers
             )
             if contact_ok:
@@ -346,7 +317,7 @@ class PandaPick(Node):
                 self.get_logger().error(
                     f"FIXED CUBE CONTACT FAILED: gap={finger_gap}"
                 )
-            self.gripper(0.04, "open")
+            self.effort(self.gripper_effort, 0.6, "open")
             return
 
         if not self.move_to(x, y, z + 0.30, "lift"):
@@ -373,7 +344,7 @@ class PandaPick(Node):
                 f"finger_gap={finger_gap}, "
                 f"cube_dz={None if after_z is None or before_z is None else after_z - before_z}"
             )
-            self.gripper(0.04, "open")
+            self.effort(self.gripper_effort, 0.6, "open")
 
 
 def main(args=None):
