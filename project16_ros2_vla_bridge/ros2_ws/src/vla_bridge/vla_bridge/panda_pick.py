@@ -4,6 +4,7 @@
 import time
 
 import rclpy
+from control_msgs.action import FollowJointTrajectory
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose, PoseStamped
 from moveit_msgs.action import MoveGroup
@@ -15,7 +16,9 @@ from moveit_msgs.msg import (
     OrientationConstraint,
     PlanningScene,
     PositionConstraint,
+    RobotState,
 )
+from moveit_msgs.srv import GetCartesianPath
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.time import Time as RosTime
@@ -26,6 +29,15 @@ from tf2_ros import Buffer, TransformListener
 
 
 FINGERS = ["panda_finger_joint1", "panda_finger_joint2"]
+ARM_JOINTS = [
+    "panda_joint1",
+    "panda_joint2",
+    "panda_joint3",
+    "panda_joint4",
+    "panda_joint5",
+    "panda_joint6",
+    "panda_joint7",
+]
 
 # panda_hand_joint 固定 yaw=-45°，这里用 +45° 补偿。
 GRASP_QX = 0.9238795325
@@ -37,6 +49,7 @@ class PandaPick(Node):
         super().__init__("panda_pick")
         self.target = None
         self.finger_positions = {}
+        self.joint_positions = {}
         self.declare_parameter("pre_grasp_offset", 0.20)
         self.declare_parameter("grasp_offset", 0.095)
         self.declare_parameter("gripper_effort", 1.0)
@@ -54,6 +67,14 @@ class PandaPick(Node):
             PlanningScene, "/planning_scene", 10
         )
         self.move_client = ActionClient(self, MoveGroup, "/move_action")
+        self.arm_client = ActionClient(
+            self,
+            FollowJointTrajectory,
+            "/panda_arm_controller/follow_joint_trajectory",
+        )
+        self.cartesian_client = self.create_client(
+            GetCartesianPath, "/compute_cartesian_path"
+        )
         self.effort_pub = self.create_publisher(
             Float64MultiArray,
             "/panda_gripper_effort_controller/commands",
@@ -83,6 +104,7 @@ class PandaPick(Node):
 
     def on_joint_state(self, msg):
         values = dict(zip(msg.name, msg.position))
+        self.joint_positions.update(values)
         for name in FINGERS:
             if name in values:
                 self.finger_positions[name] = values[name]
@@ -163,7 +185,7 @@ class PandaPick(Node):
         region = BoundingVolume()
         box = SolidPrimitive()
         box.type = SolidPrimitive.BOX
-        box.dimensions = [0.01, 0.01, 0.01]
+        box.dimensions = [0.003, 0.003, 0.003]
         region.primitives = [box]
 
         pose = Pose()
@@ -220,6 +242,83 @@ class PandaPick(Node):
         )
         return ok
 
+    def move_cartesian_to(self, x, y, z, label):
+        target = Pose()
+        target.position.x = x
+        target.position.y = y
+        target.position.z = z
+        target.orientation.x = GRASP_QX
+        target.orientation.y = GRASP_QY
+        target.orientation.w = 0.0
+
+        request = GetCartesianPath.Request()
+        request.header.frame_id = "panda_link0"
+        request.group_name = "panda_arm"
+        request.link_name = "panda_link8"
+        request.waypoints = [target]
+        request.max_step = 0.005
+        request.jump_threshold = 0.0
+        request.avoid_collisions = True
+
+        start = RobotState()
+        start.joint_state.name = list(ARM_JOINTS)
+        start.joint_state.position = [
+            float(self.joint_positions.get(name, 0.0))
+            for name in ARM_JOINTS
+        ]
+        request.start_state = start
+
+        self.get_logger().info(
+            f"{label}: x={x:.3f}, y={y:.3f}, z={z:.3f}"
+        )
+        if not self.cartesian_client.wait_for_service(timeout_sec=10.0):
+            self.get_logger().error("/compute_cartesian_path not ready")
+            return False
+
+        future = self.cartesian_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        response = future.result()
+        if response is None:
+            self.get_logger().error(f"{label}: no cartesian response")
+            return False
+        if (
+            response.error_code.val != MoveItErrorCodes.SUCCESS
+            or response.fraction < 0.9
+        ):
+            self.get_logger().error(
+                f"{label}: cartesian failed, "
+                f"code={response.error_code.val}, "
+                f"fraction={response.fraction:.3f}"
+            )
+            return False
+
+        trajectory = response.solution.joint_trajectory
+        if not trajectory.joint_names:
+            self.get_logger().error(f"{label}: empty trajectory")
+            return False
+
+        if not self.arm_client.wait_for_server(timeout_sec=10.0):
+            self.get_logger().error("arm controller action not ready")
+            return False
+
+        goal = FollowJointTrajectory.Goal()
+        goal.trajectory = trajectory
+        send_future = self.arm_client.send_goal_async(goal)
+        rclpy.spin_until_future_complete(self, send_future)
+        handle = send_future.result()
+        if handle is None or not handle.accepted:
+            self.get_logger().error(f"{label}: goal rejected")
+            return False
+
+        result_future = handle.get_result_async()
+        rclpy.spin_until_future_complete(self, result_future)
+        result = result_future.result().result
+        ok = result.error_code == 0
+        self.get_logger().info(
+            f"{label}: code={result.error_code}, ok={ok}"
+        )
+        return ok
+
     def effort(self, value, seconds, label):
         msg = Float64MultiArray()
         msg.data = [value, value]
@@ -235,6 +334,9 @@ class PandaPick(Node):
     def run(self):
         if not self.move_client.wait_for_server(timeout_sec=30.0):
             self.get_logger().error("/move_action not ready")
+            return
+        if not self.arm_client.wait_for_server(timeout_sec=30.0):
+            self.get_logger().error("arm controller action not ready")
             return
 
         self.get_logger().info("waiting for /vision/target_pose")
@@ -275,7 +377,9 @@ class PandaPick(Node):
         # 这样长路径会绕开方块，最后只做垂直下探。
         self.remove_red_cube()
         self.settle(0.3)
-        if not self.move_to(x, y, z + self.grasp_offset, "grasp"):
+        if not self.move_cartesian_to(
+            x, y, z + self.grasp_offset, "cartesian descent"
+        ):
             return
         cube_pose = self.get_cube_pose()
         self.get_logger().info(
