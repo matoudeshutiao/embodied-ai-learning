@@ -3,12 +3,16 @@
 
 import os
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import (
+    get_package_prefix,
+    get_package_share_directory,
+)
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
     RegisterEventHandler,
+    SetEnvironmentVariable,
     TimerAction,
 )
 from launch.conditions import IfCondition
@@ -39,6 +43,14 @@ def generate_launch_description():
     robot_description = ParameterValue(
         Command([FindExecutable(name="xacro"), " ", xacro_file]),
         value_type=str,
+    )
+
+    link_attacher_lib = os.path.join(
+        get_package_prefix("ros2_linkattacher"), "lib"
+    )
+    plugin_env = SetEnvironmentVariable(
+        "GAZEBO_PLUGIN_PATH",
+        link_attacher_lib + ":" + os.environ.get("GAZEBO_PLUGIN_PATH", ""),
     )
 
     gazebo = IncludeLaunchDescription(
@@ -133,6 +145,7 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            plugin_env,
             DeclareLaunchArgument(
                 "start_rviz",
                 default_value="true",
