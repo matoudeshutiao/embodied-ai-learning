@@ -546,26 +546,32 @@ class PandaPick(Node):
             )
             return False
 
-        if attach:
-            request = AttachLink.Request()
-        else:
-            request = DetachLink.Request()
-        request.model1_name = "panda"
-        request.link1_name = "panda_hand"
-        request.model2_name = "red_cube"
-        request.link2_name = "link"
+        for candidate in ("panda_link8", "panda_link7", "panda_hand"):
+            if attach:
+                request = AttachLink.Request()
+            else:
+                request = DetachLink.Request()
+            request.model1_name = "panda"
+            request.link1_name = candidate
+            request.model2_name = "red_cube"
+            request.link2_name = "link"
 
-        future = client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        response = future.result()
-        if response is None:
-            self.get_logger().error(f"{label} link: no response")
-            return False
-        self.get_logger().info(
-            f"{label} link: success={response.success}, "
-            f"message={response.message}"
-        )
-        return bool(response.success)
+            future = client.call_async(request)
+            rclpy.spin_until_future_complete(self, future)
+            response = future.result()
+            if response is None:
+                self.get_logger().warn(
+                    f"{label} link {candidate}: no response"
+                )
+                continue
+            self.get_logger().info(
+                f"{label} link {candidate}: "
+                f"success={response.success}, "
+                f"message={response.message}"
+            )
+            if response.success:
+                return True
+        return False
 
     def run(self):
         if not self.move_client.wait_for_server(timeout_sec=30.0):
