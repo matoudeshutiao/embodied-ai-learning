@@ -338,7 +338,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;26 | 2026.11.16 | ROS2 周 Day 18：最小抓取流程 `panda_pick`、失败复盘与夹爪/物体双重验证 |
 | Day&nbsp;27 | 2026.11.17 | ROS2 周 Day 19：侧向抓取、MoveIt 目标采样失败与 IK/姿态诊断（进行中） |
 | Day&nbsp;28 | 2026.11.18 | ROS2 周 Day 20：固定方块控制变量、effort 夹爪、笛卡尔下降/抬升与摩擦不足（未完成） |
-| Day&nbsp;29 | 2026.11.20 | ROS2 周 Day 21：link attach 打通 Gazebo 抓取；固定关节合并与 panda_link7 |
+| Day&nbsp;29 | 2026.11.19 | ROS2 周 Day 21：link attach 打通 Gazebo 抓取；固定关节合并与 panda_link7 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -4250,7 +4250,7 @@ GRASP FAILED: cube_dz = -0.0008016
 
 ---
 
-### 2026.11.20 ｜ 第 29 天 · ROS2 周 Day 21：link attach 打通仿真抓取
+### 2026.11.19 ｜ 第 29 天 · ROS2 周 Day 21：link attach 打通仿真抓取
 
 > 状态：Gazebo 仿真抓取完成。使用 IFRA `gazebo_link_attacher` 固定关节，**不是真机力控**。
 
@@ -4335,8 +4335,8 @@ place：未做
 
 #### 原始记录
 
-- [raw.md](learning_journal/2026-11-20-day29/raw.md)
-- [reflection.md](learning_journal/2026-11-20-day29/reflection.md)
+- [raw.md](learning_journal/2026-11-19-day29/raw.md)
+- [reflection.md](learning_journal/2026-11-19-day29/reflection.md)
 
 ---
 

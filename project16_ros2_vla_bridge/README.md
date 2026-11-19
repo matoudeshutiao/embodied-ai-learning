@@ -3378,7 +3378,7 @@ ODE 摩擦与接触参数
 
 ---
 
-## 29. 第 29 天（2026-11-20）：link attach 打通仿真抓取
+## 29. 第 29 天（2026-11-19）：link attach 打通仿真抓取
 
 > 状态：Gazebo 仿真抓取完成。使用 IFRA `gazebo_link_attacher` 固定关节，不是真机力控。
 
@@ -3476,8 +3476,8 @@ place：未做
 
 ### 29.6 原始记录
 
-- [raw.md](../learning_journal/2026-11-20-day29/raw.md)
-- [reflection.md](../learning_journal/2026-11-20-day29/reflection.md)
+- [raw.md](../learning_journal/2026-11-19-day29/raw.md)
+- [reflection.md](../learning_journal/2026-11-19-day29/reflection.md)
 
 ---
 
