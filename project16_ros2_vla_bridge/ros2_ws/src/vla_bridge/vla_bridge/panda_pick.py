@@ -352,7 +352,8 @@ class PandaPick(Node):
         result = result_future.result().result
         ok = result.error_code == 0
         self.get_logger().info(
-            f"{label}: code={result.error_code}, ok={ok}"
+            f"{label}: code={result.error_code}, ok={ok}, "
+            f"actual_link8={self.link_xyz('panda_link8')}"
         )
         return ok
 
@@ -490,15 +491,16 @@ class PandaPick(Node):
                         force_norm = math.sqrt(
                             force.x ** 2 + force.y ** 2 + force.z ** 2
                         )
-                    self.get_logger().info(
-                        f"contact[{contact_count}]: {names}, "
-                        f"pos=({position.x:.3f}, {position.y:.3f}, "
-                        f"{position.z:.3f}), "
-                        f"normal=({normal.x:.3f}, {normal.y:.3f}, "
-                        f"{normal.z:.3f}), depth={depth:.4f}, "
-                        f"force_norm="
-                        f"{None if force_norm is None else round(force_norm, 3)}"
-                    )
+                    if contact_count < 8:
+                        self.get_logger().info(
+                            f"contact[{contact_count}]: {names}, "
+                            f"pos=({position.x:.3f}, {position.y:.3f}, "
+                            f"{position.z:.3f}), "
+                            f"normal=({normal.x:.3f}, {normal.y:.3f}, "
+                            f"{normal.z:.3f}), depth={depth:.4f}, "
+                            f"force_norm="
+                            f"{None if force_norm is None else round(force_norm, 3)}"
+                        )
                     contact_count += 1
         if contact_count == 0:
             self.get_logger().warn(
@@ -619,6 +621,9 @@ class PandaPick(Node):
         if not self.move_cartesian_to(x, y, z + 0.30, "cartesian lift"):
             return
         self.settle(0.5)
+        self.get_logger().info(
+            f"fingers after lift: {self.finger_positions}"
+        )
         after_pose = self.get_cube_pose()
         after_z = None if after_pose is None else after_pose[2]
         self.get_logger().info(f"cube after lift pose: {after_pose}")
