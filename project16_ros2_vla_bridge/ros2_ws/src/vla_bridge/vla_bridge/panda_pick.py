@@ -55,15 +55,15 @@ class PandaPick(Node):
         self.cube_contacts = None
         self.left_wrench = None
         self.right_wrench = None
-        self.use_link_attacher = bool(
-            self.get_parameter("use_link_attacher").value
-        )
         self.declare_parameter("pre_grasp_offset", 0.20)
         self.declare_parameter("grasp_offset", 0.095)
         self.declare_parameter("gripper_effort", 10.0)
         self.declare_parameter("effort_limit", 10.0)
         self.declare_parameter("fixed_cube_test", False)
         self.declare_parameter("use_link_attacher", True)
+        self.use_link_attacher = bool(
+            self.get_parameter("use_link_attacher").value
+        )
         self.pre_grasp_offset = float(
             self.get_parameter("pre_grasp_offset").value
         )
