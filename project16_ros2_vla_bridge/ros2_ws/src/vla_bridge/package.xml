@@ -34,6 +34,8 @@
   <exec_depend>arm_description</exec_depend>
   <exec_depend>arm_mock_description</exec_depend>
   <exec_depend>panda_gazebo_description</exec_depend>
+  <exec_depend>linkattacher_msgs</exec_depend>
+  <exec_depend>ros2_linkattacher</exec_depend>
   <exec_depend>moveit_resources_panda_moveit_config</exec_depend>
   <exec_depend>moveit_configs_utils</exec_depend>
   <exec_depend>moveit_ros_move_group</exec_depend>

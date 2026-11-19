@@ -8,6 +8,7 @@ import rclpy
 from control_msgs.action import FollowJointTrajectory
 from gazebo_msgs.msg import ContactsState, ModelStates
 from geometry_msgs.msg import Pose, PoseStamped, WrenchStamped
+from linkattacher_msgs.srv import AttachLink, DetachLink
 from moveit_msgs.action import MoveGroup
 from moveit_msgs.msg import (
     BoundingVolume,
@@ -54,11 +55,15 @@ class PandaPick(Node):
         self.cube_contacts = None
         self.left_wrench = None
         self.right_wrench = None
+        self.use_link_attacher = bool(
+            self.get_parameter("use_link_attacher").value
+        )
         self.declare_parameter("pre_grasp_offset", 0.20)
         self.declare_parameter("grasp_offset", 0.095)
         self.declare_parameter("gripper_effort", 10.0)
         self.declare_parameter("effort_limit", 10.0)
         self.declare_parameter("fixed_cube_test", False)
+        self.declare_parameter("use_link_attacher", True)
         self.pre_grasp_offset = float(
             self.get_parameter("pre_grasp_offset").value
         )
@@ -82,6 +87,12 @@ class PandaPick(Node):
         )
         self.cartesian_client = self.create_client(
             GetCartesianPath, "/compute_cartesian_path"
+        )
+        self.attach_client = self.create_client(
+            AttachLink, "/ATTACHLINK"
+        )
+        self.detach_client = self.create_client(
+            DetachLink, "/DETACHLINK"
         )
         self.effort_pub = self.create_publisher(
             Float64MultiArray,
@@ -524,6 +535,38 @@ class PandaPick(Node):
         )
         self.get_logger().info("===== END DIAGNOSTIC =====")
 
+    def link_attach(self, attach=True):
+        if not self.use_link_attacher:
+            return True
+        client = self.attach_client if attach else self.detach_client
+        label = "attach" if attach else "detach"
+        if not client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().error(
+                f"/{label.upper()}LINK service not ready"
+            )
+            return False
+
+        if attach:
+            request = AttachLink.Request()
+        else:
+            request = DetachLink.Request()
+        request.model1_name = "panda"
+        request.link1_name = "panda_hand"
+        request.model2_name = "red_cube"
+        request.link2_name = "link"
+
+        future = client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        response = future.result()
+        if response is None:
+            self.get_logger().error(f"{label} link: no response")
+            return False
+        self.get_logger().info(
+            f"{label} link: success={response.success}, "
+            f"message={response.message}"
+        )
+        return bool(response.success)
+
     def run(self):
         if not self.move_client.wait_for_server(timeout_sec=30.0):
             self.get_logger().error("/move_action not ready")
@@ -561,6 +604,10 @@ class PandaPick(Node):
 
         # 等 panda_scene 的 3 次发布结束。
         self.settle(3.0)
+
+        # 清理上一次可能残留的 attach joint。
+        if self.use_link_attacher:
+            self.link_attach(False)
 
         self.effort(self.gripper_effort, 0.6, "open")
         if not self.move_to(x, y, z + self.pre_grasp_offset, "pre-grasp"):
@@ -606,6 +653,11 @@ class PandaPick(Node):
         )
 
         self.report_grasp()
+
+        if not fixed_cube_test and self.use_link_attacher:
+            if not self.link_attach(True):
+                return
+            self.settle(0.2)
 
         if fixed_cube_test:
             # 手指内表面在关节原点，方块半宽 0.025，接触位置约 0.025。

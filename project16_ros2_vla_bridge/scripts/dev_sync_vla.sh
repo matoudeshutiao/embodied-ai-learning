@@ -27,6 +27,8 @@ SRC="$REPO/project16_ros2_vla_bridge/ros2_ws/src/vla_bridge"
 DST="$WS/src/vla_bridge"
 PANDA_SRC="$REPO/project16_ros2_vla_bridge/ros2_ws/src/panda_gazebo_description"
 PANDA_DST="$WS/src/panda_gazebo_description"
+LINK_SRC="$REPO/project16_ros2_vla_bridge/ros2_ws/src/ifra_link_attacher"
+LINK_DST="$WS/src/ifra_link_attacher"
 FULL="${FULL:-0}"
 
 for path in "$REPO" "$WS" "$SRC" "$DST"; do
@@ -62,6 +64,12 @@ if [ "$FULL" = "1" ]; then
   fi
   echo "== sync panda_gazebo_description =="
   cp -r "$PANDA_SRC/." "$PANDA_DST/" || return 1
+
+  if [ ! -d "$LINK_SRC" ] || [ ! -d "$LINK_DST" ]; then
+    echo "== create ifra_link_attacher target =="
+    mkdir -p "$LINK_DST" || return 1
+  fi
+  cp -r "$LINK_SRC/." "$LINK_DST/" || return 1
 fi
 
 cd "$WS" || return 1
@@ -71,7 +79,7 @@ source /opt/ros/humble/setup.bash || return 1
 
 echo "== colcon build =="
 if [ "$FULL" = "1" ]; then
-  BUILD_PACKAGES="panda_gazebo_description vla_bridge"
+  BUILD_PACKAGES="panda_gazebo_description vla_bridge linkattacher_msgs ros2_linkattacher"
 else
   BUILD_PACKAGES="vla_bridge"
 fi
@@ -82,6 +90,7 @@ fi
 
 echo "== source workspace =="
 source "$WS/install/setup.bash" || return 1
+export GAZEBO_PLUGIN_PATH="$WS/install/ros2_linkattacher/lib:${GAZEBO_PLUGIN_PATH:-}"
 
 echo "== ready =="
 echo "当前目录: $(pwd)"
