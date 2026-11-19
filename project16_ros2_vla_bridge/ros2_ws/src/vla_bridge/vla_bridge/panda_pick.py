@@ -486,10 +486,15 @@ class PandaPick(Node):
                     normal = state.contact_normals[i]
                     depth = state.depths[i]
                     force_norm = None
+                    force_text = "no wrench"
                     if i < len(state.wrenches):
                         force = state.wrenches[i].force
                         force_norm = math.sqrt(
                             force.x ** 2 + force.y ** 2 + force.z ** 2
+                        )
+                        force_text = (
+                            f"({force.x:.3f}, {force.y:.3f}, "
+                            f"{force.z:.3f})"
                         )
                     if contact_count < 8:
                         self.get_logger().info(
@@ -498,6 +503,7 @@ class PandaPick(Node):
                             f"{position.z:.3f}), "
                             f"normal=({normal.x:.3f}, {normal.y:.3f}, "
                             f"{normal.z:.3f}), depth={depth:.4f}, "
+                            f"force={force_text}, "
                             f"force_norm="
                             f"{None if force_norm is None else round(force_norm, 3)}"
                         )
