@@ -90,6 +90,31 @@
   </gazebo>
 
   <gazebo>
+    <plugin name="left_finger_ft" filename="libgazebo_ros_ft_sensor.so">
+      <ros>
+        <namespace>/grasp_probe</namespace>
+        <remapping>wrench:=left_finger_wrench</remapping>
+      </ros>
+      <body_name>panda_leftfinger</body_name>
+      <frame_name>panda_link0</frame_name>
+      <update_rate>100</update_rate>
+      <gaussian_noise>0.0</gaussian_noise>
+    </plugin>
+  </gazebo>
+  <gazebo>
+    <plugin name="right_finger_ft" filename="libgazebo_ros_ft_sensor.so">
+      <ros>
+        <namespace>/grasp_probe</namespace>
+        <remapping>wrench:=right_finger_wrench</remapping>
+      </ros>
+      <body_name>panda_rightfinger</body_name>
+      <frame_name>panda_link0</frame_name>
+      <update_rate>100</update_rate>
+      <gaussian_noise>0.0</gaussian_noise>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
     <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
       <parameters>$(find panda_gazebo_description)/config/controllers.yaml</parameters>
     </plugin>

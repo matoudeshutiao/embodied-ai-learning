@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """最小抓取流程：开夹爪 → pre-grasp → 下探 → 闭合 → 抬起。"""
 
+import math
 import time
 
 import rclpy
 from control_msgs.action import FollowJointTrajectory
-from gazebo_msgs.msg import ModelStates
-from geometry_msgs.msg import Pose, PoseStamped
+from gazebo_msgs.msg import ContactsState, ModelStates
+from geometry_msgs.msg import Pose, PoseStamped, WrenchStamped
 from moveit_msgs.action import MoveGroup
 from moveit_msgs.msg import (
     BoundingVolume,
@@ -50,6 +51,9 @@ class PandaPick(Node):
         self.target = None
         self.finger_positions = {}
         self.joint_positions = {}
+        self.cube_contacts = None
+        self.left_wrench = None
+        self.right_wrench = None
         self.declare_parameter("pre_grasp_offset", 0.20)
         self.declare_parameter("grasp_offset", 0.095)
         self.declare_parameter("gripper_effort", 10.0)
@@ -105,6 +109,24 @@ class PandaPick(Node):
             self.on_model_states,
             10,
         )
+        self.create_subscription(
+            ContactsState,
+            "/grasp_probe/cube_contacts",
+            self.on_cube_contacts,
+            10,
+        )
+        self.create_subscription(
+            WrenchStamped,
+            "/grasp_probe/left_finger_wrench",
+            self.on_left_wrench,
+            10,
+        )
+        self.create_subscription(
+            WrenchStamped,
+            "/grasp_probe/right_finger_wrench",
+            self.on_right_wrench,
+            10,
+        )
 
     def on_joint_state(self, msg):
         values = dict(zip(msg.name, msg.position))
@@ -112,6 +134,17 @@ class PandaPick(Node):
         for name in FINGERS:
             if name in values:
                 self.finger_positions[name] = values[name]
+
+    def on_cube_contacts(self, msg):
+        if self.cube_contacts is None:
+            self.get_logger().info("cube contact data received")
+        self.cube_contacts = msg
+
+    def on_left_wrench(self, msg):
+        self.left_wrench = msg
+
+    def on_right_wrench(self, msg):
+        self.right_wrench = msg
 
     def settle(self, seconds=0.5):
         end = time.monotonic() + seconds
@@ -371,6 +404,118 @@ class PandaPick(Node):
             time.sleep(0.02)
         return False
 
+    def report_grasp(self):
+        self.settle(0.5)
+        cube = self.get_cube_pose()
+        self.get_logger().info("===== GRASP DIAGNOSTIC =====")
+        self.get_logger().info(f"cube: {cube}")
+
+        poses = {}
+        for frame in (
+            "panda_link8",
+            "panda_leftfinger",
+            "panda_rightfinger",
+        ):
+            point = self.link_xyz(frame)
+            poses[frame] = point
+            self.get_logger().info(f"{frame}: {point}")
+
+        left = poses.get("panda_leftfinger")
+        right = poses.get("panda_rightfinger")
+        if cube is not None and left is not None and right is not None:
+            mid_x = (left[0] + right[0]) / 2.0
+            mid_y = (left[1] + right[1]) / 2.0
+            mid_z = (left[2] + right[2]) / 2.0
+            self.get_logger().info(
+                "finger midpoint - cube: "
+                f"dx={mid_x - cube[0]:.4f}, "
+                f"dy={mid_y - cube[1]:.4f}, "
+                f"dz={mid_z - cube[2]:.4f}"
+            )
+
+        for label, wrench_msg in (
+            ("left", self.left_wrench),
+            ("right", self.right_wrench),
+        ):
+            if wrench_msg is None:
+                self.get_logger().warn(f"{label} finger wrench: no data")
+                continue
+            force = wrench_msg.wrench.force
+            norm = math.sqrt(
+                force.x ** 2 + force.y ** 2 + force.z ** 2
+            )
+            self.get_logger().info(
+                f"{label} finger force: "
+                f"({force.x:.3f}, {force.y:.3f}, {force.z:.3f}), "
+                f"norm={norm:.3f} N, "
+                f"mu=2.0 estimate={2.0 * norm:.3f} N, "
+                "cube weight≈0.49 N"
+            )
+
+        if self.left_wrench is not None and self.right_wrench is not None:
+            lf = self.left_wrench.wrench.force
+            rf = self.right_wrench.wrench.force
+            ln = math.sqrt(lf.x ** 2 + lf.y ** 2 + lf.z ** 2)
+            rn = math.sqrt(rf.x ** 2 + rf.y ** 2 + rf.z ** 2)
+            if ln > 1e-6 and rn > 1e-6:
+                dot = lf.x * rf.x + lf.y * rf.y + lf.z * rf.z
+                cosine = max(-1.0, min(1.0, dot / (ln * rn)))
+                self.get_logger().info(
+                    "left/right force dot="
+                    f"{dot:.3f}, angle={math.degrees(math.acos(cosine)):.1f} deg"
+                )
+
+        contacts = self.cube_contacts
+        contact_count = 0
+        if contacts is not None:
+            for state in contacts.states:
+                names = (
+                    f"{state.collision1_name} | "
+                    f"{state.collision2_name}"
+                )
+                if "finger" not in names or "red_cube" not in names:
+                    continue
+                point_count = min(
+                    len(state.contact_positions),
+                    len(state.contact_normals),
+                    len(state.depths),
+                )
+                for i in range(point_count):
+                    position = state.contact_positions[i]
+                    normal = state.contact_normals[i]
+                    depth = state.depths[i]
+                    force_norm = None
+                    if i < len(state.wrenches):
+                        force = state.wrenches[i].force
+                        force_norm = math.sqrt(
+                            force.x ** 2 + force.y ** 2 + force.z ** 2
+                        )
+                    self.get_logger().info(
+                        f"contact[{contact_count}]: {names}, "
+                        f"pos=({position.x:.3f}, {position.y:.3f}, "
+                        f"{position.z:.3f}), "
+                        f"normal=({normal.x:.3f}, {normal.y:.3f}, "
+                        f"{normal.z:.3f}), depth={depth:.4f}, "
+                        f"force_norm="
+                        f"{None if force_norm is None else round(force_norm, 3)}"
+                    )
+                    contact_count += 1
+        if contact_count == 0:
+            self.get_logger().warn(
+                "no finger-cube contacts in /grasp_probe/cube_contacts"
+            )
+        else:
+            self.get_logger().info(f"finger-cube contact points: {contact_count}")
+
+        self.get_logger().info(
+            "configured friction: cube mu=2.0 mu2=1.5; "
+            "fingers mu1=2.0 mu2=2.0"
+        )
+        self.get_logger().info(
+            f"finger positions: {self.finger_positions}"
+        )
+        self.get_logger().info("===== END DIAGNOSTIC =====")
+
     def run(self):
         if not self.move_client.wait_for_server(timeout_sec=30.0):
             self.get_logger().error("/move_action not ready")
@@ -451,6 +596,8 @@ class PandaPick(Node):
             f"finger positions after close: {fingers}, "
             f"average={finger_gap}"
         )
+
+        self.report_grasp()
 
         if fixed_cube_test:
             # 手指内表面在关节原点，方块半宽 0.025，接触位置约 0.025。
