@@ -532,7 +532,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿，但摩擦不足仍无法抬升。
+> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿但摩擦不足；第 29 天用 Gazebo link attach 完成仿真抓取。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -3375,6 +3375,109 @@ ODE 摩擦与接触参数
 
 - [raw.md](../learning_journal/2026-11-18-day28/raw.md)
 - [reflection.md](../learning_journal/2026-11-18-day28/reflection.md)
+
+---
+
+## 29. 第 29 天（2026-11-20）：link attach 打通仿真抓取
+
+> 状态：Gazebo 仿真抓取完成。使用 IFRA `gazebo_link_attacher` 固定关节，不是真机力控。
+
+### 29.1 为什么用 link attach
+
+第 28 天的 effort 夹爪能形成接触，但抬升时方块仍然滑脱。为了今晚先看到完整流程，使用：
+
+```text
+IFRA-Cranfield/IFRA_LinkAttacher
+```
+
+流程：
+
+```text
+pre-grasp
+→ cartesian descent
+→ effort close + stable
+→ /ATTACHLINK 固定 red_cube 到 panda_link7
+→ cartesian lift
+```
+
+### 29.2 集成时遇到的问题
+
+1. 运行终端没有 source `linkattacher_msgs`：
+
+```text
+ModuleNotFoundError: No module named 'linkattacher_msgs'
+```
+
+2. `use_link_attacher` 在声明前读取：
+
+```text
+ParameterNotDeclaredException
+```
+
+3. Gazebo 没有加载插件：
+
+```text
+/ATTACHLINK、/DETACHLINK 不存在
+```
+
+在 launch 中显式设置 `GAZEBO_PLUGIN_PATH` 后解决。
+
+4. 固定关节合并：
+
+```text
+Failed to find link with name: panda_hand
+Failed to find link with name: panda_link8
+```
+
+Gazebo Classic 把固定关节连接的 link 合并，实际可用的末端 link 是：
+
+```text
+panda_link7
+```
+
+### 29.3 成功日志
+
+```text
+attach link panda_link8: success=False
+attach link panda_link7: success=True
+  message=ATTACHED: {panda, panda_link7} -- {red_cube, link}
+cartesian lift: code=0
+cube after lift z: 0.5789621069407617
+GRASP SUCCESS
+```
+
+![Day 29 抓取成功](assets/day29_grasp_success.png)
+
+### 29.4 和之前抓不起来的关系
+
+两者不是同一个问题：
+
+```text
+link attach 名字错误
+→ 只让固定关节补丁失效，节点停在原地
+
+之前抓不起来
+→ 实际接触摩擦不足，方块从手指间滑脱
+```
+
+link attach 是用固定关节绕过 Gazebo 摩擦，不是修复了物理夹持。
+因此这次成功可以证明“感知 → 规划 → 下探 → 闭合 → 抬升”的软件链路完整，但不能证明真实夹爪抓得住。
+
+### 29.5 当前状态
+
+```text
+Gazebo 仿真抓取：完成
+物理摩擦抓取：仍未解决
+真机：未开始
+place：未做
+```
+
+下一步如果要继续物理方向，应回到接触力/摩擦模型，或者接真机 `franka_gripper` 的 `Grasp(force=...)` 接口。
+
+### 29.6 原始记录
+
+- [raw.md](../learning_journal/2026-11-20-day29/raw.md)
+- [reflection.md](../learning_journal/2026-11-20-day29/reflection.md)
 
 ---
 

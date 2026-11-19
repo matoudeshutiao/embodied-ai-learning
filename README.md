@@ -338,6 +338,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;26 | 2026.11.16 | ROS2 周 Day 18：最小抓取流程 `panda_pick`、失败复盘与夹爪/物体双重验证 |
 | Day&nbsp;27 | 2026.11.17 | ROS2 周 Day 19：侧向抓取、MoveIt 目标采样失败与 IK/姿态诊断（进行中） |
 | Day&nbsp;28 | 2026.11.18 | ROS2 周 Day 20：固定方块控制变量、effort 夹爪、笛卡尔下降/抬升与摩擦不足（未完成） |
+| Day&nbsp;29 | 2026.11.20 | ROS2 周 Day 21：link attach 打通 Gazebo 抓取；固定关节合并与 panda_link7 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -4246,6 +4247,96 @@ GRASP FAILED: cube_dz = -0.0008016
 
 - [raw.md](learning_journal/2026-11-18-day28/raw.md)
 - [reflection.md](learning_journal/2026-11-18-day28/reflection.md)
+
+---
+
+### 2026.11.20 ｜ 第 29 天 · ROS2 周 Day 21：link attach 打通仿真抓取
+
+> 状态：Gazebo 仿真抓取完成。使用 IFRA `gazebo_link_attacher` 固定关节，**不是真机力控**。
+
+#### 流程
+
+```text
+pre-grasp
+→ 笛卡尔下探
+→ effort 闭合并稳定
+→ /ATTACHLINK 把红方块固定到 panda_link7
+→ 笛卡尔抬升
+→ 验证 cube z
+```
+
+#### 成功日志
+
+```text
+attach link panda_link8: success=False
+  message=Failed to find link with name: panda_link8
+
+attach link panda_link7: success=True
+  message=ATTACHED: {panda, panda_link7} -- {red_cube, link}
+
+cartesian lift: code=0
+actual_link8 z: 0.674
+cube z after lift: 0.579
+GRASP SUCCESS
+```
+
+![Day 29 抓取成功](project16_ros2_vla_bridge/assets/day29_grasp_success.png)
+
+#### 最后这个错误是什么
+
+```text
+Failed to find link with name: panda_hand
+Failed to find link with name: panda_link8
+```
+
+Gazebo Classic 会把固定关节连接的 link 合并。
+`panda_hand` 和 `panda_link8` 都通过固定关节连接在 `panda_link7` 后面，Gazebo 实际保留的末端 link 是：
+
+```text
+panda_link7
+```
+
+通俗地说：Gazebo 把用固定关节“焊死”的零件合并成一个整体；按 `panda_hand`、`panda_link8` 找，找不到；按合并后的 `panda_link7` 找，才成功。
+
+#### 和之前抓不起来有关系吗
+
+没有直接关系。
+
+之前抓不起来是实际接触摩擦不足：
+
+```text
+手指闭合、位置正确、接触法向正确
+但抬升时方块从手指之间滑脱
+```
+
+link attach 是给方块加一个固定关节，等于在 Gazebo 里把方块“粘”到 `panda_link7`：
+
+```text
+物理摩擦夹不住 → 用 attach 固定关节绕过摩擦
+```
+
+所以：
+
+```text
+panda_hand 名字错误 → 只会让 attach 补丁失效，节点停在原地
+之前抓不起来 → 是摩擦/接触问题，不是名字问题
+```
+
+#### 结论
+
+```text
+Gazebo 仿真抓取：完成
+物理摩擦抓取：仍未解决
+真机：未开始
+place：未做
+```
+
+这次成功可以用于演示“感知 → 规划 → 下探 → 夹取 → 抬升”的完整软件链路，但不能直接说明真实 Panda 夹爪在 10 N / 当前摩擦下能抓起这个 5 cm 方块。
+
+#### 原始记录
+
+- [raw.md](learning_journal/2026-11-20-day29/raw.md)
+- [reflection.md](learning_journal/2026-11-20-day29/reflection.md)
 
 ---
 
