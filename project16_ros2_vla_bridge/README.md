@@ -207,7 +207,7 @@ project16_ros2_vla_bridge/
 | `panda_home.py` | 启动后把 Panda 移到合法初始位姿 |
 | `panda_scene.py` | 把桌面/方块/盒子发布到 MoveIt planning scene |
 | `panda_move_to_target.py` | 目标上方 pre-grasp 的 MoveGroup 客户端 |
-| `panda_pick.py` | open → pre-grasp → grasp → close → lift |
+| `panda_pick.py` | 视觉定位 → pre-grasp → 分段下探 → 闭合 → attach → 抬升 → 搬移 → 下放 → 释放 → 校验 |
 | `dev_sync_vla.sh` | 一键 pull/同步/build/source |
 | `stop_probe.py` | 发一条慢轨迹并记录 watchdog 停止前后的关节状态 |
 | `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
@@ -532,7 +532,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿但摩擦不足；第 29 天用 Gazebo link attach 完成仿真抓取。
+> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿但摩擦不足；第 29 天用 Gazebo link attach 完成仿真抓取；第 30 天用视觉定位 + 分段笛卡尔完成抓放闭环（`PLACE SUCCESS`，放置误差 6.0 mm / 0.9 mm）。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -3478,6 +3478,115 @@ place：未做
 
 - [raw.md](../learning_journal/2026-11-19-day29/raw.md)
 - [reflection.md](../learning_journal/2026-11-19-day29/reflection.md)
+
+---
+
+## 30. 第 30 天（2026-11-20）：视觉抓放闭环
+
+> 状态：`GRASP SUCCESS` → `PLACE SUCCESS`。
+> 抓取位置来自视觉；抬升仍依赖 link attach，物理摩擦抓取未解决。
+
+### 30.1 阶段 A 的四个目标
+
+```text
+A1 视觉去真值      ✅ 多帧中值，视觉误差 6.3 mm
+A2 place 完整回路   ✅ 搬移 → 下放 → detach → 张爪 → 抬离 → 校验
+A3 20 次成功率统计   ❌ 未做
+A4 空抓检测/重试    ✅ 已实现，重试未实测
+```
+
+### 30.2 从抓取到放置
+
+```text
+/vision/target_pose ×5 → 中值
+→ pre-grasp（OMPL，保留方块碰撞体）
+→ 删除红方块碰撞体
+→ 分段垂直下探（chunk=2 cm）
+→ effort 闭合 + 空抓检测
+→ attach 到 panda_link7
+→ 分段垂直抬升
+→ 保持高度水平搬移
+→ 分段垂直下放
+→ detach → 张爪 → 分段抬离
+→ 方块位置校验
+```
+
+关键代码：
+
+```python
+vx, vy, vz_top = vision
+vz = vz_top - half          # 顶面 → 中心
+x, y, z = vx, vy, vz        # 抓取坐标来自视觉
+```
+
+真值 `/model_states` 只用于打印视觉误差、抬升基线、放置校验和重试判断。
+
+### 30.3 三个阻塞
+
+**放置点碰撞**：原来的 `(0.45, 0.15)` 贴着 `blue_box` 的角，
+`place descent` 只走 36% 就被截断，机械臂一直抓着。
+改为 `(0.40, 0.08)`，先水平搬移再垂直下放。
+
+**稀疏轨迹弧线**：实际执行的下降轨迹只有 7 个点
+（`max_step=0.0699 rad`），关节插值导致末端画弧。
+改为每 2 cm 一段逐段执行，每段 3~4 个点、
+`max_step≈0.019~0.030 rad`。
+
+**Gazebo 崩溃与卡死**：`gzserver` 段错误（exit -11）后窗口里机械臂消失；
+`panda_pick` 卡在没有超时的 attach 服务调用上。
+修复为 3 s 超时，attach 顺序改为 `panda_link7 → panda_link8 → panda_hand`，
+崩溃后必须 `pkill` 并整场重启。
+
+### 30.4 成功日志
+
+```text
+vision vs truth: err_xy=6.3 mm, err_z=0.0 mm
+vertical grasp cube: x=0.454, y=-0.145, z=0.374 (source=vision)
+attach link panda_link7: success=True
+cube after lift: z=0.5790
+GRASP SUCCESS
+
+place target: x=0.400, y=0.080, z=0.375
+place traverse: 12 段
+place descent: 11 段
+detach link panda_link7: success=True
+cube after place: (0.3964, 0.0752, 0.3741)
+place error: xy=6.0 mm, z=0.9 mm
+PLACE SUCCESS
+```
+
+### 30.5 视觉为什么“感觉不到”
+
+方块从未移动，视觉值与真值只差 6.3 mm，运动轨迹看起来和之前一样；
+放置点是固定参数；运动过程中没有第二次视觉反馈。
+想亲眼确认视觉在控制，可先在 Gazebo 里把红方块拖动 3–5 cm，
+再运行 `panda_pick`，观察 `vertical grasp cube` 的 x/y 是否跟着变化。
+
+注意：`panda_scene` 的红方块碰撞体仍写死在旧位置，
+拖太远会在 MoveIt 里留下“幽灵障碍”；这也是 A3 之前要补的地方。
+
+### 30.6 当前状态与下一步
+
+```text
+Gazebo 仿真抓放闭环：完成（link attach）
+物理摩擦抓取：仍未解决
+成功率统计：未做
+真机：未开始
+```
+
+下一步：
+
+```text
+eye-in-hand 相机 + 手眼标定
+→ 接近过程中持续看目标并修正
+A3：随机位置 20 次成功率统计
+→ 先让 planning scene 跟随真实方块位姿
+```
+
+### 30.7 原始记录
+
+- [raw.md](../learning_journal/2026-11-20-day30/raw.md)
+- [reflection.md](../learning_journal/2026-11-20-day30/reflection.md)
 
 ---
 

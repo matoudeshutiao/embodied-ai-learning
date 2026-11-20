@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–29 天：VLA/真机桥接、队列、安全层、Panda Gazebo、MoveIt2 抓取与 link attach
+├── project16_ros2_vla_bridge/ # 第 15–30 天：VLA/真机桥接、队列、安全层、Panda Gazebo、MoveIt2 视觉抓放与 link attach
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -295,6 +295,17 @@ python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_wave.py
 # 第 23 天：Panda 7 关节完整安全链路
 ros2 launch vla_bridge panda_full_chain_demo.launch.py
 
+# 第 30 天：Panda 视觉抓放闭环（详见项目 README 第 30 节）
+cd ~/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install --packages-select vla_bridge
+source install/setup.bash
+ros2 launch vla_bridge panda_moveit_gazebo.launch.py
+
+# 另开终端
+source ~/ros2_ws/install/setup.bash
+ros2 run vla_bridge panda_pick
+
 python 抓娃娃机.py    # 彩蛋
 ```
 
@@ -339,6 +350,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;27 | 2026.11.17 | ROS2 周 Day 19：侧向抓取、MoveIt 目标采样失败与 IK/姿态诊断 |
 | Day&nbsp;28 | 2026.11.18 | ROS2 周 Day 20：固定方块控制变量、effort 夹爪、笛卡尔下降/抬升与摩擦不足 |
 | Day&nbsp;29 | 2026.11.19 | ROS2 周 Day 21：link attach 打通 Gazebo 抓取；固定关节合并与 panda_link7 |
+| Day&nbsp;30 | 2026.11.20 | ROS2 周 Day 22：视觉抓放闭环；放置点碰撞、稀疏轨迹弧线与 attach 超时 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -4337,6 +4349,116 @@ place：未做
 
 - [raw.md](learning_journal/2026-11-19-day29/raw.md)
 - [reflection.md](learning_journal/2026-11-19-day29/reflection.md)
+
+---
+
+### 2026.11.20 ｜ 第 30 天 · ROS2 周 Day 22：视觉抓放闭环
+
+> 状态：抓取 → 搬移 → 下放 → 释放 → 校验完成。
+> 抬升仍依赖 Gazebo link attach（固定关节），不是物理摩擦抓取。
+
+#### 阶段 A 完成度
+
+```text
+A1 视觉去真值      ✅ 5 帧中值，误差 6.3 mm
+A2 place 完整回路   ✅ 搬移/下放/detach/张爪/抬离/校验
+A3 20 次成功率统计   ❌ 未做
+A4 空抓检测/重试    ✅ 已实现，重试未实测
+```
+
+#### 流程
+
+```text
+/vision/target_pose ×5 → 中值
+→ pre-grasp（OMPL，方块仍在 planning scene）
+→ 删除方块碰撞体
+→ 分段垂直下探（每段 2 cm）
+→ effort 闭合 + 空抓检测
+→ link attach 到 panda_link7
+→ 分段垂直抬升
+→ 保持高度水平搬移
+→ 分段垂直下放
+→ detach → 张爪 → 分段抬离
+→ 方块位置校验
+```
+
+#### 成功日志
+
+```text
+vision vs truth: err_xy=6.3 mm, err_z=0.0 mm
+vertical grasp cube: x=0.454, y=-0.145, z=0.374 (source=vision)
+cartesian descent: chunks=6, 每段 code=0
+finger positions after close: [0.0205, 0.0277]
+attach link panda_link7: success=True
+cube after lift: z=0.5790
+GRASP SUCCESS
+place descent: chunks=11, 每段 code=0
+detach link panda_link7: success=True
+cube after place: (0.3964, 0.0752, 0.3741)
+place error: xy=6.0 mm, z=0.9 mm
+PLACE SUCCESS
+```
+
+#### 今天卡住的三件事
+
+**1. 抓起后不放下**
+
+```text
+place descent: cartesian failed, code=1, fraction=0.364
+```
+
+放置点 `(0.45, 0.15)` 贴着 `blue_box` 的角（`blue_box` 占
+`x ∈ [0.47, 0.63]`、`y ∈ [0.16, 0.32]`、`z ∈ [0.33, 0.43]`），
+左手指下探时碰到它，路径被碰撞检查截断。改成 `(0.40, 0.08)`，
+并先水平搬移、再垂直下放。
+
+**2. 下爪画弧线**
+
+实质是实际轨迹只有 7 个点（`max_step=0.0699 rad`），
+控制器在稀疏点之间按关节空间插值。改成每 2 cm 一段逐段执行后，
+每段只有 3~4 个点、`max_step≈0.019~0.030 rad`，末端贴直线走。
+
+**3. Gazebo 崩溃 + 程序永久卡住**
+
+```text
+process has died ... gzserver ... exit code -11
+```
+
+`-11` 是段错误。窗口里机械臂消失，而 `panda_pick` 卡在没有超时的
+attach 服务调用上。修复：attach/detach 加 3 s 超时；
+attach 先试已知存在的 `panda_link7`；崩溃后整场重启，
+不能只重跑 `panda_pick`。
+
+#### 视觉到底在哪
+
+相机是固定俯视 eye-to-hand：
+
+```text
+panda_link0 → camera_link:  (0.55, 0, 1.15), pitch +90°
+camera_link → camera_optical_frame: roll -90°, yaw -90°
+```
+
+抓取 x/y/z 来自 `/vision/target_pose` 的 5 帧中值；
+真值 `/model_states` 只用于打印误差、抬升校验、放置校验和重试判断。
+用户“感觉不到视觉”的原因是方块一直没动（视觉与真值只差 6.3 mm），
+且放置点是固定参数、运动中没有第二次视觉反馈。
+
+#### 结论与下一步
+
+```text
+Gazebo 仿真抓放闭环：完成（link attach）
+物理摩擦抓取：仍未解决
+A3 成功率统计：未做
+真机：未开始
+```
+
+下一步：eye-in-hand 相机 + 手眼标定，把“看一次就闭眼执行”
+变成“接近过程中持续修正”；再做 A3 的随机位置成功率统计。
+
+#### 原始记录
+
+- [raw.md](learning_journal/2026-11-20-day30/raw.md)
+- [reflection.md](learning_journal/2026-11-20-day30/reflection.md)
 
 ---
 
