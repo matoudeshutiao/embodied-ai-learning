@@ -440,6 +440,33 @@ class PandaPick(Node):
         )
         return ok
 
+    def move_cartesian_linear(
+        self, x, y, z, label, chunk=0.02
+    ):
+        """把一条直线拆成小段逐段执行，避免稀疏轨迹插值画出弧线。"""
+        start = self.link_xyz("panda_link8")
+        if start is None:
+            return False
+        dx = x - start[0]
+        dy = y - start[1]
+        dz = z - start[2]
+        distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+        count = max(1, int(math.ceil(distance / chunk)))
+        self.get_logger().info(
+            f"{label}: distance={distance:.3f} m, "
+            f"chunks={count}"
+        )
+        for index in range(1, count + 1):
+            ratio = index / count
+            if not self.move_cartesian_to(
+                start[0] + dx * ratio,
+                start[1] + dy * ratio,
+                start[2] + dz * ratio,
+                f"{label} [{index}/{count}]",
+            ):
+                return False
+        return True
+
     def effort(self, value, seconds, label):
         if abs(value) > self.effort_limit:
             self.get_logger().warn(
@@ -618,7 +645,9 @@ class PandaPick(Node):
             )
             return False
 
-        for candidate in ("panda_link8", "panda_link7", "panda_hand"):
+        # panda_link7 是 Gazebo 固定关节合并后的真实末端 link，
+        # 其余名字只作为兜底，避免每次都先打一次必然失败的请求。
+        for candidate in ("panda_link7", "panda_link8", "panda_hand"):
             if attach:
                 request = AttachLink.Request()
             else:
@@ -629,7 +658,15 @@ class PandaPick(Node):
             request.link2_name = "link"
 
             future = client.call_async(request)
-            rclpy.spin_until_future_complete(self, future)
+            rclpy.spin_until_future_complete(
+                self, future, timeout_sec=3.0
+            )
+            if not future.done():
+                self.get_logger().error(
+                    f"{label} link {candidate}: service timeout "
+                    "(gzserver may have crashed)"
+                )
+                return False
             response = future.result()
             if response is None:
                 self.get_logger().warn(
@@ -653,11 +690,11 @@ class PandaPick(Node):
 
         # 保持抬升高度水平搬过去，再垂直下放；
         # 避免 OMPL 在放置点附近规划出扫掠路径。
-        if not self.move_cartesian_to(
+        if not self.move_cartesian_linear(
             x, y, z + 0.30, "place traverse"
         ):
             return False
-        if not self.move_cartesian_to(
+        if not self.move_cartesian_linear(
             x, y, z + self.grasp_offset, "place descent"
         ):
             return False
@@ -669,7 +706,7 @@ class PandaPick(Node):
             )
             return False
         self.effort(self.gripper_effort, 1.0, "open at place")
-        if not self.move_cartesian_to(
+        if not self.move_cartesian_linear(
             x, y, z + 0.30, "place retreat"
         ):
             return False
@@ -763,7 +800,7 @@ class PandaPick(Node):
         # 这样长路径会绕开方块，最后只做垂直下探。
         self.remove_red_cube()
         self.settle(0.3)
-        if not self.move_cartesian_to(
+        if not self.move_cartesian_linear(
             x, y, z + self.grasp_offset, "cartesian descent"
         ):
             return
@@ -811,6 +848,10 @@ class PandaPick(Node):
 
         if not fixed_cube_test and self.use_link_attacher:
             if not self.link_attach(True):
+                self.get_logger().error(
+                    "GRASP ABORTED: attach failed, cube not lifted"
+                )
+                self.effort(self.gripper_effort, 0.6, "open")
                 return
             self.settle(0.2)
 
@@ -837,7 +878,7 @@ class PandaPick(Node):
 
         # 第一次抬升失败时，若方块没被碰偏就回到抓取位重夹一次。
         for attempt in range(2):
-            if not self.move_cartesian_to(
+            if not self.move_cartesian_linear(
                 x, y, z + 0.30, "cartesian lift"
             ):
                 return
@@ -871,7 +912,7 @@ class PandaPick(Node):
             self.get_logger().warn(
                 "GRASP RETRY: cube did not follow the hand"
             )
-            if not self.move_cartesian_to(
+            if not self.move_cartesian_linear(
                 x, y, z + self.grasp_offset, "retry descent"
             ):
                 return
@@ -900,7 +941,11 @@ class PandaPick(Node):
         place_x = float(self.get_parameter("place_x").value)
         place_y = float(self.get_parameter("place_y").value)
         place_z = float(self.get_parameter("place_z").value)
-        self.place(place_x, place_y, place_z)
+        if not self.place(place_x, place_y, place_z):
+            self.get_logger().error(
+                "PLACE ABORTED: cube may still be attached to the hand; "
+                "restart the simulation before the next run"
+            )
 
 
 def main(args=None):
