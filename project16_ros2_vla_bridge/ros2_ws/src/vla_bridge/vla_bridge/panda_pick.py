@@ -67,8 +67,8 @@ class PandaPick(Node):
         self.declare_parameter("use_vision_pose", True)
         self.declare_parameter("cube_half_height", 0.025)
         self.declare_parameter("vision_min_samples", 5)
-        self.declare_parameter("place_x", 0.45)
-        self.declare_parameter("place_y", 0.15)
+        self.declare_parameter("place_x", 0.40)
+        self.declare_parameter("place_y", 0.08)
         self.declare_parameter("place_z", 0.375)
         self.use_link_attacher = bool(
             self.get_parameter("use_link_attacher").value
@@ -388,6 +388,35 @@ class PandaPick(Node):
             self.get_logger().error(f"{label}: empty trajectory")
             return False
 
+        points = trajectory.points
+        if points:
+            start = [
+                float(self.joint_positions.get(name, 0.0))
+                for name in trajectory.joint_names
+            ]
+            start_jump = max(
+                abs(a - b)
+                for a, b in zip(points[0].positions, start)
+            )
+            max_step = max(
+                (
+                    max(
+                        abs(a - b)
+                        for a, b in zip(
+                            points[i].positions,
+                            points[i + 1].positions,
+                        )
+                    )
+                    for i in range(len(points) - 1)
+                ),
+                default=0.0,
+            )
+            self.get_logger().info(
+                f"{label}: waypoints={len(points)}, "
+                f"start_jump={start_jump:.4f} rad, "
+                f"max_step={max_step:.4f} rad"
+            )
+
         if not self.arm_client.wait_for_server(timeout_sec=10.0):
             self.get_logger().error("arm controller action not ready")
             return False
@@ -621,8 +650,11 @@ class PandaPick(Node):
         self.get_logger().info(
             f"place target: x={x:.3f}, y={y:.3f}, z={z:.3f}"
         )
-        if not self.move_to(
-            x, y, z + self.pre_grasp_offset, "place pre-pose"
+
+        # 保持抬升高度水平搬过去，再垂直下放；
+        # 避免 OMPL 在放置点附近规划出扫掠路径。
+        if not self.move_cartesian_to(
+            x, y, z + 0.30, "place traverse"
         ):
             return False
         if not self.move_cartesian_to(
