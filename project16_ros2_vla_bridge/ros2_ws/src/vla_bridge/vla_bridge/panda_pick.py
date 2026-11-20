@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""最小抓取流程：开夹爪 → pre-grasp → 下探 → 闭合 → 抬起。"""
+"""抓放流程：视觉定位 → pre-grasp → 下探 → 闭合 → 抬起 → 搬移 → 下放 → 释放。"""
 
 import math
+import statistics
 import time
+from collections import deque
 
 import rclpy
 from control_msgs.action import FollowJointTrajectory
@@ -50,6 +52,7 @@ class PandaPick(Node):
     def __init__(self):
         super().__init__("panda_pick")
         self.target = None
+        self.target_samples = deque(maxlen=15)
         self.finger_positions = {}
         self.joint_positions = {}
         self.cube_contacts = None
@@ -61,6 +64,12 @@ class PandaPick(Node):
         self.declare_parameter("effort_limit", 10.0)
         self.declare_parameter("fixed_cube_test", False)
         self.declare_parameter("use_link_attacher", True)
+        self.declare_parameter("use_vision_pose", True)
+        self.declare_parameter("cube_half_height", 0.025)
+        self.declare_parameter("vision_min_samples", 5)
+        self.declare_parameter("place_x", 0.45)
+        self.declare_parameter("place_y", 0.15)
+        self.declare_parameter("place_z", 0.375)
         self.use_link_attacher = bool(
             self.get_parameter("use_link_attacher").value
         )
@@ -198,6 +207,10 @@ class PandaPick(Node):
             return None
 
     def on_target(self, msg):
+        p = msg.pose.position
+        self.target_samples.append(
+            (float(p.x), float(p.y), float(p.z))
+        )
         if self.target is None:
             self.target = msg
             self.get_logger().info(
@@ -206,6 +219,36 @@ class PandaPick(Node):
                 f"y={msg.pose.position.y:.3f}, "
                 f"z={msg.pose.position.z:.3f}"
             )
+
+    def get_vision_pose(self, timeout=5.0):
+        """取最近若干帧的中值，抑制单帧深度噪声。"""
+        min_samples = int(
+            self.get_parameter("vision_min_samples").value
+        )
+        deadline = time.monotonic() + timeout
+        while (
+            rclpy.ok()
+            and len(self.target_samples) < min_samples
+            and time.monotonic() < deadline
+        ):
+            rclpy.spin_once(self, timeout_sec=0.1)
+        if len(self.target_samples) < min_samples:
+            self.get_logger().warn(
+                f"vision samples {len(self.target_samples)}/{min_samples}"
+            )
+            return None
+
+        samples = list(self.target_samples)[-min_samples:]
+        values = tuple(
+            statistics.median([sample[i] for sample in samples])
+            for i in range(3)
+        )
+        self.get_logger().info(
+            f"vision median over {min_samples} samples: "
+            f"x={values[0]:.4f}, y={values[1]:.4f}, "
+            f"z_top={values[2]:.4f}"
+        )
+        return values
 
     def remove_collision(self, object_id):
         scene = PlanningScene()
@@ -573,6 +616,54 @@ class PandaPick(Node):
                 return True
         return False
 
+    def place(self, x, y, z):
+        """抬升后的搬移 → 下放 → 释放 → 抬离 → 校验。"""
+        self.get_logger().info(
+            f"place target: x={x:.3f}, y={y:.3f}, z={z:.3f}"
+        )
+        if not self.move_to(
+            x, y, z + self.pre_grasp_offset, "place pre-pose"
+        ):
+            return False
+        if not self.move_cartesian_to(
+            x, y, z + self.grasp_offset, "place descent"
+        ):
+            return False
+
+        # 先解固定关节再张爪，避免张爪瞬间把方块带偏。
+        if self.use_link_attacher and not self.link_attach(False):
+            self.get_logger().error(
+                "place: detach failed, cube still attached; abort"
+            )
+            return False
+        self.effort(self.gripper_effort, 1.0, "open at place")
+        if not self.move_cartesian_to(
+            x, y, z + 0.30, "place retreat"
+        ):
+            return False
+        self.settle(0.5)
+
+        final = self.get_cube_pose()
+        self.get_logger().info(f"cube after place: {final}")
+        if final is None:
+            self.get_logger().error("PLACE FAILED: no cube pose")
+            return False
+
+        err_xy = math.hypot(final[0] - x, final[1] - y)
+        err_z = abs(final[2] - z)
+        self.get_logger().info(
+            f"place error: xy={err_xy * 1000:.1f} mm, "
+            f"z={err_z * 1000:.1f} mm"
+        )
+        if err_xy < 0.02 and err_z < 0.03:
+            self.get_logger().info("PLACE SUCCESS")
+            return True
+        self.get_logger().error(
+            f"PLACE FAILED: xy={err_xy * 1000:.1f} mm, "
+            f"z={err_z * 1000:.1f} mm"
+        )
+        return False
+
     def run(self):
         if not self.move_client.wait_for_server(timeout_sec=30.0):
             self.get_logger().error("/move_action not ready")
@@ -581,27 +672,44 @@ class PandaPick(Node):
             self.get_logger().error("arm controller action not ready")
             return
 
+        use_vision = bool(
+            self.get_parameter("use_vision_pose").value
+        )
         self.get_logger().info("waiting for /vision/target_pose")
-        deadline = time.monotonic() + 10.0
-        while rclpy.ok() and self.target is None:
-            if time.monotonic() > deadline:
-                self.get_logger().warn(
-                    "no /vision/target_pose after 10s; "
-                    "cube may be out of camera view"
-                )
-                return
-            rclpy.spin_once(self, timeout_sec=0.1)
-        if self.target is None:
+        vision = self.get_vision_pose() if use_vision else None
+        if use_vision and vision is None:
+            self.get_logger().error(
+                "no /vision/target_pose after 5s; "
+                "cube may be out of camera view"
+            )
             return
 
-        # 用 Gazebo 里的实际方块位姿，不用视觉 z。
-        cube = self.get_cube_pose()
-        if cube is None:
+        # 真值只用于评估视觉误差和最后的抬升校验。
+        truth = self.get_cube_pose()
+        if truth is None:
             return
-        x, y, z = cube
-        before_z = z
+        half = float(
+            self.get_parameter("cube_half_height").value
+        )
+        if vision is not None:
+            vx, vy, vz_top = vision
+            vz = vz_top - half
+            err_xy = math.hypot(vx - truth[0], vy - truth[1])
+            err_z = vz - truth[2]
+            self.get_logger().info(
+                "vision vs truth: "
+                f"vision=({vx:.4f}, {vy:.4f}, {vz:.4f}), "
+                f"truth={truth}, "
+                f"err_xy={err_xy * 1000:.1f} mm, "
+                f"err_z={err_z * 1000:.1f} mm"
+            )
+            x, y, z = vx, vy, vz
+        else:
+            x, y, z = truth
+        before_z = truth[2]
         self.get_logger().info(
-            f"vertical grasp cube: x={x:.3f}, y={y:.3f}, z={z:.3f}"
+            f"vertical grasp cube: x={x:.3f}, y={y:.3f}, z={z:.3f} "
+            f"(source={'vision' if vision else 'truth'})"
         )
 
         fixed_cube_test = bool(
@@ -660,6 +768,15 @@ class PandaPick(Node):
 
         self.report_grasp()
 
+        # 空抓检测：手指完全合拢说明中间没有方块，直接放弃。
+        if finger_gap is not None and finger_gap < 0.005:
+            self.get_logger().error(
+                f"EMPTY GRASP: finger_gap={finger_gap:.4f} m, "
+                "fingers closed on nothing; abort before attach"
+            )
+            self.effort(self.gripper_effort, 0.6, "open")
+            return
+
         if not fixed_cube_test and self.use_link_attacher:
             if not self.link_attach(True):
                 return
@@ -682,34 +799,76 @@ class PandaPick(Node):
             self.effort(self.gripper_effort, 0.6, "open")
             return
 
-        if not self.move_cartesian_to(x, y, z + 0.30, "cartesian lift"):
-            return
-        self.settle(0.5)
-        self.get_logger().info(
-            f"fingers after lift: {self.finger_positions}"
-        )
-        after_pose = self.get_cube_pose()
-        after_z = None if after_pose is None else after_pose[2]
-        self.get_logger().info(f"cube after lift pose: {after_pose}")
-        self.get_logger().info(
-            f"cube z after lift: {after_z}"
-        )
-
         finger_ok = finger_gap is not None and finger_gap > 0.005
-        lift_ok = (
-            before_z is not None
-            and after_z is not None
-            and (after_z - before_z) > 0.05
-        )
-        if finger_ok and lift_ok:
-            self.get_logger().info("GRASP SUCCESS")
-        else:
+        lift_ok = False
+        after_z = None
+
+        # 第一次抬升失败时，若方块没被碰偏就回到抓取位重夹一次。
+        for attempt in range(2):
+            if not self.move_cartesian_to(
+                x, y, z + 0.30, "cartesian lift"
+            ):
+                return
+            self.settle(0.5)
+            self.get_logger().info(
+                f"fingers after lift: {self.finger_positions}"
+            )
+            after_pose = self.get_cube_pose()
+            after_z = None if after_pose is None else after_pose[2]
+            self.get_logger().info(
+                f"cube after lift pose: {after_pose}"
+            )
+            lift_ok = (
+                before_z is not None
+                and after_z is not None
+                and (after_z - before_z) > 0.05
+            )
+            if lift_ok or not self.use_link_attacher or attempt == 1:
+                break
+
+            retry = self.get_cube_pose()
+            if (
+                retry is None
+                or abs(retry[0] - x) > 0.01
+                or abs(retry[1] - y) > 0.01
+            ):
+                self.get_logger().warn(
+                    "GRASP RETRY skipped: cube moved away"
+                )
+                break
+            self.get_logger().warn(
+                "GRASP RETRY: cube did not follow the hand"
+            )
+            if not self.move_cartesian_to(
+                x, y, z + self.grasp_offset, "retry descent"
+            ):
+                return
+            self.effort(-self.gripper_effort, 1.0, "retry close")
+            self.wait_finger_stable()
+            self.link_attach(False)
+            if not self.link_attach(True):
+                return
+            self.settle(0.2)
+
+        if not (finger_ok and lift_ok):
+            cube_dz = (
+                None
+                if after_z is None or before_z is None
+                else after_z - before_z
+            )
             self.get_logger().error(
                 "GRASP FAILED: "
-                f"finger_gap={finger_gap}, "
-                f"cube_dz={None if after_z is None or before_z is None else after_z - before_z}"
+                f"finger_gap={finger_gap}, cube_dz={cube_dz}"
             )
             self.effort(self.gripper_effort, 0.6, "open")
+            return
+
+        self.get_logger().info("GRASP SUCCESS")
+
+        place_x = float(self.get_parameter("place_x").value)
+        place_y = float(self.get_parameter("place_y").value)
+        place_z = float(self.get_parameter("place_z").value)
+        self.place(place_x, place_y, place_z)
 
 
 def main(args=None):
