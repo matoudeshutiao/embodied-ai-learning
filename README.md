@@ -306,6 +306,10 @@ ros2 launch vla_bridge panda_moveit_gazebo.launch.py
 source ~/ros2_ws/install/setup.bash
 ros2 run vla_bridge panda_pick
 
+# 第 30 天：A3 随机位置试验（--publish 会自动推送报告到 experiments/）
+python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_pick_trials.py \
+  --trials 20 --seed 0 --publish
+
 python 抓娃娃机.py    # 彩蛋
 ```
 

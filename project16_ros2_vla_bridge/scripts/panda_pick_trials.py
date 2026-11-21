@@ -8,6 +8,9 @@
 用法：
   python3 project16_ros2_vla_bridge/scripts/panda_pick_trials.py --trials 3
   python3 project16_ros2_vla_bridge/scripts/panda_pick_trials.py --trials 20 --seed 0
+  python3 project16_ros2_vla_bridge/scripts/panda_pick_trials.py --trials 20 --publish
+
+  --publish 会在试验结束后生成 experiments 报告并推送到 GitHub。
 
 每次试验：
   detach 残留关节 -> 张开夹爪 -> /gazebo/set_entity_state 传送方块
@@ -17,6 +20,7 @@
 
 import argparse
 import csv
+import json
 import math
 import os
 import random
@@ -51,6 +55,7 @@ class TrialRunner(Node):
         self.args = args
         self.cube_pose = None
         self.cube_stamp = 0.0
+        self.last_out_dir = None
 
         self.create_subscription(
             ModelStates, "/model_states", self.on_model_states, 10
@@ -76,6 +81,18 @@ class TrialRunner(Node):
             )
 
         self.detach_client = self.create_client(DetachLink, "/DETACHLINK")
+
+    @staticmethod
+    def current_git_head():
+        try:
+            output = subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                stderr=subprocess.DEVNULL,
+            )
+            return output.decode().strip()
+        except Exception:
+            return None
 
     def find_service(self, srv_type, names, timeout):
         for name in names:
@@ -336,7 +353,26 @@ class TrialRunner(Node):
             os.path.join(args.out_dir, f"a3_{stamp}")
         )
         os.makedirs(out_dir, exist_ok=True)
+        self.last_out_dir = out_dir
         csv_path = os.path.join(out_dir, "summary.csv")
+
+        meta = {
+            "created": datetime.now().isoformat(timespec="seconds"),
+            "git_head": self.current_git_head(),
+            "trials": args.trials,
+            "seed": args.seed,
+            "x_range": [args.x_min, args.x_max],
+            "y_range": [args.y_min, args.y_max],
+            "cube_z": CUBE_Z,
+            "place": [args.place_x, args.place_y, args.place_z],
+            "timeout": args.timeout,
+        }
+        with open(
+            os.path.join(out_dir, "meta.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            json.dump(meta, handle, indent=2, ensure_ascii=False)
 
         if self.read_cube_pose(timeout=5.0) is None:
             raise RuntimeError(
@@ -558,6 +594,11 @@ def parse_args(argv):
     parser.add_argument("--place-z", type=float, default=0.375)
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument(
+        "--publish",
+        action="store_true",
+        help="试验结束后生成报告并推送到 GitHub",
+    )
+    parser.add_argument(
         "--out-dir",
         default=os.path.join(
             os.path.dirname(__file__),
@@ -579,6 +620,26 @@ def main(argv=None):
         return 1
     try:
         runner.run_trials()
+        if args.publish and runner.last_out_dir:
+            publisher = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "publish_experiment.py",
+            )
+            print("\n== publishing report ==")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    publisher,
+                    "--run-dir",
+                    runner.last_out_dir,
+                ],
+                env=os.environ.copy(),
+            )
+            if result.returncode != 0:
+                print(
+                    "WARNING: report publish failed; "
+                    f"raw results are still in {runner.last_out_dir}"
+                )
     except KeyboardInterrupt:
         pass
     finally:

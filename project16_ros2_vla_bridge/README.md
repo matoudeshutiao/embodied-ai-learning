@@ -136,12 +136,17 @@ project16_ros2_vla_bridge/
 │   ├── stop_analysis.png
 │   ├── stop_analysis_high_speed.png
 │   └── panda_mock_hardware.png
+├── experiments/
+│   ├── README.md
+│   └── a3/                      # 自动推送的 A3 试验报告
 ├── scripts/
 │   ├── test_state_timeout.sh
 │   ├── stop_probe.py
 │   ├── analyze_stop.py
 │   ├── panda_wave.py
 │   ├── panda_gripper_test.py
+│   ├── panda_pick_trials.py
+│   ├── publish_experiment.py
 │   └── dev_sync_vla.sh
 └── ros2_ws/
     └── src/
@@ -211,6 +216,8 @@ project16_ros2_vla_bridge/
 | `dev_sync_vla.sh` | 一键 pull/同步/build/source |
 | `stop_probe.py` | 发一条慢轨迹并记录 watchdog 停止前后的关节状态 |
 | `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
+| `panda_pick_trials.py` | A3 随机位置试验：传送方块、复位、独立校验、写 CSV |
+| `publish_experiment.py` | 把试验结果生成 `experiments/` 报告并提交/推送 GitHub |
 | `arm_mock_description/` | mock hardware 的 URDF 和控制器配置 |
 | `HARDWARE_CONTRACT.md` | Panda 真机接口合同 v0 |
 | `real_controller_view.rviz` | 默认显示 RobotModel、TF 和 Grid |
@@ -3591,6 +3598,85 @@ A3：随机位置 20 次成功率统计
 
 - [raw.md](../learning_journal/2026-11-20-day30/raw.md)
 - [reflection.md](../learning_journal/2026-11-20-day30/reflection.md)
+
+---
+
+## 31. 实验报告自动化（A3）
+
+> 状态：A3 ±3 cm 已完成 20/20；报告自动推送到 `experiments/`。
+> 抬升仍依赖 link attach，不是物理摩擦抓取。
+
+### 31.1 目录
+
+```text
+project16_ros2_vla_bridge/
+├── scripts/
+│   ├── panda_pick_trials.py    # 试验执行
+│   └── publish_experiment.py   # 报告生成 + git commit/push
+├── experiments/
+│   ├── README.md               # 运行索引
+│   └── a3/<run_id>/
+│       ├── report.md
+│       ├── summary.csv
+│       ├── meta.json
+│       └── logs/               # 默认只放失败轮次
+└── output/                     # 原始输出，已被 .gitignore 排除
+```
+
+### 31.2 运行方式
+
+一轮试验同时发布报告：
+
+```bash
+python3 project16_ros2_vla_bridge/scripts/panda_pick_trials.py \
+  --trials 20 --seed 0 --publish
+```
+
+已完成但没发布的试验，可以补发最新一轮：
+
+```bash
+python3 project16_ros2_vla_bridge/scripts/publish_experiment.py
+```
+
+指定某一轮：
+
+```bash
+python3 project16_ros2_vla_bridge/scripts/publish_experiment.py \
+  --run-dir project16_ros2_vla_bridge/output/a3_20261121_201637
+```
+
+`--skip-push` 只生成并提交到本地，适合先检查报告。
+
+### 31.3 报告内容
+
+```text
+试验参数（来自 meta.json）
+汇总：全链路/抓取成功、失败阶段、视觉误差、放置误差、相关系数
+逐轮表：命令位置、实际位置、实际偏差、视觉误差、抓取/放置/校验
+观察：视觉径向偏差、命令与实际位置偏差 >5 mm 的轮次
+```
+
+独立校验来自 `/model_states`，不只看节点自己打印的 `PLACE SUCCESS`。
+
+### 31.4 首次 20 次结果
+
+```text
+全链路成功     20/20
+视觉误差       mean 6.1 mm, max 7.5 mm
+放置误差 xy    mean 5.9 mm, max 7.3 mm
+视觉-放置相关  r≈0.995
+```
+
+一次异常：第 5 次命令 `(0.4486, -0.1450)`，实际 `(0.4570, -0.1610)`，
+偏约 18 mm；机器人仍然成功，因为视觉跟随的是实际方块。
+这说明命令位置必须和实际位置分开记录。
+
+### 31.5 注意
+
+- 成功率是“视觉 + 规划 + link attach + 放置校验”的软件链路成功率，
+  不能当作真实夹爪的抓取成功率。
+- `experiments/` 只放 Markdown/CSV/JSON 和小日志；
+  完整输出仍在 `output/`，不进入仓库。
 
 ---
 
