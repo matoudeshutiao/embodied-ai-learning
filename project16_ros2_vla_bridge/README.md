@@ -209,7 +209,7 @@ project16_ros2_vla_bridge/
 | `panda_moveit_gazebo.launch.py` | Gazebo + MoveIt2 move_group + MoveIt RViz + 相机 RViz |
 | `panda_wave.py` | 直接给 `panda_arm_controller` 发一条 7 关节轨迹 |
 | `panda_gripper_test.py` | 测试 Gazebo 夹爪开合 |
-| `panda_color_detector.py` | HSV 检测 + 深度反投影到 `panda_link0` |
+| `panda_color_detector.py` | HSV 检测 + 顶面 3D 质心；`estimator:=bbox` 可切回旧方法 |
 | `panda_home.py` | 启动后把 Panda 移到合法初始位姿 |
 | `panda_scene.py` | 把桌面/方块/盒子发布到 MoveIt planning scene |
 | `panda_move_to_target.py` | 目标上方 pre-grasp 的 MoveGroup 客户端 |
@@ -3693,25 +3693,46 @@ A3 的 20 次数据显示：视觉误差几乎完全是**向图像中心的径�
 这个脚本在不动机器人的情况下量化误差来源：
 
 ```text
-A  整个红色轮廓的 bbox 中心 + 深度中值（当前 panda_pick 使用）
+A  整个红色轮廓的 bbox 中心 + 深度中值（旧方法，estimator:=bbox）
 B  顶面深度过滤后的 3D 质心（阈值 1/2/4/8 mm）
 C  整个轮廓的矩质心 + 深度中值
 ```
 
 summary 还会对每种方法拟合一个纯径向缩放系数 `s`，
-输出缩放后的残差。如果缩放后残差接近 0，说明剩余误差是内参/投影比例问题；
-如果缩到 1–2 mm 阈值后误差才下降，说明仍是侧面污染。
+输出缩放后的残差。
 
 10 个静态位置的实测：
 
 ```text
-A  mean 6.45 mm, max 7.69 mm, 径向 6.42 mm
-B  mean 4.18 mm, max 4.84 mm, 径向 4.10 mm
-C  mean 8.31 mm, max 9.54 mm, 径向 8.24 mm
+          原始误差      径向缩放 s     校正后误差
+A         6.45 mm       1.0388         0.71 mm
+B1 (1mm)  4.08 mm       1.0236         0.97 mm
+B2 (2mm)  4.08 mm       1.0236         0.97 mm
+B4 (4mm)  4.18 mm       1.0243         0.85 mm
+B8 (8mm)  4.38 mm       1.0250         1.06 mm
+C         8.31 mm       1.0502         1.07 mm
 ```
 
-B 比 A 下降约 35%，说明“轮廓包含侧面”确实是 A 的一部分误差；
-但 B 剩余误差仍几乎全是径向的（4.10/4.18 mm）。
+结论：
+
+- 1 mm 和 2 mm 阈值结果相同，4/8 mm 只差 0.1–0.3 mm；
+  侧面顶部残留影响很小，**阈值不是主因**。
+- 每种方法乘上一个 ~1.02–1.04 的径向缩放后，误差都降到 0.7–1.1 mm，
+  说明剩余误差是**纯径向比例误差**（内参/投影），不是随机的。
+- 0.7–1.1 mm 已经小于 1 个像素（320×240 下约 2.7 mm/px），
+  接近分辨率和量化下限。
+- 手眼标定解决不了这个比例误差；它需要**相机内参标定**。
+
+因此生产检测器已改用 B（2 mm 阈值）：
+
+```text
+/vision/debug_image 里红方块的黄点 = 顶面 3D 质心
+estimator:=bbox  → 切回旧方法作对照
+```
+
+```bash
+ros2 run vla_bridge panda_color_detector --ros-args -p estimator:=bbox
+```
 
 运行前机械臂必须在 home，且不要同时运行 `panda_pick`：
 
@@ -3732,9 +3753,8 @@ output/vision_compare_<时间>/
   trial_XX.png       # 轮廓、A/B/C 中心、真值投影十字
 ```
 
-如果 B 的误差明显小于 A，就说明 6.1 mm 主要来自
-“轮廓包含侧面 + 离轴 bbox”，而不是相机标定。
-这条结论会决定 eye-in-hand 是直接接标定，还是先改检测器。
+下一步是相机内参标定：修正约 2.4% 的径向比例误差。
+这一步和 hand-eye（相机到末端的外参）是两件事，不能互相替代。
 
 ---
 

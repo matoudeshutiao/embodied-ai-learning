@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Panda 桌面场景的 HSV + 深度目标检测。
 
+默认使用顶面深度过滤 + 3D 质心（方法 B）；
+可用参数 estimator:=bbox 切回旧的 bbox 中心方法。
+
 输出：
-  /vision/debug_image   画了检测框的 RGB 图
+  /vision/debug_image   画了检测框和估计中心点的 RGB 图
   /vision/target_pose   红色方块在 panda_link0 下的位姿
   /vision/target_marker RViz 中的目标球
 """
@@ -41,6 +44,24 @@ class PandaColorDetector(Node):
         self.bridge = CvBridge()
         self.K = None
 
+        self.declare_parameter("estimator", "top")
+        self.declare_parameter("top_depth_margin", 0.002)
+        self.declare_parameter("min_top_points", 20)
+        self.estimator = str(
+            self.get_parameter("estimator").value
+        )
+        self.top_depth_margin = float(
+            self.get_parameter("top_depth_margin").value
+        )
+        self.min_top_points = int(
+            self.get_parameter("min_top_points").value
+        )
+        self.get_logger().info(
+            f"estimator={self.estimator}, "
+            f"top_depth_margin={self.top_depth_margin:.3f} m, "
+            f"min_top_points={self.min_top_points}"
+        )
+
         self.create_subscription(
             CameraInfo, "/camera/camera_info", self.on_camera_info, 10
         )
@@ -75,6 +96,31 @@ class PandaColorDetector(Node):
             self.K = (
                 msg.k[0], msg.k[4], msg.k[2], msg.k[5]
             )
+
+    def top_face_point(self, depth, roi, fx, fy, cx, cy):
+        """取最靠近相机的顶面像素，返回相机坐标 3D 质心。"""
+        rows, cols = np.nonzero(roi)
+        zs = depth[rows, cols].astype(np.float64)
+        valid = np.isfinite(zs) & (zs > 0.0)
+        rows, cols, zs = rows[valid], cols[valid], zs[valid]
+        if zs.size == 0:
+            return None
+
+        z_top = float(np.percentile(zs, 5))
+        keep = zs <= z_top + self.top_depth_margin
+        rows, cols, zs = rows[keep], cols[keep], zs[keep]
+        if zs.size < self.min_top_points:
+            return None
+
+        X = (cols - cx) * zs / fx
+        Y = (rows - cy) * zs / fy
+        return (
+            (float(X.mean()), float(Y.mean()), float(zs.mean())),
+            float(cols.mean()),
+            float(rows.mean()),
+            float(zs.mean()),
+            int(zs.size),
+        )
 
     def on_images(self, image_msg, depth_msg):
         try:
@@ -131,13 +177,32 @@ class PandaColorDetector(Node):
             values = values[np.isfinite(values) & (values > 0.0)]
             if values.size == 0:
                 continue
+            z_median = float(np.median(values))
 
-            z = float(np.median(values))
-            point_cam = PointStamped()
-            point_cam.header = image_msg.header
-            point_cam.point.x = (u - cx) * z / fx
-            point_cam.point.y = (v - cy) * z / fy
-            point_cam.point.z = z
+            top = None
+            if color == "red" and self.estimator == "top":
+                top = self.top_face_point(
+                    depth, roi, fx, fy, cx, cy
+                )
+
+            if top is not None:
+                (cam_x, cam_y, cam_z), u, v, z, _ = top
+                point_cam = PointStamped()
+                point_cam.header = image_msg.header
+                point_cam.point.x = cam_x
+                point_cam.point.y = cam_y
+                point_cam.point.z = cam_z
+                label = f"{color} top z={z:.3f}"
+                dot_color = (0, 255, 255)
+            else:
+                z = z_median
+                point_cam = PointStamped()
+                point_cam.header = image_msg.header
+                point_cam.point.x = (u - cx) * z / fx
+                point_cam.point.y = (v - cy) * z / fy
+                point_cam.point.z = z
+                label = f"{color} z={z:.3f}"
+                dot_color = DRAW_COLORS[color]
 
             try:
                 transform = self.tf_buffer.lookup_transform(
@@ -150,7 +215,6 @@ class PandaColorDetector(Node):
                 self.get_logger().warn(f"TF failed: {exc}")
                 continue
 
-            label = f"{color} z={z:.3f}"
             cv2.rectangle(debug, (x, y), (x + w, y + h),
                           DRAW_COLORS[color], 2)
             cv2.putText(debug, label, (x, max(15, y - 5)),
@@ -158,6 +222,9 @@ class PandaColorDetector(Node):
                         DRAW_COLORS[color], 1)
 
             if color == "red":
+                cv2.circle(
+                    debug, (int(u), int(v)), 3, dot_color, -1
+                )
                 target = point_base
 
         if target is not None:
