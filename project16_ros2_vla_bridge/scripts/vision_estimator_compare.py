@@ -2,8 +2,11 @@
 """静态对比三种方块中心估计方法（不动机器人）。
 
 A：整个红色轮廓的 bounding box 中心 + 深度中值（当前方法）
-B：顶面深度过滤后的 3D 质心
+B：顶面深度过滤后的 3D 质心（同时测 1/2/4/8 mm 四种阈值）
 C：整个轮廓的矩质心 + 深度中值
+
+summary 还会对每种方法拟合一个纯径向缩放系数，
+用“缩放后的残差”判断剩下的是不是内参/投影比例误差。
 
 前置：
   1. 已启动 vla_bridge/panda_moveit_gazebo.launch.py
@@ -40,7 +43,12 @@ CUBE_NAME = "red_cube"
 CUBE_HALF = 0.025
 CUBE_Z = 0.375
 CAMERA_XY = (0.55, 0.0)
-TOP_DEPTH_MARGIN = 0.004
+TOP_DEPTH_MARGINS = (
+    ("b1", 0.001),
+    ("b2", 0.002),
+    ("b4", 0.004),
+    ("b8", 0.008),
+)
 
 COLOR_RANGES = [
     ((0, 100, 60), (10, 255, 255)),
@@ -270,7 +278,7 @@ class EstimatorCompare(Node):
         )
         base_c = self.to_base(camera_c, header)
 
-        # B：顶面深度过滤 + 3D 质心
+        # B：顶面深度过滤 + 3D 质心，测试不同厚度阈值
         rows, cols = np.nonzero(roi)
         zs = depth[rows, cols].astype(np.float64)
         valid = np.isfinite(zs) & (zs > 0.0)
@@ -278,27 +286,49 @@ class EstimatorCompare(Node):
         if zs.size == 0:
             return None
         z_top = float(np.percentile(zs, 5))
-        keep = zs <= z_top + TOP_DEPTH_MARGIN
-        rows, cols, zs = rows[keep], cols[keep], zs[keep]
-        if zs.size == 0:
-            return None
-        X = (cols - cx) * zs / fx
-        Y = (rows - cy) * zs / fy
-        camera_b = (float(X.mean()), float(Y.mean()), float(zs.mean()))
-        base_b = self.to_base(camera_b, header)
-        u_b = float(cols.mean())
-        v_b = float(rows.mean())
 
-        if base_a is None or base_b is None or base_c is None:
+        variants = {}
+        for label, margin in TOP_DEPTH_MARGINS:
+            keep = zs <= z_top + margin
+            keep_rows = rows[keep]
+            keep_cols = cols[keep]
+            keep_z = zs[keep]
+            if keep_z.size < 20:
+                variants[label] = None
+                continue
+            X = (keep_cols - cx) * keep_z / fx
+            Y = (keep_rows - cy) * keep_z / fy
+            camera_b = (
+                float(X.mean()),
+                float(Y.mean()),
+                float(keep_z.mean()),
+            )
+            base_b = self.to_base(camera_b, header)
+            if base_b is None:
+                variants[label] = None
+                continue
+            variants[label] = {
+                "uv": (
+                    float(keep_cols.mean()),
+                    float(keep_rows.mean()),
+                ),
+                "xyz": base_b,
+                "points": int(keep_z.size),
+            }
+
+        if (
+            base_a is None
+            or base_c is None
+            or all(value is None for value in variants.values())
+        ):
             return None
 
         return {
             "contour": contour,
             "bbox": (x, y, w, h),
             "A": {"uv": (u_a, v_a), "xyz": base_a},
-            "B": {"uv": (u_b, v_b), "xyz": base_b},
+            "B": variants,
             "C": {"uv": (u_c, v_c), "xyz": base_c},
-            "top_points": int(zs.size),
             "z_top": z_top,
         }
 
@@ -332,6 +362,27 @@ class EstimatorCompare(Node):
             1000.0 * (math.hypot(tx, ty) - math.hypot(ex, ey)),
             math.degrees(math.atan2(tx * ey - ty * ex, tx * ex + ty * ey)),
         )
+
+
+def scale_fit(pairs):
+    """拟合一个从相机中心出发的径向缩放系数，返回 (s, 平均残差, 最大残差)。"""
+    numerator = 0.0
+    denominator = 0.0
+    for estimate, truth in pairs:
+        numerator += estimate[0] * truth[0] + estimate[1] * truth[1]
+        denominator += estimate[0] ** 2 + estimate[1] ** 2
+    if denominator == 0.0:
+        return None
+    scale = numerator / denominator
+    residuals = [
+        1000.0
+        * math.hypot(
+            scale * estimate[0] - truth[0],
+            scale * estimate[1] - truth[1],
+        )
+        for estimate, truth in pairs
+    ]
+    return scale, sum(residuals) / len(residuals), max(residuals)
 
 
 def parse_args(argv):
@@ -381,19 +432,22 @@ def main(argv=None):
             "a_z",
             "a_err_mm",
             "a_radial_mm",
-            "b_x",
-            "b_y",
-            "b_z",
-            "b_err_mm",
-            "b_radial_mm",
             "c_x",
             "c_y",
             "c_z",
             "c_err_mm",
             "c_radial_mm",
-            "b_points",
-            "image_file",
         ]
+        for label, _ in TOP_DEPTH_MARGINS:
+            fieldnames += [
+                f"{label}_x",
+                f"{label}_y",
+                f"{label}_z",
+                f"{label}_err_mm",
+                f"{label}_radial_mm",
+                f"{label}_points",
+            ]
+        fieldnames.append("image_file")
 
         rng = random.Random(args.seed)
         rows = []
@@ -430,11 +484,19 @@ def main(argv=None):
                 )
                 colors = {
                     "A": ((0, 0, 255), "A bbox"),
-                    "B": ((0, 255, 0), "B top"),
+                    "b1": ((0, 255, 0), "B1 1mm"),
+                    "b4": ((0, 255, 255), "B4 4mm"),
                     "C": ((255, 0, 0), "C moments"),
                 }
                 for key, (color, label) in colors.items():
-                    u, v = estimate[key]["uv"]
+                    data = (
+                        estimate[key]
+                        if key in ("A", "C")
+                        else estimate["B"][key]
+                    )
+                    if data is None:
+                        continue
+                    u, v = data["uv"]
                     cv2.circle(debug, (int(u), int(v)), 4, color, -1)
                     cv2.putText(
                         debug,
@@ -465,10 +527,10 @@ def main(argv=None):
                     "truth_x": truth[0],
                     "truth_y": truth[1],
                     "truth_z": truth[2],
-                    "b_points": estimate["top_points"],
                     "image_file": image_name,
                 }
-                for key in ("A", "B", "C"):
+
+                for key in ("A", "C"):
                     xyz = estimate[key]["xyz"]
                     error = 1000.0 * math.hypot(
                         xyz[0] - truth[0], xyz[1] - truth[1]
@@ -481,17 +543,46 @@ def main(argv=None):
                     row[f"{key.lower()}_radial_mm"] = round(
                         radial, 2
                     )
+
+                for label, _ in TOP_DEPTH_MARGINS:
+                    data = estimate["B"][label]
+                    if data is None:
+                        for suffix in (
+                            "x",
+                            "y",
+                            "z",
+                            "err_mm",
+                            "radial_mm",
+                            "points",
+                        ):
+                            row[f"{label}_{suffix}"] = None
+                        continue
+                    xyz = data["xyz"]
+                    error = 1000.0 * math.hypot(
+                        xyz[0] - truth[0], xyz[1] - truth[1]
+                    )
+                    radial, _ = node.radial_error(xyz, truth_center)
+                    row[f"{label}_x"] = round(xyz[0], 4)
+                    row[f"{label}_y"] = round(xyz[1], 4)
+                    row[f"{label}_z"] = round(xyz[2], 4)
+                    row[f"{label}_err_mm"] = round(error, 2)
+                    row[f"{label}_radial_mm"] = round(radial, 2)
+                    row[f"{label}_points"] = data["points"]
+
                 rows.append(row)
                 writer.writerow(row)
                 handle.flush()
 
-                print(
-                    f"trial {trial}: "
-                    f"A={row['a_err_mm']:.2f} mm, "
-                    f"B={row['b_err_mm']:.2f} mm, "
-                    f"C={row['c_err_mm']:.2f} mm, "
-                    f"top_points={estimate['top_points']}"
-                )
+                parts = []
+                for key in (
+                    ["a"]
+                    + [label for label, _ in TOP_DEPTH_MARGINS]
+                    + ["c"]
+                ):
+                    value = row.get(f"{key}_err_mm")
+                    if value is not None:
+                        parts.append(f"{key.upper()}={value:.2f}")
+                print(f"trial {trial}: " + ", ".join(parts) + " mm")
 
         node.teleport(0.45, -0.15)
 
@@ -500,14 +591,51 @@ def main(argv=None):
             return 0
 
         print("\n===== ESTIMATOR SUMMARY =====")
-        for key in ("a", "b", "c"):
-            errors = [row[f"{key}_err_mm"] for row in rows]
-            radial = [row[f"{key}_radial_mm"] for row in rows]
-            print(
+        metric_keys = (
+            ["a"]
+            + [label for label, _ in TOP_DEPTH_MARGINS]
+            + ["c"]
+        )
+        for key in metric_keys:
+            errors = [
+                row[f"{key}_err_mm"]
+                for row in rows
+                if row.get(f"{key}_err_mm") is not None
+            ]
+            radial = [
+                row[f"{key}_radial_mm"]
+                for row in rows
+                if row.get(f"{key}_radial_mm") is not None
+            ]
+            if not errors:
+                print(f"{key.upper()}: no valid data")
+                continue
+            pairs = []
+            for row in rows:
+                if row.get(f"{key}_err_mm") is None:
+                    continue
+                estimate_xy = (
+                    row[f"{key}_x"] - CAMERA_XY[0],
+                    row[f"{key}_y"] - CAMERA_XY[1],
+                )
+                truth_xy = (
+                    row["truth_x"] - CAMERA_XY[0],
+                    row["truth_y"] - CAMERA_XY[1],
+                )
+                pairs.append((estimate_xy, truth_xy))
+            fit = scale_fit(pairs)
+            line = (
                 f"{key.upper()}: mean={sum(errors) / len(errors):.2f} mm, "
                 f"max={max(errors):.2f} mm, "
                 f"mean_radial={sum(radial) / len(radial):.2f} mm"
             )
+            if fit is not None:
+                line += (
+                    f" | scale={fit[0]:.4f}, "
+                    f"corrected mean={fit[1]:.2f} mm, "
+                    f"max={fit[2]:.2f} mm"
+                )
+            print(line)
         print(f"csv: {csv_path}")
         print(f"images: {out_dir}")
     except KeyboardInterrupt:
