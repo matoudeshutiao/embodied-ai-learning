@@ -173,7 +173,11 @@ class TrialRunner(Node):
         response = future.result()
         if response is None:
             return False, "set_entity_state 无响应"
-        return bool(response.success), response.status_message
+        # Humble 的 SetEntityState 响应只有 success，没有 status_message。
+        message = getattr(response, "status_message", "")
+        if not message and not response.success:
+            message = "set_entity_state returned success=False"
+        return bool(response.success), message
 
     def publish_cube_scene(self, x, y, z):
         scene = PlanningScene()
