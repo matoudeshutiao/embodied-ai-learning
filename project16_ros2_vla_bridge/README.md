@@ -147,6 +147,7 @@ project16_ros2_vla_bridge/
 │   ├── panda_gripper_test.py
 │   ├── panda_pick_trials.py
 │   ├── publish_experiment.py
+│   ├── vision_estimator_compare.py
 │   └── dev_sync_vla.sh
 └── ros2_ws/
     └── src/
@@ -218,6 +219,7 @@ project16_ros2_vla_bridge/
 | `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
 | `panda_pick_trials.py` | A3 随机位置试验：传送方块、复位、独立校验、写 CSV |
 | `publish_experiment.py` | 把试验结果生成 `experiments/` 报告并提交/推送 GitHub |
+| `vision_estimator_compare.py` | 静态对比 bbox 中心 / 顶面 3D 质心 / 矩质心三种估计 |
 | `arm_mock_description/` | mock hardware 的 URDF 和控制器配置 |
 | `HARDWARE_CONTRACT.md` | Panda 真机接口合同 v0 |
 | `real_controller_view.rviz` | 默认显示 RobotModel、TF 和 Grid |
@@ -3677,6 +3679,43 @@ python3 project16_ros2_vla_bridge/scripts/publish_experiment.py \
   不能当作真实夹爪的抓取成功率。
 - `experiments/` 只放 Markdown/CSV/JSON 和小日志；
   完整输出仍在 `output/`，不进入仓库。
+
+---
+
+## 32. 静态视觉估计器对比
+
+A3 的 20 次数据显示：视觉误差几乎完全是**向图像中心的径向收缩**
+（6.1 mm，角度偏差 0.2°），而不是随机噪声或外参误差。
+这个脚本在不动机器人的情况下量化误差来源：
+
+```text
+A  整个红色轮廓的 bbox 中心 + 深度中值（当前 panda_pick 使用）
+B  顶面深度过滤后的 3D 质心
+C  整个轮廓的矩质心 + 深度中值
+```
+
+运行前机械臂必须在 home，且不要同时运行 `panda_pick`：
+
+```bash
+ros2 run vla_bridge panda_home
+```
+
+```bash
+python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/vision_estimator_compare.py \
+  --trials 10 --seed 0
+```
+
+脚本会自动把红方块传送到 10 个位置，输出：
+
+```text
+output/vision_compare_<时间>/
+  summary.csv        # 三种方法的 x/y/z 与 xy 误差、径向收缩
+  trial_XX.png       # 轮廓、A/B/C 中心、真值投影十字
+```
+
+如果 B 的误差明显小于 A，就说明 6.1 mm 主要来自
+“轮廓包含侧面 + 离轴 bbox”，而不是相机标定。
+这条结论会决定 eye-in-hand 是直接接标定，还是先改检测器。
 
 ---
 
