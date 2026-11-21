@@ -25,7 +25,11 @@ def generate_launch_description():
     )
 
     start_rviz = LaunchConfiguration("start_moveit_rviz")
+    start_camera_view = LaunchConfiguration("start_camera_view")
     rviz_config = LaunchConfiguration("rviz_config")
+    camera_rviz_config = os.path.join(
+        vla_share, "rviz", "panda_vision_view.rviz"
+    )
     xacro_file = os.path.join(
         panda_share, "urdf", "panda_gazebo.urdf.xacro"
     )
@@ -91,6 +95,18 @@ def generate_launch_description():
         condition=IfCondition(start_rviz),
     )
 
+    # 第二个 RViz：只显示相机原图、检测 debug 图、目标 marker 和 TF。
+    # 与 MoveIt RViz 分开，避免改乱 MoveIt 的默认配置。
+    camera_rviz = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="camera_rviz",
+        output="screen",
+        arguments=["-d", camera_rviz_config],
+        parameters=[{"use_sim_time": True}],
+        condition=IfCondition(start_camera_view),
+    )
+
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -99,12 +115,18 @@ def generate_launch_description():
                 description="Start MoveIt RViz MotionPlanning.",
             ),
             DeclareLaunchArgument(
+                "start_camera_view",
+                default_value="true",
+                description="Start a second RViz with camera and debug image.",
+            ),
+            DeclareLaunchArgument(
                 "rviz_config",
                 default_value=default_rviz_config,
                 description="RViz config file for MoveIt.",
             ),
             gazebo_demo,
             TimerAction(period=16.0, actions=[move_group]),
+            TimerAction(period=12.0, actions=[camera_rviz]),
             TimerAction(period=18.0, actions=[panda_scene]),
             rviz,
         ]

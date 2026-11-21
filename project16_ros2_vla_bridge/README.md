@@ -206,7 +206,7 @@ project16_ros2_vla_bridge/
 | `panda_full_chain_demo.launch.py` | Panda + safety_filter + safe_executor + mock_policy 完整链路 |
 | `panda_gazebo_demo.launch.py` | Panda + Gazebo Classic + 7 关节 + 夹爪 |
 | `panda_table_demo.launch.py` | 桌面场景 + RGB-D 相机 + HSV 检测 + RViz |
-| `panda_moveit_gazebo.launch.py` | Gazebo + MoveIt2 move_group + MoveIt RViz |
+| `panda_moveit_gazebo.launch.py` | Gazebo + MoveIt2 move_group + MoveIt RViz + 相机 RViz |
 | `panda_wave.py` | 直接给 `panda_arm_controller` 发一条 7 关节轨迹 |
 | `panda_gripper_test.py` | 测试 Gazebo 夹爪开合 |
 | `panda_color_detector.py` | HSV 检测 + 深度反投影到 `panda_link0` |
@@ -3684,6 +3684,10 @@ python3 project16_ros2_vla_bridge/scripts/publish_experiment.py \
 
 ## 32. 静态视觉估计器对比
 
+> 启动 `panda_moveit_gazebo.launch.py` 时会自动打开第二个 RViz：
+> 左侧显示相机原图，右侧显示 `/vision/debug_image`。
+> 不需要时加 `start_camera_view:=false`。
+
 A3 的 20 次数据显示：视觉误差几乎完全是**向图像中心的径向收缩**
 （6.1 mm，角度偏差 0.2°），而不是随机噪声或外参误差。
 这个脚本在不动机器人的情况下量化误差来源：
@@ -3693,6 +3697,17 @@ A  整个红色轮廓的 bbox 中心 + 深度中值（当前 panda_pick 使用�
 B  顶面深度过滤后的 3D 质心
 C  整个轮廓的矩质心 + 深度中值
 ```
+
+10 个静态位置的实测：
+
+```text
+A  mean 6.45 mm, max 7.69 mm, 径向 6.42 mm
+B  mean 4.18 mm, max 4.84 mm, 径向 4.10 mm
+C  mean 8.31 mm, max 9.54 mm, 径向 8.24 mm
+```
+
+B 比 A 下降约 35%，说明“轮廓包含侧面”确实是 A 的一部分误差；
+但 B 剩余误差仍几乎全是径向的（4.10/4.18 mm）。
 
 运行前机械臂必须在 home，且不要同时运行 `panda_pick`：
 
