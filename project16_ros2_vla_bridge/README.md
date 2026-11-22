@@ -3891,6 +3891,11 @@ ros2 run vla_bridge panda_move_to_target
 
 ### 33.7 Day 32 原始记录
 
+用户反思（原话）：
+
+> 今天学习了投影与反投影，将相机安装到手上（eye-in-hand），
+> 但是还面临视角不理想、受到遮挡的问题，明天解决。
+
 - [raw.md](../learning_journal/2026-11-22-day32/raw.md)
 - [reflection.md](../learning_journal/2026-11-22-day32/reflection.md)
 
