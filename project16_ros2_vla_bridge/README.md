@@ -541,7 +541,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿但摩擦不足；第 29 天用 Gazebo link attach 完成仿真抓取；第 30 天用视觉定位 + 分段笛卡尔完成抓放闭环（`PLACE SUCCESS`，放置误差 6.0 mm / 0.9 mm）。
+> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿但摩擦不足；第 29 天用 Gazebo link attach 完成仿真抓取；第 30 天用视觉定位 + 分段笛卡尔完成抓放闭环（`PLACE SUCCESS`，放置误差 6.0 mm / 0.9 mm）；第 31 天完成 A3 20/20，并用顶面 3D 质心把视觉误差从 6.1 mm 降到 4.4 mm。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -3755,6 +3755,21 @@ output/vision_compare_<时间>/
 
 下一步是相机内参标定：修正约 2.4% 的径向比例误差。
 这一步和 hand-eye（相机到末端的外参）是两件事，不能互相替代。
+
+生产检测器已在次日（2026-11-22）做 3 次回归：
+
+```text
+3/3 全链路成功
+视觉误差 mean 4.4 mm, max 4.6 mm
+放置误差 mean 4.2 mm, max 4.4 mm
+```
+
+与静态对比 B 的 4.08 mm 一致。
+
+原始记录：
+
+- [raw.md](../learning_journal/2026-11-21-day31/raw.md)
+- [reflection.md](../learning_journal/2026-11-21-day31/reflection.md)
 
 ---
 

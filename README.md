@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–30 天：VLA/真机桥接、队列、安全层、Panda Gazebo、MoveIt2 视觉抓放与 link attach
+├── project16_ros2_vla_bridge/ # 第 15–31 天：VLA/真机桥接、队列、安全层、Panda Gazebo、视觉抓放、A3 与误差诊断
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -355,6 +355,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;28 | 2026.11.18 | ROS2 周 Day 20：固定方块控制变量、effort 夹爪、笛卡尔下降/抬升与摩擦不足 |
 | Day&nbsp;29 | 2026.11.19 | ROS2 周 Day 21：link attach 打通 Gazebo 抓取；固定关节合并与 panda_link7 |
 | Day&nbsp;30 | 2026.11.20 | ROS2 周 Day 22：视觉抓放闭环；放置点碰撞、稀疏轨迹弧线与 attach 超时 |
+| Day&nbsp;31 | 2026.11.21 | ROS2 周 Day 23：A3 20 次试验、报告自动化、bbox→顶面质心与径向比例诊断 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -4467,6 +4468,146 @@ A3 成功率统计：未做
 
 - [raw.md](learning_journal/2026-11-20-day30/raw.md)
 - [reflection.md](learning_journal/2026-11-20-day30/reflection.md)
+
+---
+
+### 2026.11.21 ｜ 第 31 天 · ROS2 周 Day 23：A3 与视觉误差缩小
+
+> 状态：A3 20/20；视觉误差从 6.1 mm 降到 4.4 mm（生产检测器）。
+> 剩余约 4 mm 是径向比例误差，下一步做相机内参标定。
+
+#### 31.1 A3：20 次随机位置抓放
+
+```text
+范围      x ∈ [0.42, 0.48]，y ∈ [-0.18, -0.12]，±3 cm
+放置点    (0.40, 0.08, 0.375)
+全链路    20/20
+视觉误差  mean 6.1 mm, max 7.5 mm
+放置误差  mean 5.9 mm, max 7.3 mm
+相关系数  r = 0.995
+```
+
+第 5 次命令位置 `(0.4486, -0.1450)`，实际 `(0.4570, -0.1610)`，
+偏约 18 mm；机器人仍成功，因为视觉跟随的是实际方块。
+这说明命令位置和实际位置必须分开记录。
+
+报告：
+
+- [experiments/a3/20261121_201637/report.md](project16_ros2_vla_bridge/experiments/a3/20261121_201637/report.md)
+
+#### 31.2 试验报告自动化
+
+```text
+panda_pick_trials.py   → 传送方块、复位、独立校验、写 CSV
+publish_experiment.py  → 生成 report.md，git commit + push
+experiments/a3/        → 报告索引和每次运行
+```
+
+以后一条命令：
+
+```bash
+python3 project16_ros2_vla_bridge/scripts/panda_pick_trials.py \
+  --trials 20 --seed 0 --publish
+```
+
+第一次推送失败，因为 GitHub 不支持账号密码；
+改用 Personal Access Token（Contents: Read and write）后成功。
+
+#### 31.3 bbox 误差是什么
+
+bbox = bounding box，红色像素的外接矩形。旧方法用矩形中心当方块中心。
+
+相机不在方块正上方，红色 mask 除了顶面还包括朝向相机的两个侧面；
+矩形中心被侧面拉向图像中心，形成约 6 mm 的径向偏差。
+
+```text
+旧方法 A：整个红色轮廓的 bbox 中心 + 深度中值
+新方法 B：只取最靠近相机的顶面像素，反投影后求 3D 质心
+```
+
+通俗地说：**不再量整个外轮廓，只量朝上的那张“脸”**。
+
+#### 31.4 三种估计方法的静态对比
+
+不动机器人，把方块传送到 10 个位置，与 `/model_states` 真值比较：
+
+```text
+A  bbox 中心          mean 6.45 mm
+B  顶面 3D 质心       mean 4.18 mm   ← 降 35%
+C  轮廓矩质心         mean 8.31 mm
+```
+
+B 明显更好，但剩余误差仍然几乎全是径向的（4.10/4.18 mm）。
+
+#### 31.5 顶面阈值扫描与径向缩放
+
+对 B 再测 1/2/4/8 mm 阈值，并给每种方法拟合一个径向缩放 `s`：
+
+```text
+          原始误差      缩放 s     校正后
+A         6.45 mm       1.0388     0.71 mm
+B1 (1mm)  4.08 mm       1.0236     0.97 mm
+B2 (2mm)  4.08 mm       1.0236     0.97 mm
+B4 (4mm)  4.18 mm       1.0243     0.85 mm
+B8 (8mm)  4.38 mm       1.0250     1.06 mm
+C         8.31 mm       1.0502     1.07 mm
+```
+
+结论：
+
+- 1 mm 和 2 mm 结果相同，阈值不是主因；
+- 乘一个 ~1.02–1.04 的径向缩放后，所有方法都降到 ~1 mm；
+- 剩余误差是**纯径向比例误差**（内参/投影），不是随机噪声；
+- 0.7–1.1 mm 已小于 1 像素（320×240 下约 2.7 mm/px）。
+
+#### 31.6 生产检测器落地
+
+`panda_color_detector.py` 默认改为：
+
+```text
+estimator = top
+top_depth_margin = 0.002 m
+min_top_points = 20
+```
+
+debug 图中红方块的黄点 = 顶面中心；`-p estimator:=bbox` 可切回旧方法。
+
+次日（11-22）跑 3 次 A3 回归：
+
+```text
+3/3 全链路成功
+视觉误差 mean 4.4 mm, max 4.6 mm
+放置误差 mean 4.2 mm, max 4.4 mm
+```
+
+和静态对比 B 的 4.08 mm 一致，说明新方法在真实链路中生效。
+
+#### 31.7 相机窗口
+
+`panda_moveit_gazebo.launch.py` 现在自动开两个 RViz：
+
+```text
+MoveIt RViz   → MotionPlanning、碰撞体、轨迹
+Camera RViz   → 相机原图、debug 图、目标 marker、TF
+```
+
+不是重复：一个负责规划，一个负责图像。
+不需要相机窗口时加 `start_camera_view:=false`。
+
+#### 31.8 结论与下一步
+
+```text
+bbox 侧面污染：已解决（A→B）
+剩余 ~4.4 mm：径向比例误差，属于内参/投影
+手眼标定：解决不了这个比例误差
+下一步：相机内参标定 → 再把误差压到 ~1 mm
+再下一步：eye-in-hand，解决遮挡和闭环修正
+```
+
+#### 31.9 原始记录
+
+- [raw.md](learning_journal/2026-11-21-day31/raw.md)
+- [reflection.md](learning_journal/2026-11-21-day31/reflection.md)
 
 ---
 
