@@ -3779,6 +3779,72 @@ output/vision_compare_<时间>/
 
 ---
 
+## 33. 腕部相机 Stage 1（eye-in-hand 准备）
+
+> 状态：URDF/launch/RViz 已加入，等待 VM 验证视野。
+
+### 33.1 安装
+
+```text
+panda_hand 坐标系：
+  x=+0.06, y=0, z=-0.04
+  镜头沿 hand +z（抓取时向下）
+```
+
+```text
+panda_hand → wrist_camera_link   固定关节
+wrist_camera_link → wrist_camera_optical_frame   静态 TF
+```
+
+Gazebo 固定关节默认会合并 link；这里用：
+
+```xml
+<gazebo reference="wrist_camera_joint">
+  <preserveFixedJoint>true</preserveFixedJoint>
+</gazebo>
+```
+
+### 33.2 话题
+
+```text
+/wrist_camera/image_raw
+/wrist_camera/depth/image_raw
+/wrist_camera/camera_info
+/wrist_camera/depth/camera_info
+/wrist_camera/points
+```
+
+相机 RViz 新增了 `Wrist Camera` 显示。
+
+### 33.3 验证
+
+```bash
+ros2 topic hz /wrist_camera/image_raw
+```
+
+```bash
+ros2 run tf2_ros tf2_echo panda_link0 wrist_camera_link
+```
+
+```bash
+ros2 run vla_bridge panda_move_to_target
+```
+
+最后一条把机械臂移到方块上方，观察腕部相机能否看到方块。
+
+如果 `wrist_camera_link` 不存在，说明 Gazebo 仍然合并了固定关节；
+备选方案是把 sensor 直接挂到 `panda_link7` 上，用 `<pose>` 定义位置。
+
+### 33.4 下一步
+
+```text
+Stage 2：加标定板/ArUco，采多组机器人位姿
+         → cv2.calibrateHandEye
+Stage 3：腕部检测 + 接近过程中闭环修正
+```
+
+---
+
 ## 附录：第 15 天的 mock 链路
 
 第 15 天的完整日志仍保留在：

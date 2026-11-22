@@ -317,4 +317,56 @@
     <axis xyz="0 -1 0" />
     <limit effort="20" lower="0.0" upper="0.04" velocity="0.2" />
     </joint>
+<!-- 腕部 RGB-D 相机：手背后侧偏置，沿 hand +z 向下看 -->
+<link name="wrist_camera_link">
+  <inertial>
+    <origin rpy="0 0 0" xyz="0 0 0" />
+    <mass value="0.01" />
+    <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+  </inertial>
+  <visual>
+    <origin rpy="0 0 0" xyz="0 0 0" />
+    <geometry>
+      <box size="0.02 0.03 0.02" />
+    </geometry>
+    <material name="panda_white" />
+  </visual>
+</link>
+<joint name="wrist_camera_joint" type="fixed">
+  <parent link="panda_hand" />
+  <child link="wrist_camera_link" />
+  <origin rpy="0 -1.5708 0" xyz="0.06 0 -0.04" />
+</joint>
+<gazebo reference="wrist_camera_joint">
+  <preserveFixedJoint>true</preserveFixedJoint>
+</gazebo>
+<gazebo reference="wrist_camera_link">
+  <sensor name="wrist_camera" type="depth">
+    <always_on>true</always_on>
+    <update_rate>15</update_rate>
+    <camera name="wrist_camera">
+      <horizontal_fov>1.047198</horizontal_fov>
+      <image>
+        <width>320</width>
+        <height>240</height>
+        <format>R8G8B8</format>
+      </image>
+      <clip>
+        <near>0.02</near>
+        <far>2.0</far>
+      </clip>
+    </camera>
+    <plugin name="wrist_camera_controller" filename="libgazebo_ros_camera.so">
+      <camera_name>wrist_camera</camera_name>
+      <frame_name>wrist_camera_optical_frame</frame_name>
+      <min_depth>0.02</min_depth>
+      <max_depth>2.0</max_depth>
+      <remapping>wrist_camera/image_raw:=/wrist_camera/image_raw</remapping>
+      <remapping>wrist_camera/image_depth:=/wrist_camera/depth/image_raw</remapping>
+      <remapping>wrist_camera/camera_info:=/wrist_camera/camera_info</remapping>
+      <remapping>wrist_camera/camera_info_depth:=/wrist_camera/depth/camera_info</remapping>
+      <remapping>wrist_camera/points:=/wrist_camera/points</remapping>
+    </plugin>
+  </sensor>
+</gazebo>
 </robot>

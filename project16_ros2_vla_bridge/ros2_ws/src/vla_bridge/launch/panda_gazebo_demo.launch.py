@@ -83,6 +83,18 @@ def generate_launch_description():
         output="screen",
     )
 
+    wrist_optical_tf = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        arguments=[
+            "--x", "0", "--y", "0", "--z", "0",
+            "--roll", "-1.5708", "--pitch", "0", "--yaw", "-1.5708",
+            "--frame-id", "wrist_camera_link",
+            "--child-frame-id", "wrist_camera_optical_frame",
+        ],
+        output="screen",
+    )
+
     joint_state_broadcaster = Node(
         package="controller_manager",
         executable="spawner",
@@ -159,6 +171,7 @@ def generate_launch_description():
             gazebo,
             robot_state_publisher,
             spawn_entity,
+            wrist_optical_tf,
             start_jsb,
             start_controllers,
             TimerAction(period=8.0, actions=[panda_home]),
