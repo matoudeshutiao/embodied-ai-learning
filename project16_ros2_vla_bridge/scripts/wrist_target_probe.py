@@ -181,6 +181,7 @@ class WristProbe(Node):
         return pts[np.argsort(angles)]
 
     def top_face_quad(self, image, depth):
+        """不倾斜相机时，取最靠近相机的 ±2 mm 等深度带作为顶面。"""
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         red = None
         for lower, upper in COLOR_RANGES:
@@ -357,11 +358,12 @@ class WristProbe(Node):
             candidate_normal = rotation_matrix @ np.array(
                 [0.0, 0.0, 1.0]
             )
-            # IPPE 的两组平面解都可能 z<0；选法向最接近相机 -z 的一组
-            facing = math.acos(
-                float(np.clip(-candidate_normal[2], -1.0, 1.0))
+            # 相机朝下时顶面法向接近 -z；
+            # 用它从 IPPE 两组解中选正确分支
+            alignment = float(
+                np.clip(-candidate_normal[2], -1.0, 1.0)
             )
-            score = candidate_error + 100.0 * facing
+            score = candidate_error + 100.0 * math.acos(alignment)
             if best is None or score < best[0]:
                 best = (
                     score,
