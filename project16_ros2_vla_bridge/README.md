@@ -222,7 +222,7 @@ project16_ros2_vla_bridge/
 | `panda_pick_trials.py` | A3 随机位置试验：传送方块、复位、独立校验、写 CSV |
 | `publish_experiment.py` | 把试验结果生成 `experiments/` 报告并提交/推送 GitHub |
 | `wrist_target_probe.py` | 腕部相机单帧顶面 + PnP 探测 |
-| `wrist_hand_eye_translation.py` | 真值姿态多姿态采集，初次手眼平移标定 |
+| `wrist_hand_eye_translation.py` | 已知目标平移诊断（非纯 AX=XB，真值参与求解） |
 | `vision_estimator_compare.py` | 静态对比 bbox 中心 / 顶面 3D 质心 / 矩质心三种估计 |
 | `arm_mock_description/` | mock hardware 的 URDF 和控制器配置 |
 | `HARDWARE_CONTRACT.md` | Panda 真机接口合同 v0 |
@@ -545,7 +545,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿但摩擦不足；第 29 天用 Gazebo link attach 完成仿真抓取；第 30 天用视觉定位 + 分段笛卡尔完成抓放闭环（`PLACE SUCCESS`，放置误差 6.0 mm / 0.9 mm）；第 31 天完成 A3 20/20，并用顶面 3D 质心把视觉误差从 6.1 mm 降到 4.4 mm。
+> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿但摩擦不足；第 29 天用 Gazebo link attach 完成仿真抓取；第 30 天用视觉定位 + 分段笛卡尔完成抓放闭环（`PLACE SUCCESS`，放置误差 6.0 mm / 0.9 mm）；第 31 天完成 A3 20/20，并用顶面 3D 质心把视觉误差从 6.1 mm 降到 4.4 mm；第 32 天确认 K 正确、加入腕部相机，并明确了纯手眼标定还缺非对称目标。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -3785,8 +3785,8 @@ output/vision_compare_<时间>/
 
 ## 33. 腕部相机 Stage 1（eye-in-hand 准备）
 
-> 状态：腕部相机话题/TF/图像已验证；倾斜方案会让深度带失效，
-> 已改回不倾斜 + 减小侧向偏置，继续单帧验证和手眼标定。
+> 状态：腕部相机话题/TF/图像已验证；手眼标定暂缓，
+> 先补目标完整可见和非对称目标（ArUco/棋盘格或顶面标记）。
 
 ### 33.1 安装
 
@@ -3861,7 +3861,7 @@ ros2 run vla_bridge panda_move_to_target
   单帧探测仍会被俯视视觉的移动偏差干扰，因此标定姿态改为
   直接用方块真值生成，不再经过俯视相机。
 
-### 33.5 初次手眼实验（平移）
+### 33.5 已知目标平移诊断（不是纯手眼）
 
 脚本：`scripts/wrist_hand_eye_translation.py`
 
@@ -3873,21 +3873,26 @@ ros2 run vla_bridge panda_move_to_target
 5. 与 TF 的真实安装平移对比
 ```
 
-运行：
+注意：脚本在求解里用了 `target_base` 真值，
+属于 **known-target 平移诊断**，不是 `cv2.calibrateHandEye` 的纯 AX=XB。
+真值只能用来选姿态和验证，不能进入求解。
 
-```bash
-python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/wrist_hand_eye_translation.py
-```
-
-这是第一次手眼实验，先验证平移能不能收敛；
-完整旋转标定下一步用平面法向 + 名义外参消歧，或换 ArUco/棋盘格。
-
-### 33.6 下一步
+### 33.6 纯手眼标定还缺什么
 
 ```text
-Stage 2b：完整旋转标定（平面法向 + yaw 消歧，或 ArUco/棋盘格）
-Stage 3：腕部检测 + 接近过程中闭环修正
+1. 标定姿态里目标完整可见（不能贴边、不能被手挡）
+2. 非对称目标：ArUco/棋盘格，或方块顶面加标记
+3. 用 cv2.calibrateHandEye 做纯 AX=XB
+4. 再做腕部检测 + 接近过程闭环
 ```
+
+方形顶面有 90° 旋转对称，yaw 不可观测，
+所以完整旋转标定不能只靠方块顶面。
+
+### 33.7 Day 32 原始记录
+
+- [raw.md](../learning_journal/2026-11-22-day32/raw.md)
+- [reflection.md](../learning_journal/2026-11-22-day32/reflection.md)
 
 ---
 

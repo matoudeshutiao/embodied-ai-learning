@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–31 天：VLA/真机桥接、队列、安全层、Panda Gazebo、视觉抓放、A3 与误差诊断
+├── project16_ros2_vla_bridge/ # 第 15–32 天：VLA/真机桥接、队列、安全层、Panda Gazebo、视觉抓放、A3、腕部相机与标定诊断
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -356,6 +356,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;29 | 2026.11.19 | ROS2 周 Day 21：link attach 打通 Gazebo 抓取；固定关节合并与 panda_link7 |
 | Day&nbsp;30 | 2026.11.20 | ROS2 周 Day 22：视觉抓放闭环；放置点碰撞、稀疏轨迹弧线与 attach 超时 |
 | Day&nbsp;31 | 2026.11.21 | ROS2 周 Day 23：A3 20 次试验、报告自动化、bbox→顶面质心与径向比例诊断 |
+| Day&nbsp;32 | 2026.11.22 | ROS2 周 Day 24：顶面检测回归、K 检查、腕部相机与手眼标定条件 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -4614,6 +4615,112 @@ bbox 侧面污染：已解决（A→B）
 - [raw.md](learning_journal/2026-11-21-day31/raw.md)
 - [reflection.md](learning_journal/2026-11-21-day31/reflection.md)
 - [notes.md](learning_journal/2026-11-21-day31/notes.md)：反投影、`fx/fy/cx/cy`、内参外参学习笔记
+
+---
+
+### 2026.11.22 ｜ 第 32 天 · ROS2 周 Day 24：腕部相机与手眼标定条件
+
+> 状态：生产检测器顶面方法已验证；腕部相机可用；
+> 手眼标定暂缓，先补目标可见性和非对称目标。
+
+#### 32.1 顶面检测器的真实链路回归
+
+生产检测器从 bbox 中心改成顶面 3D 质心后，跑 3 次 A3：
+
+```text
+3/3 全链路成功
+vision mean 4.4 mm, max 4.6 mm
+place  mean 4.2 mm, max 4.4 mm
+```
+
+对比改前：
+
+```text
+vision 6.1 → 4.4 mm
+place  5.9 → 4.2 mm
+```
+
+和静态对比的 4.08 mm 一致，说明不是只在实验脚本里有效。
+
+#### 32.2 K 检查：内参没有问题
+
+RGB 和深度相机的 `camera_info` 一致：
+
+```text
+fx = fy = 277.127
+cx = 160.5, cy = 120.5
+```
+
+理论值也是 `(320/2)/tan(1.047198/2) ≈ 277.127`。
+
+所以之前“乘 1.024 后误差降到 1 mm”只是单侧小区的过拟合，
+**剩余误差不是内参比例**。
+
+#### 32.3 另一侧静态对比
+
+```text
+        原区域 x<0.55       新区域 x>0.55
+A       6.45 mm, +6.42      2.48 mm, +2.17
+B2      4.08 mm, +3.99      3.57 mm, -0.56
+C       8.31 mm, +8.24      3.60 mm, +1.74
+```
+
+- B 的径向误差符号翻转，缩放校正失效；
+- 方法排名变化：原区域 B 最好，新区域 A 最好；
+- 误差随视角变化，320×240 下 1 像素≈2.7 mm，
+  2.5–4 mm 已接近像素/分割下限。
+
+结论：剩余误差是**视角/分割/分辨率**，不是相机标定。
+
+#### 32.4 腕部相机
+
+新增 `wrist_camera_link`、固定关节、RGB-D 相机、静态光学 TF 和 RViz 显示；
+用 `preserveFixedJoint` 防止 Gazebo 合并 link。
+
+```text
+/wrist_camera/image_raw ≈ 5.7 Hz
+pre-grasp 能看到完整红方块
+```
+
+安装位置迭代：
+
+| 尝试 | 结果 |
+|---|---|
+| x=0.06, z=-0.04 | 顶面贴上边缘，translation 3.72 mm，normal 151.85° |
+| 上仰 17° | 方块居中，但深度带只取到窄带（564 px²），PnP 失效 |
+| x=0.045, z=-0.04 | 2.57 mm，但手上沿切掉一条，normal 102.30° |
+| x=0.06, z=-0.06 | 19.81 mm；这次手臂仍由俯视视觉定位，目标偏 23 mm |
+
+得到两条硬约束：
+
+```text
+1. ±2 mm 深度带要求相机不倾斜
+2. 腕部相机不能被手挡；俯视相机也不能被抬高的手臂挡
+```
+
+#### 32.5 手眼标定为什么暂缓
+
+1. **方形顶面有 90° 旋转对称**：PnP 的 yaw 不可观测，
+   完整旋转标定需要 ArUco/棋盘格或不对称标记；
+2. **目标可见性**：当前安装下顶面容易被手或图像边缘切掉；
+3. **真值边界**：用真值选姿态可以，真值进入求解不行。
+
+今天的 `wrist_hand_eye_translation.py` 在求解里用了 `target_base` 真值，
+属于 known-target 平移诊断，不是纯 AX=XB，不能当作手眼结论。
+
+#### 32.6 下一步
+
+```text
+1. 保证标定姿态里目标完整可见
+2. 加非对称目标：ArUco/棋盘格，或给方块顶面加标记
+3. 用 cv2.calibrateHandEye 做纯 AX=XB
+4. 再做腕部检测和接近过程闭环
+```
+
+#### 32.7 原始记录
+
+- [raw.md](learning_journal/2026-11-22-day32/raw.md)
+- [reflection.md](learning_journal/2026-11-22-day32/reflection.md)
 
 ---
 
