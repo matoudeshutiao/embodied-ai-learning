@@ -3781,7 +3781,8 @@ output/vision_compare_<时间>/
 
 ## 33. 腕部相机 Stage 1（eye-in-hand 准备）
 
-> 状态：URDF/launch/RViz 已加入，等待 VM 验证视野。
+> 状态：腕部相机话题/TF/图像已验证；顶面 PnP 在倾斜视角下只取到窄带，
+> 手眼标定暂缓。
 
 ### 33.1 安装
 
@@ -3838,11 +3839,25 @@ ros2 run vla_bridge panda_move_to_target
 如果 `wrist_camera_link` 不存在，说明 Gazebo 仍然合并了固定关节；
 备选方案是把 sensor 直接挂到 `panda_link7` 上，用 `<pose>` 定义位置。
 
-### 33.4 下一步
+### 33.4 第一次 PnP 探测结果（2026-11-22）
+
+- 相机上仰 17° 后，方块进入画面中间，`/wrist_camera/image_raw` 约 5.7 Hz。
+- 顶面检测只取到一条窄带：
+  `top area=564 px2`，四边形约 17×54 px。
+- 原因：相机倾斜后，顶面不再与图像平面平行；
+  固定 ±2 mm 深度带只保留等深线附近的一条，不是完整的顶面。
+- PnP 输出 `translation 18.75 mm / normal 110.78° / reprojection 4.76 px`，
+  这组数不能用于标定。
+- 结论：腕部相机本身可用；要真正做手眼标定，需要把顶面检测改成
+  平面拟合（RANSAC/最小二乘），或使用 ArUco/棋盘格。
+- 现阶段如果继续闭环，先用 URDF 已知安装位姿作为腕部相机外参；
+  真机必须做手眼标定。
+
+### 33.5 下一步
 
 ```text
-Stage 2：加标定板/ArUco，采多组机器人位姿
-         → cv2.calibrateHandEye
+Stage 2（可选）：平面拟合顶面，或加 ArUco/棋盘格
+         → 采多组机器人位姿 → cv2.calibrateHandEye
 Stage 3：腕部检测 + 接近过程中闭环修正
 ```
 
