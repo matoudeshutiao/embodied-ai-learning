@@ -325,29 +325,52 @@ class WristProbe(Node):
             [[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]],
             dtype=np.float64,
         )
-        ok, rvec, tvec = cv2.solvePnP(
+        count, rvecs, tvecs, _ = cv2.solvePnPGeneric(
             object_points,
             corners.reshape(-1, 1, 2),
             camera_matrix,
             None,
-            flags=cv2.SOLVEPNP_ITERATIVE,
+            flags=cv2.SOLVEPNP_IPPE,
         )
-        if not ok:
+        if count == 0:
             print("ERROR: solvePnP failed")
             return 1
 
-        projected, _ = cv2.projectPoints(
-            object_points,
-            rvec,
-            tvec,
-            camera_matrix,
-            None,
-        )
-        reprojection = np.mean(
-            np.linalg.norm(
-                projected.reshape(-1, 2) - corners, axis=1
+        best = None
+        for candidate_rvec, candidate_tvec in zip(rvecs, tvecs):
+            candidate_projected, _ = cv2.projectPoints(
+                object_points,
+                candidate_rvec,
+                candidate_tvec,
+                camera_matrix,
+                None,
             )
-        )
+            candidate_error = float(
+                np.mean(
+                    np.linalg.norm(
+                        candidate_projected.reshape(-1, 2) - corners,
+                        axis=1,
+                    )
+                )
+            )
+            rotation_matrix, _ = cv2.Rodrigues(candidate_rvec)
+            candidate_normal = rotation_matrix @ np.array(
+                [0.0, 0.0, 1.0]
+            )
+            # IPPE 的两组平面解都可能 z<0；选法向最接近相机 -z 的一组
+            facing = math.acos(
+                float(np.clip(-candidate_normal[2], -1.0, 1.0))
+            )
+            score = candidate_error + 100.0 * facing
+            if best is None or score < best[0]:
+                best = (
+                    score,
+                    candidate_rvec,
+                    candidate_tvec,
+                    candidate_normal,
+                    candidate_error,
+                )
+        _, rvec, tvec, normal, reprojection = best
         translation_error = 1000.0 * float(
             np.linalg.norm(tvec.reshape(3) - expected)
         )

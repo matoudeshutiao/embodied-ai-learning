@@ -3788,8 +3788,11 @@ output/vision_compare_<时间>/
 ```text
 panda_hand 坐标系：
   x=+0.06, y=0, z=-0.04
-  镜头沿 hand +z（抓取时向下）
+  镜头初始 pitch=-1.5708，后改为 -1.87（上仰约 17°）
 ```
+
+第一次单帧探测时顶面贴在画面上边缘（角点 v=5），四边形被裁，
+所以把安装角上仰约 17°，让 pre-grasp 时顶面进入画面中间。
 
 ```text
 panda_hand → wrist_camera_link   固定关节
