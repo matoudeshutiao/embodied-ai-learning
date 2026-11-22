@@ -3775,6 +3775,7 @@ output/vision_compare_<时间>/
 
 - [raw.md](../learning_journal/2026-11-21-day31/raw.md)
 - [reflection.md](../learning_journal/2026-11-21-day31/reflection.md)
+- [notes.md](../learning_journal/2026-11-21-day31/notes.md)：反投影、内参/外参和误差来源
 
 ---
 

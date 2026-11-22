@@ -4613,6 +4613,7 @@ bbox 侧面污染：已解决（A→B）
 
 - [raw.md](learning_journal/2026-11-21-day31/raw.md)
 - [reflection.md](learning_journal/2026-11-21-day31/reflection.md)
+- [notes.md](learning_journal/2026-11-21-day31/notes.md)：反投影、`fx/fy/cx/cy`、内参外参学习笔记
 
 ---
 
