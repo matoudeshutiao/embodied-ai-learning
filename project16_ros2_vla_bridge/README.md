@@ -148,6 +148,8 @@ project16_ros2_vla_bridge/
 │   ├── panda_pick_trials.py
 │   ├── publish_experiment.py
 │   ├── vision_estimator_compare.py
+│   ├── wrist_target_probe.py
+│   ├── wrist_hand_eye_translation.py
 │   └── dev_sync_vla.sh
 └── ros2_ws/
     └── src/
@@ -219,6 +221,8 @@ project16_ros2_vla_bridge/
 | `analyze_stop.py` | 分析停止 CSV，计算过渡时间、减速度和理想减速对比 |
 | `panda_pick_trials.py` | A3 随机位置试验：传送方块、复位、独立校验、写 CSV |
 | `publish_experiment.py` | 把试验结果生成 `experiments/` 报告并提交/推送 GitHub |
+| `wrist_target_probe.py` | 腕部相机单帧顶面 + PnP 探测 |
+| `wrist_hand_eye_translation.py` | 真值姿态多姿态采集，初次手眼平移标定 |
 | `vision_estimator_compare.py` | 静态对比 bbox 中心 / 顶面 3D 质心 / 矩质心三种估计 |
 | `arm_mock_description/` | mock hardware 的 URDF 和控制器配置 |
 | `HARDWARE_CONTRACT.md` | Panda 真机接口合同 v0 |
@@ -3853,13 +3857,35 @@ ros2 run vla_bridge panda_move_to_target
   1. 顶面深度带要求相机尽量不倾斜；
   2. 腕部相机不能被手挡住，标定姿态用方块真值生成，
      不用俯视相机（机械臂抬高会挡住俯视视线，0.30 m 时目标偏 23 mm）。
-- 待复测：不倾斜 + 0.045 下的顶面四边形与 PnP。
+- 当前安装：不倾斜 + `x=0.06, z=-0.06`。
+  单帧探测仍会被俯视视觉的移动偏差干扰，因此标定姿态改为
+  直接用方块真值生成，不再经过俯视相机。
 
-### 33.5 下一步
+### 33.5 初次手眼实验（平移）
+
+脚本：`scripts/wrist_hand_eye_translation.py`
 
 ```text
-Stage 2（可选）：平面拟合顶面，或加 ArUco/棋盘格
-         → 采多组机器人位姿 → cv2.calibrateHandEye
+1. 从 /model_states 读红方块真值
+2. 手臂在方块上方走 15 个姿态（z+0.20/0.24/0.28，x/y ±0.02）
+3. 每个姿态用红色点云 RANSAC 平面拟合取顶面质心
+4. 相机旋转用 URDF 名义值，只估计 hand→camera 平移
+5. 与 TF 的真实安装平移对比
+```
+
+运行：
+
+```bash
+python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/wrist_hand_eye_translation.py
+```
+
+这是第一次手眼实验，先验证平移能不能收敛；
+完整旋转标定下一步用平面法向 + 名义外参消歧，或换 ArUco/棋盘格。
+
+### 33.6 下一步
+
+```text
+Stage 2b：完整旋转标定（平面法向 + yaw 消歧，或 ArUco/棋盘格）
 Stage 3：腕部检测 + 接近过程中闭环修正
 ```
 
