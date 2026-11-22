@@ -4594,7 +4594,12 @@ Camera RViz   → 相机原图、debug 图、目标 marker、TF
 不是重复：一个负责规划，一个负责图像。
 不需要相机窗口时加 `start_camera_view:=false`。
 
-#### 31.8 结论与下一步
+#### 31.8 用户反思（原话）
+
+> 继续缩减视觉误差，减小了bbox误差带来的影响，重新标定中心。
+> 进行20次批量实验确保成功抓取。
+
+#### 31.9 结论与下一步
 
 ```text
 bbox 侧面污染：已解决（A→B）
@@ -4604,7 +4609,7 @@ bbox 侧面污染：已解决（A→B）
 再下一步：eye-in-hand，解决遮挡和闭环修正
 ```
 
-#### 31.9 原始记录
+#### 31.10 原始记录
 
 - [raw.md](learning_journal/2026-11-21-day31/raw.md)
 - [reflection.md](learning_journal/2026-11-21-day31/reflection.md)
