@@ -1,0 +1,19 @@
+material CharucoBoard
+{
+  technique
+  {
+    pass
+    {
+      // 标定板需要稳定黑白，不受场景光照影响
+      lighting off
+      ambient 1 1 1 1
+      diffuse 1 1 1 1
+      specular 0 0 0 1
+      texture_unit
+      {
+        texture charuco_5x7_30mm.png
+        filtering trilinear
+      }
+    }
+  }
+}
