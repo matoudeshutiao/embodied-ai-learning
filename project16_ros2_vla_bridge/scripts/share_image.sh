@@ -10,9 +10,11 @@
 
 set -euo pipefail
 
-REPO="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+# 从脚本自身位置找仓库，不依赖当前工作目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -z "$REPO" ]; then
-  echo "ERROR: 当前目录不在 git 仓库里"
+  echo "ERROR: 脚本不在 git 仓库里"
   exit 1
 fi
 
