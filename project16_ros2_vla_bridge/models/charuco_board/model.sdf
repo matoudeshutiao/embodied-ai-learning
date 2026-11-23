@@ -18,7 +18,8 @@
         </geometry>
         <material>
           <script>
-            <uri>model://charuco_board/materials/scripts/charuco.material</uri>
+            <uri>model://charuco_board/materials/scripts</uri>
+            <uri>model://charuco_board/materials/textures</uri>
             <name>CharucoBoard</name>
           </script>
         </material>
