@@ -268,6 +268,7 @@ class CharucoDetect(Node):
         # IPPE 对平面板返回两组解。只按重投影误差选，
         # 不强制板子 +z 的符号，否则可能选中误差更大的镜像解。
         print(f"IPPE solutions: {solution_count}")
+        solutions = []
         best = None
         for index, (rvec, tvec) in enumerate(zip(rvecs, tvecs)):
             projected, _ = cv2.projectPoints(
@@ -284,6 +285,16 @@ class CharucoDetect(Node):
             rotation, _ = cv2.Rodrigues(rvec)
             normal = rotation[:, 2]
             facing_camera = normal[2] < 0.0
+            solutions.append(
+                {
+                    "index": index,
+                    "reproj": error,
+                    "rvec": rvec.reshape(3).tolist(),
+                    "tvec": tvec.reshape(3).tolist(),
+                    "normal": normal.tolist(),
+                    "facing_camera": bool(facing_camera),
+                }
+            )
             print(
                 f"  solution {index}: reproj={error:.3f} px, "
                 f"normal={np.round(normal, 3)}, "
@@ -312,7 +323,15 @@ class CharucoDetect(Node):
             chosen_index,
         ) = best
         print(f"chosen solution: {chosen_index}")
+        reproj_gap = 0.0
+        if len(solutions) >= 2:
+            reproj_gap = abs(
+                solutions[0]["reproj"] - solutions[1]["reproj"]
+            )
         return {
+            "solutions": solutions,
+            "chosen_solution": chosen_index,
+            "reproj_gap": reproj_gap,
             "marker_count": int(len(marker_ids)),
             "marker_ids": [int(v) for v in marker_ids.flatten()],
             "charuco_count": charuco_count,
