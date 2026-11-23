@@ -371,20 +371,23 @@ def main(args=None):
             print("ERROR: 没有拿到新的腕部图像")
             return 2
 
+        # 原图单独保存，方便离线复核 marker / charuco 的 PnP
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        outdir = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "output",
+            )
+        )
+        os.makedirs(outdir, exist_ok=True)
+        raw_out = os.path.join(outdir, f"charuco_raw_{stamp}.png")
+        cv2.imwrite(raw_out, image)
+        print(f"raw image: {raw_out}")
+
         result, message = node.detect(image)
         if result is None:
             print(f"detect failed: {message}")
-            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            out = os.path.abspath(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "..",
-                    "output",
-                    f"charuco_detect_{stamp}.png",
-                )
-            )
-            cv2.imwrite(out, image)
-            print(f"debug image: {out}")
             return 1
 
         print(f"markers: {result['marker_count']}")
@@ -425,15 +428,7 @@ def main(args=None):
             result["tvec"],
             0.05,
         )
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out = os.path.abspath(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "output",
-                f"charuco_detect_{stamp}.png",
-            )
-        )
+        out = os.path.join(outdir, f"charuco_detect_{stamp}.png")
         cv2.imwrite(out, debug)
         print(f"debug image: {out}")
         return 0
