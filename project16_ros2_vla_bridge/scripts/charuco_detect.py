@@ -265,8 +265,11 @@ class CharucoDetect(Node):
         )
         if solution_count == 0:
             return None, "solvePnP failed"
+        # IPPE 对平面板返回两组解。只按重投影误差选，
+        # 不强制板子 +z 的符号，否则可能选中误差更大的镜像解。
+        print(f"IPPE solutions: {solution_count}")
         best = None
-        for rvec, tvec in zip(rvecs, tvecs):
+        for index, (rvec, tvec) in enumerate(zip(rvecs, tvecs)):
             projected, _ = cv2.projectPoints(
                 object_points, rvec, tvec, self.K, None
             )
@@ -280,9 +283,14 @@ class CharucoDetect(Node):
             )
             rotation, _ = cv2.Rodrigues(rvec)
             normal = rotation[:, 2]
-            # 相机朝下看时，板面 +z 应指向相机，即 z 分量为负
             facing_camera = normal[2] < 0.0
-            score = error + (0.0 if facing_camera else 1000.0)
+            print(
+                f"  solution {index}: reproj={error:.3f} px, "
+                f"normal={np.round(normal, 3)}, "
+                f"tvec={np.round(tvec.reshape(3), 3)}, "
+                f"facing_camera={facing_camera}"
+            )
+            score = error
             if best is None or score < best[0]:
                 best = (
                     score,
@@ -291,9 +299,19 @@ class CharucoDetect(Node):
                     normal,
                     error,
                     facing_camera,
+                    index,
                 )
 
-        _, rvec, tvec, normal, reprojection, facing = best
+        (
+            _,
+            rvec,
+            tvec,
+            normal,
+            reprojection,
+            facing,
+            chosen_index,
+        ) = best
+        print(f"chosen solution: {chosen_index}")
         return {
             "marker_count": int(len(marker_ids)),
             "marker_ids": [int(v) for v in marker_ids.flatten()],
