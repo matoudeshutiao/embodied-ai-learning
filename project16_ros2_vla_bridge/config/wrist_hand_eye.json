@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "date": "2026-11-23",
+  "method": "PARK",
+  "source": "charuco_pose_sampler full 15 poses; truth only used for validation",
+  "T_link8_cam": [
+    [-0.707079, 0.707131, -0.002220, 0.043777],
+    [-0.707117, -0.707080, -0.004923, -0.040272],
+    [-0.005051, -0.001911, 0.999985, -0.057955],
+    [0.0, 0.0, 0.0, 1.0]
+  ],
+  "validation": {
+    "truth_translation_error_mm": 3.26,
+    "truth_rotation_error_deg": 0.309,
+    "board_center_mean_error_mm": 2.07,
+    "board_center_max_error_mm": 2.31
+  }
+}
