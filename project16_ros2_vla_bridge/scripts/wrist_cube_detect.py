@@ -58,6 +58,7 @@ class WristCubeDetect(Node):
         self.latest = None
         self.frame_count = 0
         self.truth = None
+        self.last_move_code = None
         self.T_link8_cam, self.calib = load_calibration()
 
         self.create_subscription(
@@ -154,6 +155,7 @@ class WristCubeDetect(Node):
         ):
             rclpy.spin_once(self, timeout_sec=0.1)
         if not self.move_client.server_is_ready():
+            self.last_move_code = -1
             return False
 
         constraint = PositionConstraint()
@@ -203,9 +205,11 @@ class WristCubeDetect(Node):
         send_future = self.move_client.send_goal_async(goal)
         rclpy.spin_until_future_complete(self, send_future, timeout_sec=10.0)
         if not send_future.done():
+            self.last_move_code = -2
             return False
         handle = send_future.result()
         if handle is None or not handle.accepted:
+            self.last_move_code = -3
             return False
         result_future = handle.get_result_async()
         rclpy.spin_until_future_complete(
@@ -213,11 +217,11 @@ class WristCubeDetect(Node):
         )
         if not result_future.done():
             handle.cancel_goal_async()
+            self.last_move_code = -4
             return False
-        return (
-            result_future.result().result.error_code.val
-            == MoveItErrorCodes.SUCCESS
-        )
+        code = result_future.result().result.error_code.val
+        self.last_move_code = code
+        return code == MoveItErrorCodes.SUCCESS
 
     def lookup_link8(self):
         transform = self.tf_buffer.lookup_transform(

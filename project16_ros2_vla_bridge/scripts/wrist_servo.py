@@ -76,7 +76,10 @@ class WristServo(WristCubeDetect):
                 f"offset=({dx:+.2f},{dy:+.2f})"
             )
             if not self.move_to(start_x, start_y, start_z):
-                print("  MoveIt failed at start")
+                print(
+                    f"  MoveIt failed at start "
+                    f"code={self.last_move_code}"
+                )
                 results.append(
                     {
                         "start": start_index,
@@ -105,6 +108,25 @@ class WristServo(WristCubeDetect):
                 )
                 if result is None:
                     print(f"  iter {iteration}: detect failed: {message}")
+                    break
+
+                quality = (
+                    result["plane_inliers"]
+                    >= 0.90 * result["red_points"]
+                    and result["red_points"] >= 3000
+                    and result["normal"][2] >= 0.98
+                    and 0.36
+                    <= result["cube_center"][2]
+                    <= 0.39
+                )
+                if not quality:
+                    print(
+                        f"  iter {iteration}: low-quality detection "
+                        f"(red={result['red_points']}, "
+                        f"inliers={result['plane_inliers']}, "
+                        f"normal_z={result['normal'][2]:.3f}), "
+                        f"stop this start"
+                    )
                     break
 
                 top = result["top_center"]
@@ -136,8 +158,20 @@ class WristServo(WristCubeDetect):
                     float(target[1]),
                     float(target[2]),
                 ):
-                    print("  MoveIt failed during correction")
-                    break
+                    print(
+                        f"  MoveIt failed code={self.last_move_code}, "
+                        f"retry +5 mm z"
+                    )
+                    if not self.move_to(
+                        float(target[0]),
+                        float(target[1]),
+                        float(target[2]) + 0.005,
+                    ):
+                        print(
+                            f"  MoveIt failed again "
+                            f"code={self.last_move_code}"
+                        )
+                        break
                 self.spin_for(1.0)
 
             if converged and results is not None:
@@ -196,7 +230,7 @@ def main(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--offset", type=float, default=0.20)
     parser.add_argument("--alpha", type=float, default=0.6)
-    parser.add_argument("--tol-mm", type=float, default=2.0)
+    parser.add_argument("--tol-mm", type=float, default=2.5)
     parser.add_argument("--max-iter", type=int, default=5)
     parser.add_argument("--starts", type=int, default=5)
     parsed = parser.parse_args(args)
