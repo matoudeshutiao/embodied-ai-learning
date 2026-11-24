@@ -4829,23 +4829,60 @@ roll_zm30   0.50  -30° z     17       24       0.043       0.039    yes
 accepted 15/15
 ```
 
-#### 33.5 下一步
+#### 33.5 第一次纯 AX=XB 结果
+
+15 姿态、四种方法：
 
 ```text
-1. 上传 poses.json / poses.csv
-2. cv2.calibrateHandEye 四种方法
-3. gap 过滤 + 静态板一致性
-4. 留出姿态验证 + URDF 真值比较
+all/DANIILIDIS   truth 3.06 mm / 0.303°
+all/PARK         truth 3.26 mm / 0.309°
+all/HORAUD       truth 3.26 mm / 0.308°
+all/TSAI         truth 3.21 mm / 0.876°
 ```
 
-#### 33.6 用户原话
+只用 gap >= 0.1 px 的 10 个姿态：
+
+```text
+nonamb/PARK      truth 4.04 mm / 0.443°
+target consistency 0.55 mm / 0.225°
+```
+
+静态板一致性：
+
+```text
+all      1.81 mm / 1.218°
+nonamb   0.55 mm / 0.225°
+```
+
+IPPE 分支搜索：5 个 ambiguous 姿态全部保持 solution 0，没有翻转。
+说明这组数据里 chosen solution 0 全局一致，双解风险由一致性检查兜住。
+
+首次估计（all/PARK）与真值：
+
+```text
+平移误差 x 1.4 mm, y 2.1 mm, z 2.0 mm，3D 3.26 mm
+旋转误差 0.309°
+```
+
+完整结果见
+[hand_eye/day33/report.md](project16_ros2_vla_bridge/experiments/hand_eye/day33/report.md)。
+
+#### 33.6 下一步
+
+```text
+1. 增加旋转多样性：更小标定板或更大垂直 FOV
+2. 对 X 做非线性静态板一致性优化
+3. 近正视/模糊姿态做加权，不作主约束
+```
+
+#### 33.7 用户原话
 
 > IPPE双解会有隐患吗
 
 > 今天解决那个始终让板保持在中心的解决方法挺有意思，
 > 可以简单通俗易懂解释一下并且放进日志。然后这是报告也可以放。
 
-#### 33.7 原始记录
+#### 33.8 原始记录
 
 - [raw.md](learning_journal/2026-11-23-day33/raw.md)
 - [notes.md](learning_journal/2026-11-23-day33/notes.md)

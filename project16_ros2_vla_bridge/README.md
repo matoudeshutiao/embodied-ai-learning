@@ -3967,10 +3967,36 @@ reproj 0.043–0.157 px
 
 完整 15 行表格见 [raw.md](../learning_journal/2026-11-23-day33/raw.md)。
 
-### 34.5 下一步
+### 34.5 第一次纯 AX=XB 结果
 
 ```text
-pose json/csv → calibrateHandEye 四方法 → 留出验证 → URDF 真值比较
+all/DANIILIDIS   truth 3.06 mm / 0.303°
+all/PARK         truth 3.26 mm / 0.309°
+all/HORAUD       truth 3.26 mm / 0.308°
+all/TSAI         truth 3.21 mm / 0.876°
+
+nonamb/PARK      truth 4.04 mm / 0.443°
+target consistency 0.55 mm / 0.225°
+```
+
+静态板一致性：all 1.81 mm / 1.218°，nonamb 0.55 mm / 0.225°。
+IPPE 分支搜索中 5 个 ambiguous 姿态全部保持 solution 0，没有翻转。
+
+首次估计（all/PARK）与真值：
+
+```text
+平移误差 x 1.4 mm, y 2.1 mm, z 2.0 mm，3D 3.26 mm
+旋转误差 0.309°
+```
+
+完整表格见 [hand_eye/day33/report.md](experiments/hand_eye/day33/report.md)。
+
+### 34.6 下一步
+
+```text
+1. 增加旋转多样性：更小标定板或更大垂直 FOV
+2. 对 X 做非线性静态板一致性优化
+3. 近正视/模糊姿态加权，不作主约束
 ```
 
 ---

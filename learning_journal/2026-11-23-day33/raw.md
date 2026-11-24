@@ -121,15 +121,52 @@ accepted 15/15
 
 ![纹理修复后的 ChArUco 标定板](assets/day33_charuco_board_ok.png)
 
+## 第一次纯 AX=XB 结果
+
+15 个姿态全部参与时，四种方法结果接近：
+
+```text
+all/DANIILIDIS   truth 3.06 mm / 0.303°
+all/PARK         truth 3.26 mm / 0.309°
+all/HORAUD       truth 3.26 mm / 0.308°
+all/TSAI         truth 3.21 mm / 0.876°
+```
+
+只用 gap >= 0.1 px 的 10 个姿态：
+
+```text
+nonamb/PARK      truth 4.04 mm / 0.443°
+target consistency 0.55 mm / 0.225°
+```
+
+静态板一致性：
+
+```text
+all      1.81 mm / 1.218°
+nonamb   0.55 mm / 0.225°
+```
+
+IPPE 分支搜索：5 个 ambiguous 姿态全部保持 solution 0，没有翻转。
+说明这组数据里 chosen solution 0 是全局一致的，双解风险由一致性检查兜住了。
+
+首次估计（all/PARK）与真值：
+
+```text
+平移误差 x 1.4 mm, y 2.1 mm, z 2.0 mm，3D 3.26 mm
+旋转误差 0.309°
+```
+
+0.3° 旋转误差在 0.5 m 杆臂上约 2.6 mm 平移耦合，
+主要限制是 10° 倾斜范围下旋转观测不足。
+
+完整结果：[hand_eye/day33/report.md](../../project16_ros2_vla_bridge/experiments/hand_eye/day33/report.md)
+
 ## 下一步
 
-- 上传 `poses.json` / `poses.csv`；
-- 写 `hand_eye_calibrate.py`：
-  - `cv2.calibrateHandEye` 四种方法；
-  - gap 过滤；
-  - 静态板 `T_base_target` 一致性；
-  - 留出姿态验证；
-  - 与 URDF 真值比较。
+- 若要继续缩小误差，优先增加旋转多样性
+  （更小标定板或更大垂直 FOV）；
+- 或对 X 做非线性静态板一致性优化；
+- 近正视/模糊姿态做加权，而不是主约束。
 
 ## 用户原话
 
