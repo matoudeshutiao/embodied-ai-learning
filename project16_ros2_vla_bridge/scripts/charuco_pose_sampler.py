@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""采 ChArUco 手眼标定姿态，记录 T_target2cam 与 T_base_hand。
+"""采 ChArUco 手眼标定姿态，记录 T_target2cam 与 T_base_link8。
 
 用法：
   python3 scripts/charuco_pose_sampler.py --set pilot
@@ -97,31 +97,35 @@ def transform_to_matrix(transform):
 
 
 def build_poses(set_name):
-    """返回 (label, offset, dx, dy, tilt_x_deg, tilt_y_deg, roll_deg)。"""
+    """返回 (label, distance, dx, dy, tilt_x_deg, tilt_y_deg, roll_deg)。
+
+    distance 是相机光心到板中心的距离；手位由瞄准公式反算。
+    """
     if set_name == "pilot":
         return [
-            ("base_h30", 0.30, 0.0, 0.0, 0.0, 0.0, 0.0),
-            ("base_h35", 0.35, 0.0, 0.0, 0.0, 0.0, 0.0),
-            ("tilt_xp10", 0.35, 0.0, 0.0, 10.0, 0.0, 0.0),
-            ("tilt_xm10", 0.35, 0.0, 0.0, -10.0, 0.0, 0.0),
-            ("tilt_yp10", 0.35, 0.0, 0.0, 0.0, 10.0, 0.0),
-            ("roll_zp30", 0.35, 0.0, 0.0, 0.0, 0.0, 30.0),
+            ("aim_d46", 0.46, 0.0, 0.0, 0.0, 0.0, 0.0),
+            ("aim_d50", 0.50, 0.0, 0.0, 0.0, 0.0, 0.0),
+            ("tilt_xp10", 0.52, 0.0, 0.0, 10.0, 0.0, 0.0),
+            ("tilt_xm10", 0.52, 0.0, 0.0, -10.0, 0.0, 0.0),
+            ("tilt_yp10", 0.52, 0.0, 0.0, 0.0, 10.0, 0.0),
+            ("roll_zp30", 0.50, 0.0, 0.0, 0.0, 0.0, 30.0),
         ]
     return [
-        ("h30", 0.30, 0.0, 0.0, 0.0, 0.0, 0.0),
-        ("h35", 0.35, 0.0, 0.0, 0.0, 0.0, 0.0),
-        ("x_plus", 0.35, 0.03, 0.0, 0.0, 0.0, 0.0),
-        ("x_minus", 0.35, -0.03, 0.0, 0.0, 0.0, 0.0),
-        ("y_plus", 0.35, 0.0, 0.03, 0.0, 0.0, 0.0),
-        ("y_minus", 0.35, 0.0, -0.03, 0.0, 0.0, 0.0),
-        ("xy_plus", 0.35, 0.03, 0.03, 0.0, 0.0, 0.0),
-        ("xy_minus", 0.35, -0.03, -0.03, 0.0, 0.0, 0.0),
-        ("tilt_xp10", 0.35, 0.0, 0.0, 10.0, 0.0, 0.0),
-        ("tilt_xm10", 0.35, 0.0, 0.0, -10.0, 0.0, 0.0),
-        ("tilt_yp10", 0.35, 0.0, 0.0, 0.0, 10.0, 0.0),
-        ("tilt_ym10", 0.35, 0.0, 0.0, 0.0, -10.0, 0.0),
-        ("roll_zp30", 0.35, 0.0, 0.0, 0.0, 0.0, 30.0),
-        ("roll_zm30", 0.35, 0.0, 0.0, 0.0, 0.0, -30.0),
+        ("d46", 0.46, 0.0, 0.0, 0.0, 0.0, 0.0),
+        ("d50", 0.50, 0.0, 0.0, 0.0, 0.0, 0.0),
+        ("d54", 0.54, 0.0, 0.0, 0.0, 0.0, 0.0),
+        ("x_plus", 0.50, 0.03, 0.0, 0.0, 0.0, 0.0),
+        ("x_minus", 0.50, -0.03, 0.0, 0.0, 0.0, 0.0),
+        ("y_plus", 0.50, 0.0, 0.03, 0.0, 0.0, 0.0),
+        ("y_minus", 0.50, 0.0, -0.03, 0.0, 0.0, 0.0),
+        ("xy_plus", 0.50, 0.03, 0.03, 0.0, 0.0, 0.0),
+        ("xy_minus", 0.50, -0.03, -0.03, 0.0, 0.0, 0.0),
+        ("tilt_xp10", 0.52, 0.0, 0.0, 10.0, 0.0, 0.0),
+        ("tilt_xm10", 0.52, 0.0, 0.0, -10.0, 0.0, 0.0),
+        ("tilt_yp10", 0.52, 0.0, 0.0, 0.0, 10.0, 0.0),
+        ("tilt_ym10", 0.52, 0.0, 0.0, 0.0, -10.0, 0.0),
+        ("roll_zp30", 0.50, 0.0, 0.0, 0.0, 0.0, 30.0),
+        ("roll_zm30", 0.50, 0.0, 0.0, 0.0, 0.0, -30.0),
     ]
 
 
@@ -133,29 +137,27 @@ class PoseSampler(CharucoDetect):
         self.board_x = float(args.board_x)
         self.board_y = float(args.board_y)
         self.board_top = float(args.board_top)
-        # 成功单帧检测时手部相对板中心的 y 偏置
-        self.base_hand_y = self.board_y - 0.04
 
     def wait_tf(self, timeout=10.0):
         deadline = time.monotonic() + timeout
         while rclpy.ok() and time.monotonic() < deadline:
             try:
-                self.lookup_hand()
+                self.lookup_gripper()
                 self.lookup_truth()
                 return True
             except Exception:
                 self.spin_for(0.2)
         return False
 
-    def lookup_hand(self):
+    def lookup_gripper(self):
         transform = self.tf_buffer.lookup_transform(
-            "panda_link0", "panda_hand", Time()
+            "panda_link0", "panda_link8", Time()
         )
         return transform_to_matrix(transform)
 
     def lookup_truth(self):
         transform = self.tf_buffer.lookup_transform(
-            "panda_hand", "wrist_camera_optical_frame", Time()
+            "panda_link8", "wrist_camera_optical_frame", Time()
         )
         return transform_to_matrix(transform)
 
@@ -194,9 +196,10 @@ class PoseSampler(CharucoDetect):
         orientation.orientation.y = float(quat[1])
         orientation.orientation.z = float(quat[2])
         orientation.orientation.w = float(quat[3])
-        orientation.absolute_x_axis_tolerance = 0.1
-        orientation.absolute_y_axis_tolerance = 0.1
-        orientation.absolute_z_axis_tolerance = 0.1
+        # 收紧到约 1.7°，避免冗余 IK 选到让板子偏出画面的姿态
+        orientation.absolute_x_axis_tolerance = 0.03
+        orientation.absolute_y_axis_tolerance = 0.03
+        orientation.absolute_z_axis_tolerance = 0.03
         orientation.weight = 1.0
 
         constraints = Constraints()
@@ -239,22 +242,21 @@ class PoseSampler(CharucoDetect):
             print("ERROR: 没有收到 wrist_camera 图像或内参")
             return 1
         if not self.wait_tf():
-            print("ERROR: 等不到 panda_hand TF")
+            print("ERROR: 等不到 panda_link8 TF")
             return 1
 
-        truth_hand_cam = self.lookup_truth()
+        truth_link8_cam = self.lookup_truth()
         records = []
         accepted = 0
         poses = build_poses(set_name)
+        p_board = np.array(
+            [self.board_x, self.board_y, self.board_top],
+            dtype=float,
+        )
 
         for index, (
-            label, offset, dx, dy, tilt_x, tilt_y, roll
+            label, distance, dx, dy, tilt_x, tilt_y, roll
         ) in enumerate(poses):
-            # 先构造手部目标位姿；板子始终不动
-            target_x = self.board_x + dx
-            target_y = self.base_hand_y + dy
-            target_z = self.board_top + offset
-
             q = BASE_Q.copy()
             for axis, angle_deg in (
                 ((1.0, 0.0, 0.0), tilt_x),
@@ -270,8 +272,23 @@ class PoseSampler(CharucoDetect):
                     )
             q /= np.linalg.norm(q)
 
+            # 让相机光轴穿过板中心，再叠加一个小平移
+            r_base_link8 = quat_to_matrix(q)
+            r_link8_cam = truth_link8_cam[:3, :3]
+            t_link8_cam = truth_link8_cam[:3, 3]
+            axis_base = (
+                r_base_link8 @ r_link8_cam @ np.array([0.0, 0.0, 1.0])
+            )
+            axis_base /= np.linalg.norm(axis_base)
+            p_cam = p_board - distance * axis_base
+            p_link8 = p_cam - r_base_link8 @ t_link8_cam
+            target_x = float(p_link8[0] + dx)
+            target_y = float(p_link8[1] + dy)
+            target_z = float(p_link8[2])
+
             print(
                 f"\n[{index:02d} {label}] "
+                f"d={distance:.2f} "
                 f"x={target_x:.3f} y={target_y:.3f} "
                 f"z={target_z:.3f} tilt_x={tilt_x} "
                 f"tilt_y={tilt_y} roll={roll}"
@@ -285,7 +302,7 @@ class PoseSampler(CharucoDetect):
                     {
                         "id": index,
                         "label": label,
-                        "offset": offset,
+                        "dist": distance,
                         "dx": dx,
                         "dy": dy,
                         "tilt_x": tilt_x,
@@ -318,7 +335,7 @@ class PoseSampler(CharucoDetect):
                     {
                         "id": index,
                         "label": label,
-                        "offset": offset,
+                        "dist": distance,
                         "dx": dx,
                         "dy": dy,
                         "tilt_x": tilt_x,
@@ -337,7 +354,7 @@ class PoseSampler(CharucoDetect):
             import cv2
 
             cv2.imwrite(image_path, image)
-            t_base_hand = self.lookup_hand()
+            t_base_link8 = self.lookup_gripper()
             target_r, _ = cv2.Rodrigues(result["rvec"])
             target_t = result["tvec"].reshape(3)
             target_mat = np.eye(4)
@@ -364,7 +381,7 @@ class PoseSampler(CharucoDetect):
                 {
                     "id": index,
                     "label": label,
-                    "offset": offset,
+                    "dist": distance,
                     "dx": dx,
                     "dy": dy,
                     "tilt_x": tilt_x,
@@ -385,7 +402,7 @@ class PoseSampler(CharucoDetect):
                     "target_rvec": result["rvec"].tolist(),
                     "target_tvec": result["tvec"].tolist(),
                     "T_target2cam": target_mat.tolist(),
-                    "T_base_hand": t_base_hand.tolist(),
+                    "T_base_link8": t_base_link8.tolist(),
                 }
             )
 
@@ -396,7 +413,7 @@ class PoseSampler(CharucoDetect):
                 {
                     "set": set_name,
                     "frames": frames,
-                    "truth_T_hand_cam": truth_hand_cam.tolist(),
+                    "truth_T_link8_cam": truth_link8_cam.tolist(),
                     "records": records,
                 },
                 handle,
@@ -405,7 +422,7 @@ class PoseSampler(CharucoDetect):
             )
 
         fieldnames = [
-            "id", "label", "offset", "dx", "dy",
+            "id", "label", "dist", "dx", "dy",
             "tilt_x", "tilt_y", "roll", "moveit_ok",
             "accepted", "ambiguous", "marker_count",
             "charuco_count", "reprojection", "reproj_gap",
