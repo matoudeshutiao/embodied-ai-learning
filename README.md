@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–33 天：VLA/真机桥接、队列、安全层、Panda Gazebo、视觉抓放、A3、腕部相机、ChArUco 手眼标定准备
+├── project16_ros2_vla_bridge/ # 第 15–34 天：VLA/真机桥接、队列、安全层、Panda Gazebo、视觉抓放、A3、腕部相机、ChArUco 手眼标定、腕部闭环接近
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -358,6 +358,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;31 | 2026.11.21 | ROS2 周 Day 23：A3 20 次试验、报告自动化、bbox→顶面质心与径向比例诊断 |
 | Day&nbsp;32 | 2026.11.22 | ROS2 周 Day 24：顶面检测回归、K 检查、腕部相机与手眼标定条件 |
 | Day&nbsp;33 | 2026.11.23 | ROS2 周 Day 25：ChArUco 标定板、640×480 腕部相机、纹理 UV 修复、瞄准式姿态采样与 15/15 全板采集 |
+| Day&nbsp;34 | 2026.11.24 | ROS2 周 Day 26：手眼标定冻结、腕部方块检测 2.90 mm、PBVS 5/5 闭环 2.41 mm |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -4886,6 +4887,121 @@ IPPE 分支搜索：5 个 ambiguous 姿态全部保持 solution 0，没有翻转
 
 - [raw.md](learning_journal/2026-11-23-day33/raw.md)
 - [notes.md](learning_journal/2026-11-23-day33/notes.md)
+
+---
+
+### 2026.11.24 ｜ 第 34 天 · ROS2 周 Day 26：腕部相机闭环接近
+
+> 状态：手眼标定冻结；腕部方块检测 2.90 mm；
+> PBVS 5/5 收敛，对真值 mean/max 2.41/2.61 mm。
+
+#### 34.1 Step 0：冻结手眼标定
+
+all/PARK 结果写入 `config/wrist_hand_eye.json`：
+
+```text
+对 URDF 真值：3.26 mm / 0.309°
+板中心绝对验证：mean 2.07 mm，max 2.31 mm
+```
+
+感知组合：
+
+```text
+T_base_cam = T_base_link8 · T_link8_cam_calib
+```
+
+URDF 相机安装不改，标定只在软件里用。
+
+#### 34.2 Step 1：腕部相机检测红方块
+
+```text
+HSV 红色分割
++ 深度反投影
++ 红色点云 RANSAC 顶面平面
++ 顶面质心 - 2.5 cm · 法向
+```
+
+测试位姿用 `/model_states` 真值选（只选姿态），
+方块坐标由腕部相机 + 手眼标定计算。
+
+```text
+3 帧 mean 2.90 mm, max 2.91 mm
+```
+
+#### 34.3 Step 2：PBVS 第一版失败
+
+0.20 m、alpha 0.6、2 mm 容差：
+
+```text
+converged 1/5
+truth error mean/max 6.02/10.09 mm
+```
+
+原因：
+
+- IK 分支变化导致相机视角变化，方块被切，平面内点从 11k 掉到 7k；
+- 坏检测把闭环带偏；
+- 一次 MoveIt 修正失败；
+- 2 mm 容差小于检测/控制噪声。
+
+修复：
+
+```text
+1. 质量门：inliers/red >= 85%，red >= 3000，
+   normal_z >= 0.98，cube z 0.36–0.39
+2. 起点 0.20 → 0.30 m
+3. 容差 2.0 → 2.5 mm
+4. alpha 0.6 → 0.7
+5. MoveIt 失败 +5 mm z 重试一次
+```
+
+#### 34.4 最终结果
+
+```text
+converged 5/5
+iterations [2, 3, 3, 3, 3]
+truth error mean/max 2.41/2.61 mm
+```
+
+| start | 起点偏移 | 迭代 | hand_err | 对真值 |
+|---|---|---|---|---|
+| 0 | (0,0) | 2 | 1.89 mm | 2.61 mm |
+| 1 | (+2,0) cm | 3 | 2.24 mm | 2.39 mm |
+| 2 | (-2,0) cm | 3 | 2.11 mm | 2.33 mm |
+| 3 | (0,+2) cm | 3 | 1.32 mm | 2.47 mm |
+| 4 | (0,-2) cm | 3 | 2.28 mm | 2.28 mm |
+
+闭环收敛的是视觉目标，所以对真值仍保留 Step 1 的约 2.4 mm 系统偏差。
+
+#### 34.5 方法
+
+```text
+手眼变换组合：T_base_cam = T_base_link8 · T_link8_cam
+深度反投影 + 相机内参
+HSV + 红色点云 RANSAC 平面
+PBVS：e = p_desired - p_current，
+      p_target = p_current + 0.7 · e
+质量门 + MoveIt 重试
+真值只用于选起点和最终评估
+```
+
+#### 34.6 Demo 建议
+
+值得录，但不需要完整 15 姿态。建议 60–90 秒：
+
+```text
+1. 腕部相机看板，机械臂走 5–8 个标定姿态（8x 加速）
+2. 15/15、PARK 3.26 mm / 0.309°
+3. 腕部检测红方块 + 5/5 闭环
+4. truth mean/max 2.41/2.61 mm
+```
+
+标注“姿态采样已加速”，不要拼接不同次结果。
+
+#### 34.7 原始记录
+
+- [raw.md](learning_journal/2026-11-24-day34/raw.md)
+- [notes.md](learning_journal/2026-11-24-day34/notes.md)
 
 ---
 
