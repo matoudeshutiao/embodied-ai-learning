@@ -545,7 +545,7 @@ real_controller_demo.launch.py 的启动顺序
 
 ## 14. 第 18 天：动作队列
 
-> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿但摩擦不足；第 29 天用 Gazebo link attach 完成仿真抓取；第 30 天用视觉定位 + 分段笛卡尔完成抓放闭环（`PLACE SUCCESS`，放置误差 6.0 mm / 0.9 mm）；第 31 天完成 A3 20/20，并用顶面 3D 质心把视觉误差从 6.1 mm 降到 4.4 mm；第 32 天确认 K 正确、加入腕部相机，并明确了纯手眼标定还缺非对称目标。
+> 状态：✅ 第 18–25 天完成；第 26 天 `panda_pick` 实测抓空，已加夹爪/物体双重验证；第 27 天侧抓调试中；第 28 天 effort 夹爪已到达抓取位姿但摩擦不足；第 29 天用 Gazebo link attach 完成仿真抓取；第 30 天用视觉定位 + 分段笛卡尔完成抓放闭环（`PLACE SUCCESS`，放置误差 6.0 mm / 0.9 mm）；第 31 天完成 A3 20/20，并用顶面 3D 质心把视觉误差从 6.1 mm 降到 4.4 mm；第 32 天确认 K 正确、加入腕部相机，并明确了纯手眼标定还缺非对称目标；第 33 天完成 ChArUco 标定板、640×480 腕部相机、纹理 UV 修复、瞄准式姿态采样和 15/15 全板采集，下一步纯 AX=XB。
 >
 > 已完成：队列、隔离测试、时间对齐、A/B 对比、状态超时、watchdog 取消与恢复。
 >
@@ -3898,6 +3898,76 @@ ros2 run vla_bridge panda_move_to_target
 
 - [raw.md](../learning_journal/2026-11-22-day32/raw.md)
 - [reflection.md](../learning_journal/2026-11-22-day32/reflection.md)
+
+---
+
+## 34. Day 33：ChArUco 手眼标定准备
+
+> 状态：15/15 姿态全板通过；下一步 `cv2.calibrateHandEye`。
+> 详细原理见
+> [notes.md](../learning_journal/2026-11-24-day33/notes.md)，
+> 原始报告见
+> [raw.md](../learning_journal/2026-11-24-day33/raw.md)。
+
+### 34.1 标定板接入
+
+- 纹理黄黑斜条纹：SDF 只注册了 `.material`，没注册 `materials/textures`；
+  两个目录都注册后重启 Gazebo 清材质缓存。
+- 320×240 下每个 ArUco 数据位约 2.7 px，只检出 10/17 markers；
+  腕部相机改 640×480 后 `fx=fy=554.255, cx=320.5, cy=240.5`，
+  17/17 markers、24/24 corners。
+- PnP 8.3 px：Gazebo 把纹理贴到 box 顶面时旋转 90° 并拉伸 2:1；
+  raw 图 marker 中心排成 7 列 × 5 行，列距 26 px、行距 51 px。
+  纹理旋转 90°（840×600）后重投影降到 0.330 px，法向回到 `-z`。
+
+### 34.2 IPPE 双解
+
+平面板近正视时两组解几乎重合，噪声可能翻转分支。现在：
+
+```text
+记录两组解的 reproj / normal / tvec
+gap < 0.1 px → ambiguous
+求解时用静态板一致性检查
+```
+
+full 15 姿态规律：
+
+```text
+近正视/纯滚转：gap 0.02–0.05 px
+横向平移：      gap 0.35–0.75 px
+±10° 倾斜：     gap 1.35–1.48 px
+```
+
+倾斜姿态是可靠分支的主力；近正视姿态只用于一致性检查或加权。
+
+### 34.3 瞄准法：板子始终居中
+
+固定手位时，相机安装偏置和倾斜让板子跑出画面。改成：
+
+```text
+axis   = R_hand · R_hand→cam · [0,0,1]
+p_cam  = p_board - d · axis
+p_hand = p_cam - R_hand · t_hand→cam
+```
+
+先决定相机从哪个方向看板子，再反推手要站在哪，使光轴穿过板中心。
+`d` 取 0.46–0.54 m；名义安装变换只用于选姿态，不进入 AX=XB。
+
+### 34.4 full 15 结果
+
+```text
+15/15 姿态 accepted
+每个姿态 17 markers / 24 corners
+reproj 0.043–0.157 px
+```
+
+完整 15 行表格见 [raw.md](../learning_journal/2026-11-24-day33/raw.md)。
+
+### 34.5 下一步
+
+```text
+pose json/csv → calibrateHandEye 四方法 → 留出验证 → URDF 真值比较
+```
 
 ---
 

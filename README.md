@@ -121,7 +121,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–32 天：VLA/真机桥接、队列、安全层、Panda Gazebo、视觉抓放、A3、腕部相机与标定诊断
+├── project16_ros2_vla_bridge/ # 第 15–33 天：VLA/真机桥接、队列、安全层、Panda Gazebo、视觉抓放、A3、腕部相机、ChArUco 手眼标定准备
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -4726,6 +4726,124 @@ pre-grasp 能看到完整红方块
 
 - [raw.md](learning_journal/2026-11-22-day32/raw.md)
 - [reflection.md](learning_journal/2026-11-22-day32/reflection.md)
+
+---
+
+### 2026.11.24 ｜ 第 33 天 · ROS2 周 Day 25：ChArUco 手眼标定准备
+
+> 状态：标定板、640×480 腕部相机、纹理修复、瞄准式姿态采样已完成；
+> 15/15 姿态都是 17 markers / 24 corners，下一步纯 AX=XB。
+
+#### 33.1 标定板接入的三个坑
+
+**坑 1：纹理不显示。** Gazebo 里是黄黑斜条纹，检测报 `no ArUco markers`。
+`model.sdf` 只注册了 `.material` 脚本，没有注册 `materials/textures` 目录。
+同时注册两个目录后，必须重启 Gazebo 清 OGRE 材质缓存。
+
+**坑 2：320×240 下 marker 太小。** 只检出 10/17 markers、9/24 corners；
+每个 ArUco 数据位约 2.7 px。腕部相机提到 640×480 后：
+
+```text
+fx = fy = 554.255
+cx = 320.5, cy = 240.5
+17/17 markers, 24/24 corners
+```
+
+**坑 3：PnP 8.3 px。** 所有角点都检出，但两组 IPPE 解都是 8.3–8.5 px。
+raw 图里 marker 中心排成 **7 列 × 5 行**，列距约 26 px、行距约 51 px：
+Gazebo 把纹理贴到 box 顶面时旋转了 90° 并拉伸成 2:1。
+纹理旋转 90°（840×600）后，重投影降到 **0.330 px**，法向回到 `-z`。
+
+#### 33.2 IPPE 双解的隐患
+
+用户问：“IPPE双解会有隐患吗？”
+
+有。平面板近正视时两组解几乎重合，噪声可能让分支翻转；倾斜姿态下两组解才明显分开。
+
+处理：
+
+```text
+两组解都记录 reproj / normal / tvec
+gap < 0.1 px 标记 ambiguous
+求解时用静态板 T_base_target 一致性兜底
+```
+
+full 15 姿态的 gap 规律很干净：
+
+```text
+近正视/纯滚转：0.02–0.05 px  → ambiguous
+横向平移：      0.35–0.75 px
+±10° 倾斜：     1.35–1.48 px  → 分支清楚
+```
+
+#### 33.3 瞄准法：让板子始终在画面中心
+
+固定手位时，手一换高度或一倾斜，板子就在画面里跑偏，20° 倾斜只剩 7–11 个 marker。
+根因是相机不在手的正下方，固定手位没有补偿安装偏置。
+
+改成先决定“从哪个方向看板子”，再反推手的位置：
+
+```text
+axis   = R_hand · R_hand→cam · [0,0,1]   相机镜头朝哪
+p_cam  = p_board - d · axis              相机退到板中心后方 d 米
+p_hand = p_cam - R_hand · t_hand→cam     减掉相机相对手的安装平移
+```
+
+通俗说：
+
+```text
+以前：人站死在原地，歪着手机拍桌子上的纸，纸容易跑出取景框
+现在：先决定从哪个角度看纸，再走到能让镜头对准纸中心的位置
+```
+
+`d` 取 0.46–0.54 m，板子半高角约 11–13°，10° 倾斜后仍在垂直半 FOV 23.4° 内。
+名义安装变换只用于**选姿态**，不进入 AX=XB 求解。
+
+#### 33.4 full 15 姿态报告
+
+每个姿态采 3 帧，取重投影最小的一帧：
+
+```text
+pose        d(m)  tilt/roll  markers  corners  reproj(px)  gap(px)  ambiguous
+d46         0.46  -          17       24       0.115       0.023    yes
+d50         0.50  -          17       24       0.157       0.034    yes
+d54         0.54  -          17       24       0.109       0.051    yes
+x_plus      0.50  -          17       24       0.084       0.364    no
+x_minus     0.50  -          17       24       0.096       0.345    no
+y_plus      0.50  -          17       24       0.088       0.626    no
+y_minus     0.50  -          17       24       0.104       0.556    no
+xy_plus     0.50  -          17       24       0.085       0.695    no
+xy_minus    0.50  -          17       24       0.087       0.747    no
+tilt_xp10   0.52  +10° x     17       24       0.086       1.355    no
+tilt_xm10   0.52  -10° x     17       24       0.079       1.482    no
+tilt_yp10   0.52  +10° y     17       24       0.075       1.408    no
+tilt_ym10   0.52  -10° y     17       24       0.096       1.395    no
+roll_zp30   0.50  +30° z     17       24       0.066       0.033    yes
+roll_zm30   0.50  -30° z     17       24       0.043       0.039    yes
+
+accepted 15/15
+```
+
+#### 33.5 下一步
+
+```text
+1. 上传 poses.json / poses.csv
+2. cv2.calibrateHandEye 四种方法
+3. gap 过滤 + 静态板一致性
+4. 留出姿态验证 + URDF 真值比较
+```
+
+#### 33.6 用户原话
+
+> IPPE双解会有隐患吗
+
+> 今天解决那个始终让板保持在中心的解决方法挺有意思，
+> 可以简单通俗易懂解释一下并且放进日志。然后这是报告也可以放。
+
+#### 33.7 原始记录
+
+- [raw.md](learning_journal/2026-11-24-day33/raw.md)
+- [notes.md](learning_journal/2026-11-24-day33/notes.md)
 
 ---
 
