@@ -4050,7 +4050,7 @@ normal_z >= 0.98，cube z 0.36–0.39
 
 坏检测不移动；MoveIt 失败 +5 mm z 重试。
 
-### 35.4 结果
+### 35.4 首次接受结果
 
 ```text
 converged 5/5
@@ -4066,7 +4066,40 @@ truth error mean/max 2.41/2.61 mm
 | 3 | (0,+2) cm | 3 | 1.32 mm | 2.47 mm |
 | 4 | (0,-2) cm | 3 | 2.28 mm | 2.28 mm |
 
-### 35.5 边界与下一步
+以上是首次接受结果；demo 复现结果见 35.5。
+
+### 35.5 Demo 视频与复现结果
+
+视频（未剪辑，直接上传 B 站）：
+
+- [Day 34 腕部相机闭环 demo](https://www.bilibili.com/video/BV1Qgyfz1EJd/)
+
+本次 demo 只录了单帧 ChArUco 检测 + Day 33 已有标定结果 + PBVS，
+**没有重跑 15 姿态 AX=XB**。
+
+复现结果：
+
+```text
+converged 5/5
+truth error mean/max 3.41/6.11 mm
+iterations [2, 3, 4, 2, 4]
+```
+
+和首次接受结果的区别：
+
+```text
+首次：5/5，2.41/2.61 mm，[2, 3, 3, 3, 3]
+Demo：5/5，3.41/6.11 mm，[2, 3, 4, 2, 4]
+```
+
+start 3 的平面内点掉到 4740，顶面被部分切掉，但 `inliers/red` 仍过 85%，
+比例门放行，闭环锁到偏掉的视觉目标，对真值 6.11 mm。
+说明质量门还缺绝对 inlier 下限或时间一致性检查。
+
+Demo 没有修改代码、标定或 `config/wrist_hand_eye.json`；
+精度结论仍以 35.4 的首次接受结果为准。
+
+### 35.6 边界与下一步
 
 ```text
 真值：选初始起点、最终评估
@@ -4074,7 +4107,7 @@ truth error mean/max 2.41/2.61 mm
 ```
 
 Step 3 接进 `panda_pick`：闭环修 x/y 后下降到 0.20 m 抓取，跑 5 次抓放。
-可选：录 60–90 秒 demo（标定姿态 8x 加速 + 5/5 闭环）。
+Demo 已上传 B 站，见 35.5；这版没有重跑 15 姿态标定。
 
 - [Day 34 raw](../learning_journal/2026-11-24-day34/raw.md)
 - [Day 34 notes](../learning_journal/2026-11-24-day34/notes.md)

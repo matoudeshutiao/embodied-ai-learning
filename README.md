@@ -2,6 +2,8 @@
 
 从零开始学习具身智能的代码与笔记，当前使用 **PyBullet + Franka Panda 七自由度机械臂** 做仿真练习；第 7 天起进入 **ROS2 Humble + Ubuntu 22.04**，学习机器人系统、TF、Gazebo、MoveIt2 和控制器。
 
+> 最新 demo：[Day 34 腕部相机 PBVS 闭环](https://www.bilibili.com/video/BV1Qgyfz1EJd/)（未剪辑；只含单帧检测 + 已有标定 + 5/5 闭环，不含 15 姿态手眼标定重跑）
+
 ## 学习方式
 
 这个仓库以“原始记录 + 用户反思 + Claude 编辑”为主，不是 AI 代写学习总结。
@@ -358,7 +360,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;31 | 2026.11.21 | ROS2 周 Day 23：A3 20 次试验、报告自动化、bbox→顶面质心与径向比例诊断 |
 | Day&nbsp;32 | 2026.11.22 | ROS2 周 Day 24：顶面检测回归、K 检查、腕部相机与手眼标定条件 |
 | Day&nbsp;33 | 2026.11.23 | ROS2 周 Day 25：ChArUco 标定板、640×480 腕部相机、纹理 UV 修复、瞄准式姿态采样与 15/15 全板采集 |
-| Day&nbsp;34 | 2026.11.24 | ROS2 周 Day 26：手眼标定冻结、腕部方块检测 2.90 mm、PBVS 5/5 闭环 2.41 mm |
+| Day&nbsp;34 | 2026.11.24 | ROS2 周 Day 26：手眼标定冻结、腕部方块检测 2.90 mm、PBVS 5/5 闭环 2.41 mm；[B 站 demo](https://www.bilibili.com/video/BV1Qgyfz1EJd/) |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -4955,7 +4957,7 @@ truth error mean/max 6.02/10.09 mm
 5. MoveIt 失败 +5 mm z 重试一次
 ```
 
-#### 34.4 最终结果
+#### 34.4 首次接受结果
 
 ```text
 converged 5/5
@@ -4972,6 +4974,7 @@ truth error mean/max 2.41/2.61 mm
 | 4 | (0,-2) cm | 3 | 2.28 mm | 2.28 mm |
 
 闭环收敛的是视觉目标，所以对真值仍保留 Step 1 的约 2.4 mm 系统偏差。
+以下 2.41/2.61 mm 是首次接受结果；2026-11-24 demo 复现结果见 34.7。
 
 #### 34.5 方法
 
@@ -4998,7 +5001,38 @@ PBVS：e = p_desired - p_current，
 
 标注“姿态采样已加速”，不要拼接不同次结果。
 
-#### 34.7 原始记录
+#### 34.7 Demo 视频与复现结果
+
+视频（未剪辑，直接上传 B 站）：
+
+- [Day 34 腕部相机闭环 demo](https://www.bilibili.com/video/BV1Qgyfz1EJd/)
+
+本次 demo 只录了单帧 ChArUco 检测 + Day 33 已有标定结果 + PBVS，
+**没有重跑 15 姿态 AX=XB**；展示的是“标定冻结后的系统验证”。
+
+复现结果：
+
+```text
+converged 5/5
+truth error mean/max 3.41/6.11 mm
+iterations [2, 3, 4, 2, 4]
+```
+
+和首次接受结果的区别：
+
+```text
+首次：5/5，2.41/2.61 mm，[2, 3, 3, 3, 3]
+Demo：5/5，3.41/6.11 mm，[2, 3, 4, 2, 4]
+```
+
+start 3 的平面内点掉到 4740，顶面被部分切掉，但 `inliers/red` 仍过 85%，
+比例门放行，闭环锁到偏掉的视觉目标，对真值 6.11 mm。
+说明质量门还缺绝对 inlier 下限或时间一致性检查。
+
+Demo 没有修改代码、标定或 `config/wrist_hand_eye.json`；
+精度结论仍以 34.4 的首次接受结果为准。
+
+#### 34.8 原始记录
 
 - [raw.md](learning_journal/2026-11-24-day34/raw.md)
 - [notes.md](learning_journal/2026-11-24-day34/notes.md)
