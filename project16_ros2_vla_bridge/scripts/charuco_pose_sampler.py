@@ -369,7 +369,8 @@ class PoseSampler(CharucoDetect):
                 accepted += 1
 
             gap = float(result.get("reproj_gap", 0.0))
-            ambiguous = gap < 0.05
+            # 近正视姿态 gap 很小，分支不可靠；倾斜姿态 gap 通常 >1 px
+            ambiguous = gap < 0.1
             print(
                 f"  markers={result['marker_count']} "
                 f"corners={result['charuco_count']} "
