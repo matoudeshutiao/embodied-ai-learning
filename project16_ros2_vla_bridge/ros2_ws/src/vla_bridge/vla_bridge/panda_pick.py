@@ -733,68 +733,41 @@ class PandaPick(Node):
         )
         return False
 
-    def run(self):
-        if not self.move_client.wait_for_server(timeout_sec=30.0):
-            self.get_logger().error("/move_action not ready")
-            return
-        if not self.arm_client.wait_for_server(timeout_sec=30.0):
-            self.get_logger().error("arm controller action not ready")
-            return
-
-        use_vision = bool(
-            self.get_parameter("use_vision_pose").value
-        )
-        self.get_logger().info("waiting for /vision/target_pose")
-        vision = self.get_vision_pose() if use_vision else None
-        if use_vision and vision is None:
-            self.get_logger().error(
-                "no /vision/target_pose after 5s; "
-                "cube may be out of camera view"
-            )
-            return
-
-        # 真值只用于评估视觉误差和最后的抬升校验。
+    def grasp_from_pose(
+        self,
+        x,
+        y,
+        z,
+        label="target",
+        skip_pre_grasp=False,
+        scene_settle=3.0,
+    ):
+        """从已知方块中心执行抓取、抬升和放置。"""
+        # 真值只用于抬升校验，不参与位置选择。
         truth = self.get_cube_pose()
         if truth is None:
-            return
-        half = float(
-            self.get_parameter("cube_half_height").value
-        )
-        if vision is not None:
-            vx, vy, vz_top = vision
-            vz = vz_top - half
-            err_xy = math.hypot(vx - truth[0], vy - truth[1])
-            err_z = vz - truth[2]
-            self.get_logger().info(
-                "vision vs truth: "
-                f"vision=({vx:.4f}, {vy:.4f}, {vz:.4f}), "
-                f"truth={truth}, "
-                f"err_xy={err_xy * 1000:.1f} mm, "
-                f"err_z={err_z * 1000:.1f} mm"
-            )
-            x, y, z = vx, vy, vz
-        else:
-            x, y, z = truth
-        before_z = truth[2]
+            return False
         self.get_logger().info(
-            f"vertical grasp cube: x={x:.3f}, y={y:.3f}, z={z:.3f} "
-            f"(source={'vision' if vision else 'truth'})"
+            f"{label}: cube x={x:.3f}, y={y:.3f}, z={z:.3f}"
         )
 
         fixed_cube_test = bool(
             self.get_parameter("fixed_cube_test").value
         )
 
-        # 等 panda_scene 的 3 次发布结束。
-        self.settle(3.0)
+        # 等 panda_scene 的发布结束；腕部链路可传更短时间。
+        self.settle(scene_settle)
 
         # 清理上一次可能残留的 attach joint。
         if self.use_link_attacher:
             self.link_attach(False)
 
         self.effort(self.gripper_effort, 0.6, "open")
-        if not self.move_to(x, y, z + self.pre_grasp_offset, "pre-grasp"):
-            return
+        if not skip_pre_grasp:
+            if not self.move_to(
+                x, y, z + self.pre_grasp_offset, "pre-grasp"
+            ):
+                return False
 
         # 先到方块上方，再删除 planning scene 里的方块。
         # 这样长路径会绕开方块，最后只做垂直下探。
@@ -803,8 +776,11 @@ class PandaPick(Node):
         if not self.move_cartesian_linear(
             x, y, z + self.grasp_offset, "cartesian descent"
         ):
-            return
+            return False
         cube_pose = self.get_cube_pose()
+        before_z = truth[2]
+        if cube_pose is not None:
+            before_z = cube_pose[2]
         self.get_logger().info(
             f"cube before close: {cube_pose}, "
             f"link8: {self.link_xyz('panda_link8')}, "
@@ -844,7 +820,7 @@ class PandaPick(Node):
                 "fingers closed on nothing; abort before attach"
             )
             self.effort(self.gripper_effort, 0.6, "open")
-            return
+            return False
 
         if not fixed_cube_test and self.use_link_attacher:
             if not self.link_attach(True):
@@ -852,7 +828,7 @@ class PandaPick(Node):
                     "GRASP ABORTED: attach failed, cube not lifted"
                 )
                 self.effort(self.gripper_effort, 0.6, "open")
-                return
+                return False
             self.settle(0.2)
 
         if fixed_cube_test:
@@ -870,7 +846,7 @@ class PandaPick(Node):
                     f"FIXED CUBE CONTACT FAILED: gap={finger_gap}"
                 )
             self.effort(self.gripper_effort, 0.6, "open")
-            return
+            return contact_ok
 
         finger_ok = finger_gap is not None and finger_gap > 0.005
         lift_ok = False
@@ -881,7 +857,7 @@ class PandaPick(Node):
             if not self.move_cartesian_linear(
                 x, y, z + 0.30, "cartesian lift"
             ):
-                return
+                return False
             self.settle(0.5)
             self.get_logger().info(
                 f"fingers after lift: {self.finger_positions}"
@@ -915,12 +891,12 @@ class PandaPick(Node):
             if not self.move_cartesian_linear(
                 x, y, z + self.grasp_offset, "retry descent"
             ):
-                return
+                return False
             self.effort(-self.gripper_effort, 1.0, "retry close")
             self.wait_finger_stable()
             self.link_attach(False)
             if not self.link_attach(True):
-                return
+                return False
             self.settle(0.2)
 
         if not (finger_ok and lift_ok):
@@ -934,7 +910,7 @@ class PandaPick(Node):
                 f"finger_gap={finger_gap}, cube_dz={cube_dz}"
             )
             self.effort(self.gripper_effort, 0.6, "open")
-            return
+            return False
 
         self.get_logger().info("GRASP SUCCESS")
 
@@ -946,6 +922,58 @@ class PandaPick(Node):
                 "PLACE ABORTED: cube may still be attached to the hand; "
                 "restart the simulation before the next run"
             )
+            return False
+        return True
+
+    def run(self):
+        if not self.move_client.wait_for_server(timeout_sec=30.0):
+            self.get_logger().error("/move_action not ready")
+            return
+        if not self.arm_client.wait_for_server(timeout_sec=30.0):
+            self.get_logger().error("arm controller action not ready")
+            return
+
+        use_vision = bool(
+            self.get_parameter("use_vision_pose").value
+        )
+        self.get_logger().info("waiting for /vision/target_pose")
+        vision = self.get_vision_pose() if use_vision else None
+        if use_vision and vision is None:
+            self.get_logger().error(
+                "no /vision/target_pose after 5s; "
+                "cube may be out of camera view"
+            )
+            return
+
+        truth = self.get_cube_pose()
+        if truth is None:
+            return
+        half = float(
+            self.get_parameter("cube_half_height").value
+        )
+        if vision is not None:
+            vx, vy, vz_top = vision
+            vz = vz_top - half
+            err_xy = math.hypot(vx - truth[0], vy - truth[1])
+            err_z = vz - truth[2]
+            self.get_logger().info(
+                "vision vs truth: "
+                f"vision=({vx:.4f}, {vy:.4f}, {vz:.4f}), "
+                f"truth={truth}, "
+                f"err_xy={err_xy * 1000:.1f} mm, "
+                f"err_z={err_z * 1000:.1f} mm"
+            )
+            x, y, z = vx, vy, vz
+        else:
+            x, y, z = truth
+        self.get_logger().info(
+            f"vertical grasp cube: x={x:.3f}, y={y:.3f}, z={z:.3f} "
+            f"(source={'vision' if vision else 'truth'})"
+        )
+        self.grasp_from_pose(
+            x, y, z,
+            label="vision" if vision else "truth",
+        )
 
 
 def main(args=None):
