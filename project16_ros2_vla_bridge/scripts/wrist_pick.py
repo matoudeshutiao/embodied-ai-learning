@@ -302,10 +302,26 @@ class WristPick(PandaPick):
             )
             return True
         if not self.quality(result):
+            red = result["red_points"]
+            inliers = result["plane_inliers"]
+            ratio = inliers / max(1, red)
+            normal_z = result["normal"][2]
+            cube_z = result["cube_center"][2]
             self.get_logger().warn(
-                "0.20 m low-quality detection; "
+                "0.20 m low-quality detection: "
+                f"red={red}, inliers={inliers}, "
+                f"ratio={ratio:.3f}, normal_z={normal_z:.3f}, "
+                f"cube_z={cube_z:.4f}; "
                 "blind continue with 0.30 m target"
             )
+            lines = [
+                "0.20 m low quality",
+                f"red={red} inliers={inliers}",
+                f"ratio={ratio:.3f}",
+                f"normal_z={normal_z:.3f}",
+                f"cube_z={cube_z:.4f}",
+            ]
+            self.save_debug(image, result, lines, "020_low")
             return True
 
         top20 = result["top_center"]
@@ -340,6 +356,15 @@ class WristPick(PandaPick):
         if not self.arm_client.wait_for_server(timeout_sec=30.0):
             self.get_logger().error("arm controller action not ready")
             return 1
+
+        # 夹爪先张开，避免 0.20 m 视角里手指挡住方块。
+        self.effort(
+            self.gripper_effort, 0.6, "open before wrist approach"
+        )
+        self.settle(0.3)
+        self.get_logger().info(
+            f"fingers before approach: {self.finger_positions}"
+        )
 
         result30 = self.servo_to_cube()
         if result30 is None:
