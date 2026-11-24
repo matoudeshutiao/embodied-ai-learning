@@ -1,4 +1,4 @@
-# 2026-11-24 Day 33 原始记录
+# 2026-11-23 Day 33 原始记录
 
 ## 今天的目标
 
@@ -83,8 +83,7 @@ p_hand = p_cam - R_hand · t_hand→cam
 
 ## full 15 姿态报告
 
-每个姿态采 3 帧，取重投影最小的一帧。数据来自
-`charuco_poses_full_20261124_084114`。
+每个姿态采 3 帧，取重投影最小的一帧。数据来自本地 full 15 姿态运行。
 
 ```text
 pose        d(m)  tilt/roll  markers  corners  reproj(px)  gap(px)  ambiguous
@@ -115,6 +114,12 @@ accepted 15/15
 
 所以后续求解不能只看“重投影最小”，还要看 gap 和姿态多样性。
 倾斜姿态是主力，近正视姿态用于一致性检查或加权。
+
+## 截图
+
+![ChArUco 缺纹理时的黄黑占位](assets/day33_charuco_missing_texture.png)
+
+![纹理修复后的 ChArUco 标定板](assets/day33_charuco_board_ok.png)
 
 ## 下一步
 

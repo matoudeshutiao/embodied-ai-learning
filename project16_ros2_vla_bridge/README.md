@@ -3905,14 +3905,18 @@ ros2 run vla_bridge panda_move_to_target
 
 > 状态：15/15 姿态全板通过；下一步 `cv2.calibrateHandEye`。
 > 详细原理见
-> [notes.md](../learning_journal/2026-11-24-day33/notes.md)，
+> [notes.md](../learning_journal/2026-11-23-day33/notes.md)，
 > 原始报告见
-> [raw.md](../learning_journal/2026-11-24-day33/raw.md)。
+> [raw.md](../learning_journal/2026-11-23-day33/raw.md)。
 
 ### 34.1 标定板接入
 
 - 纹理黄黑斜条纹：SDF 只注册了 `.material`，没注册 `materials/textures`；
   两个目录都注册后重启 Gazebo 清材质缓存。
+
+![ChArUco 缺纹理时的黄黑占位](assets/day33_charuco_missing_texture.png)
+
+![纹理修复后的 ChArUco 标定板](assets/day33_charuco_board_ok.png)
 - 320×240 下每个 ArUco 数据位约 2.7 px，只检出 10/17 markers；
   腕部相机改 640×480 后 `fx=fy=554.255, cx=320.5, cy=240.5`，
   17/17 markers、24/24 corners。
@@ -3961,7 +3965,7 @@ p_hand = p_cam - R_hand · t_hand→cam
 reproj 0.043–0.157 px
 ```
 
-完整 15 行表格见 [raw.md](../learning_journal/2026-11-24-day33/raw.md)。
+完整 15 行表格见 [raw.md](../learning_journal/2026-11-23-day33/raw.md)。
 
 ### 34.5 下一步
 

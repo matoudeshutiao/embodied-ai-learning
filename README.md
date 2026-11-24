@@ -357,6 +357,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;30 | 2026.11.20 | ROS2 周 Day 22：视觉抓放闭环；放置点碰撞、稀疏轨迹弧线与 attach 超时 |
 | Day&nbsp;31 | 2026.11.21 | ROS2 周 Day 23：A3 20 次试验、报告自动化、bbox→顶面质心与径向比例诊断 |
 | Day&nbsp;32 | 2026.11.22 | ROS2 周 Day 24：顶面检测回归、K 检查、腕部相机与手眼标定条件 |
+| Day&nbsp;33 | 2026.11.23 | ROS2 周 Day 25：ChArUco 标定板、640×480 腕部相机、纹理 UV 修复、瞄准式姿态采样与 15/15 全板采集 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -4729,7 +4730,7 @@ pre-grasp 能看到完整红方块
 
 ---
 
-### 2026.11.24 ｜ 第 33 天 · ROS2 周 Day 25：ChArUco 手眼标定准备
+### 2026.11.23 ｜ 第 33 天 · ROS2 周 Day 25：ChArUco 手眼标定准备
 
 > 状态：标定板、640×480 腕部相机、纹理修复、瞄准式姿态采样已完成；
 > 15/15 姿态都是 17 markers / 24 corners，下一步纯 AX=XB。
@@ -4739,6 +4740,10 @@ pre-grasp 能看到完整红方块
 **坑 1：纹理不显示。** Gazebo 里是黄黑斜条纹，检测报 `no ArUco markers`。
 `model.sdf` 只注册了 `.material` 脚本，没有注册 `materials/textures` 目录。
 同时注册两个目录后，必须重启 Gazebo 清 OGRE 材质缓存。
+
+![ChArUco 缺纹理时的黄黑占位](project16_ros2_vla_bridge/assets/day33_charuco_missing_texture.png)
+
+![纹理修复后的 ChArUco 标定板](project16_ros2_vla_bridge/assets/day33_charuco_board_ok.png)
 
 **坑 2：320×240 下 marker 太小。** 只检出 10/17 markers、9/24 corners；
 每个 ArUco 数据位约 2.7 px。腕部相机提到 640×480 后：
@@ -4842,8 +4847,8 @@ accepted 15/15
 
 #### 33.7 原始记录
 
-- [raw.md](learning_journal/2026-11-24-day33/raw.md)
-- [notes.md](learning_journal/2026-11-24-day33/notes.md)
+- [raw.md](learning_journal/2026-11-23-day33/raw.md)
+- [notes.md](learning_journal/2026-11-23-day33/notes.md)
 
 ---
 
