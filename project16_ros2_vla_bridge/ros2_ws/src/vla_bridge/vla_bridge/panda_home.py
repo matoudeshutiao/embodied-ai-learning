@@ -6,6 +6,8 @@
 """
 
 import rclpy
+from builtin_interfaces.msg import Duration, Time
+from control_msgs.action import FollowJointTrajectory
 from moveit_msgs.action import MoveGroup
 from moveit_msgs.msg import (
     Constraints,
@@ -15,6 +17,7 @@ from moveit_msgs.msg import (
 from rclpy.action import ActionClient
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 
 JOINTS = [f"panda_joint{i}" for i in range(1, 8)]
@@ -32,10 +35,51 @@ HOME = [
 class PandaHome(Node):
     def __init__(self):
         super().__init__("panda_home")
-        self.client = ActionClient(self, MoveGroup, "/move_action")
+        self.move_client = ActionClient(self, MoveGroup, "/move_action")
+        self.arm_client = ActionClient(
+            self,
+            FollowJointTrajectory,
+            "/panda_arm_controller/follow_joint_trajectory",
+        )
+
+    def direct_home(self):
+        """MoveIt 无法从碰撞起始态规划时，用直接关节轨迹恢复。"""
+        if not self.arm_client.wait_for_server(timeout_sec=10.0):
+            self.get_logger().error(
+                "arm controller action not ready"
+            )
+            return False
+
+        trajectory = JointTrajectory()
+        trajectory.header.stamp = Time()
+        trajectory.joint_names = JOINTS
+
+        point = JointTrajectoryPoint()
+        point.positions = HOME
+        point.velocities = [0.0] * len(JOINTS)
+        point.time_from_start = Duration(sec=4, nanosec=0)
+        trajectory.points.append(point)
+
+        goal = FollowJointTrajectory.Goal()
+        goal.trajectory = trajectory
+        send_future = self.arm_client.send_goal_async(goal)
+        rclpy.spin_until_future_complete(self, send_future)
+        handle = send_future.result()
+        if handle is None or not handle.accepted:
+            self.get_logger().error("direct home goal rejected")
+            return False
+
+        result_future = handle.get_result_async()
+        rclpy.spin_until_future_complete(self, result_future)
+        result = result_future.result().result
+        ok = result.error_code == 0
+        self.get_logger().info(
+            f"direct home result: code={result.error_code}, ok={ok}"
+        )
+        return ok
 
     def run(self):
-        if not self.client.wait_for_server(timeout_sec=30.0):
+        if not self.move_client.wait_for_server(timeout_sec=30.0):
             self.get_logger().error("/move_action not ready")
             self.get_logger().info("home result: code=-1")
             return False
@@ -65,7 +109,7 @@ class PandaHome(Node):
         self.get_logger().info(
             "planning home with MoveIt joint constraints"
         )
-        send_future = self.client.send_goal_async(goal)
+        send_future = self.move_client.send_goal_async(goal)
         rclpy.spin_until_future_complete(self, send_future)
         handle = send_future.result()
         if handle is None or not handle.accepted:
@@ -78,12 +122,24 @@ class PandaHome(Node):
         result = result_future.result().result
         code = result.error_code.val
         ok = code == MoveItErrorCodes.SUCCESS
-        # trial runner 只识别 home result: code=0。
-        self.get_logger().info(
-            f"home result: code={0 if ok else code}, "
-            f"moveit_code={code}, ok={ok}"
+        if ok:
+            self.get_logger().info(
+                f"home result: code=0, moveit_code={code}, ok=True"
+            )
+            return True
+
+        # 零位自碰撞时 MoveIt 无法初始化起始树，直接关节恢复。
+        self.get_logger().warn(
+            f"MoveIt home failed code={code}; "
+            "falling back to direct joint trajectory"
         )
-        return ok
+        if self.direct_home():
+            self.get_logger().info(
+                "home result: code=0, recovery=direct"
+            )
+            return True
+        self.get_logger().info("home result: code=-3")
+        return False
 
 
 def main(args=None):
