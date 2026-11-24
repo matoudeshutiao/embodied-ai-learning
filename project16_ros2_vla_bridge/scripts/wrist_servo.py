@@ -112,7 +112,7 @@ class WristServo(WristCubeDetect):
 
                 quality = (
                     result["plane_inliers"]
-                    >= 0.90 * result["red_points"]
+                    >= 0.85 * result["red_points"]
                     and result["red_points"] >= 3000
                     and result["normal"][2] >= 0.98
                     and 0.36
@@ -229,7 +229,7 @@ class WristServo(WristCubeDetect):
 def main(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--offset", type=float, default=0.20)
-    parser.add_argument("--alpha", type=float, default=0.6)
+    parser.add_argument("--alpha", type=float, default=0.7)
     parser.add_argument("--tol-mm", type=float, default=2.5)
     parser.add_argument("--max-iter", type=int, default=5)
     parser.add_argument("--starts", type=int, default=5)
