@@ -242,19 +242,34 @@ class TrialRunner(Node):
         return "home result: code=0" in output, output
 
     def run_pick(self, log_path):
-        command = [
-            "ros2",
-            "run",
-            "vla_bridge",
-            "panda_pick",
-            "--ros-args",
-            "-p",
-            f"place_x:={self.args.place_x}",
-            "-p",
-            f"place_y:={self.args.place_y}",
-            "-p",
-            f"place_z:={self.args.place_z}",
-        ]
+        if self.args.wrist:
+            command = [
+                sys.executable,
+                os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "wrist_pick.py",
+                ),
+                "--place-x",
+                str(self.args.place_x),
+                "--place-y",
+                str(self.args.place_y),
+                "--place-z",
+                str(self.args.place_z),
+            ]
+        else:
+            command = [
+                "ros2",
+                "run",
+                "vla_bridge",
+                "panda_pick",
+                "--ros-args",
+                "-p",
+                f"place_x:={self.args.place_x}",
+                "-p",
+                f"place_y:={self.args.place_y}",
+                "-p",
+                f"place_z:={self.args.place_z}",
+            ]
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         state = {"timed_out": False}
@@ -297,6 +312,11 @@ class TrialRunner(Node):
                     "service timeout",
                     "no /vision",
                     "fingers stable",
+                    "wrist servo",
+                    "wrist verify",
+                    "wrist pick success",
+                    "low-quality detection",
+                    "0.20 m 和 0.30 m",
                 )
                 for line in proc.stdout:
                     lines.append(line.rstrip("\n"))
@@ -309,23 +329,52 @@ class TrialRunner(Node):
 
         return lines, state["timed_out"]
 
-    @staticmethod
-    def classify(lines, timed_out, home_ok):
+    def classify(self, lines, timed_out, home_ok):
         text = "\n".join(lines)
+        wrist = self.args.wrist
         result = {
             "grasp_ok": "GRASP SUCCESS" in text,
             "attach_ok": "attach link panda_link7: success=True" in text,
             "place_ok": "PLACE SUCCESS" in text,
+            "wrist_ok": "wrist pick success=True" in text,
         }
         match = re.search(r"err_xy=([0-9.]+) mm", text)
         result["vision_err_mm"] = (
             float(match.group(1)) if match else None
+        )
+        wrist_errors = re.findall(r"err=([0-9.]+) mm", text)
+        result["approach_err_mm"] = (
+            float(wrist_errors[-1]) if wrist_errors else None
+        )
+        diff_matches = re.findall(r"diff_xy=([0-9.]+) mm", text)
+        result["verify_diff_mm"] = (
+            float(diff_matches[-1]) if diff_matches else None
         )
 
         if not home_ok:
             stage = "home"
         elif timed_out or "service timeout" in text:
             stage = "system"
+        elif wrist:
+            if result["wrist_ok"]:
+                stage = "ok"
+            elif "没有在" in text or "detect failed" in text:
+                stage = "approach"
+            elif (
+                "low-quality detection" in text
+                and "blind continue" not in text
+            ):
+                stage = "approach"
+            elif "0.20 m 和 0.30 m" in text:
+                stage = "verify"
+            elif "EMPTY GRASP" in text or "GRASP FAILED" in text:
+                stage = "grasp"
+            elif "GRASP ABORTED" in text:
+                stage = "attach"
+            elif "PLACE FAILED" in text or "PLACE ABORTED" in text:
+                stage = "place"
+            else:
+                stage = "unknown"
         elif (
             "no /vision/target_pose" in text
             or "vision samples" in text
@@ -366,6 +415,7 @@ class TrialRunner(Node):
             "cube_z": CUBE_Z,
             "place": [args.place_x, args.place_y, args.place_z],
             "timeout": args.timeout,
+            "wrist": args.wrist,
         }
         with open(
             os.path.join(out_dir, "meta.json"),
@@ -384,9 +434,12 @@ class TrialRunner(Node):
             "cube_x",
             "cube_y",
             "vision_err_mm",
+            "approach_err_mm",
+            "verify_diff_mm",
             "grasp_ok",
             "attach_ok",
             "place_ok_node",
+            "wrist_ok",
             "cube_after_x",
             "cube_after_y",
             "cube_after_z",
@@ -466,9 +519,11 @@ class TrialRunner(Node):
                     )
 
                 info = self.classify(lines, timed_out, True)
-                full_success = (
-                    info["place_ok"] and verified and not timed_out
+                node_ok = (
+                    info["wrist_ok"] if args.wrist
+                    else info["place_ok"]
                 )
+                full_success = node_ok and verified and not timed_out
                 if info["place_ok"] and not verified:
                     print(
                         "WARNING: node reported PLACE SUCCESS, "
@@ -482,9 +537,12 @@ class TrialRunner(Node):
                     "cube_x": x,
                     "cube_y": y,
                     "vision_err_mm": info["vision_err_mm"],
+                    "approach_err_mm": info["approach_err_mm"],
+                    "verify_diff_mm": info["verify_diff_mm"],
                     "grasp_ok": info["grasp_ok"],
                     "attach_ok": info["attach_ok"],
                     "place_ok_node": info["place_ok"],
+                    "wrist_ok": info["wrist_ok"],
                     "cube_after_x": None if after is None else after[0],
                     "cube_after_y": None if after is None else after[1],
                     "cube_after_z": None if after is None else after[2],
@@ -513,7 +571,10 @@ class TrialRunner(Node):
                     f"trial {trial}: full={full_success} "
                     f"grasp={info['grasp_ok']} "
                     f"place={info['place_ok']} "
+                    f"wrist={info['wrist_ok']} "
                     f"stage={info['stage']} "
+                    f"approach_err={info['approach_err_mm']} mm "
+                    f"verify_diff={info['verify_diff_mm']} mm "
                     f"vision_err={info['vision_err_mm']} mm "
                     f"place_err="
                     f"{row['place_err_xy_mm']}/{row['place_err_z_mm']} mm"
@@ -546,6 +607,16 @@ class TrialRunner(Node):
             for row in rows
             if row["vision_err_mm"] is not None
         ]
+        approach_values = [
+            row["approach_err_mm"]
+            for row in rows
+            if row["approach_err_mm"] is not None
+        ]
+        verify_values = [
+            row["verify_diff_mm"]
+            for row in rows
+            if row["verify_diff_mm"] is not None
+        ]
         place_values = [
             row["place_err_xy_mm"]
             for row in rows
@@ -553,7 +624,7 @@ class TrialRunner(Node):
             and row["place_verified"]
         ]
 
-        print("\n===== A3 SUMMARY =====")
+        print("\n===== TRIAL SUMMARY =====")
         print(f"trials: {total}")
         print(
             f"full success: {full}/{total} "
@@ -569,6 +640,18 @@ class TrialRunner(Node):
             print(
                 f"vision error: mean={sum(vision_values) / len(vision_values):.1f} mm, "
                 f"max={max(vision_values):.1f} mm"
+            )
+        if approach_values:
+            print(
+                f"wrist approach error: "
+                f"mean={sum(approach_values) / len(approach_values):.2f} mm, "
+                f"max={max(approach_values):.2f} mm"
+            )
+        if verify_values:
+            print(
+                f"0.20 m verify diff: "
+                f"mean={sum(verify_values) / len(verify_values):.2f} mm, "
+                f"max={max(verify_values):.2f} mm"
             )
         if place_values:
             print(
@@ -593,6 +676,11 @@ def parse_args(argv):
     parser.add_argument("--place-y", type=float, default=0.08)
     parser.add_argument("--place-z", type=float, default=0.375)
     parser.add_argument("--timeout", type=float, default=180.0)
+    parser.add_argument(
+        "--wrist",
+        action="store_true",
+        help="用 scripts/wrist_pick.py 代替固定相机版 panda_pick",
+    )
     parser.add_argument(
         "--publish",
         action="store_true",

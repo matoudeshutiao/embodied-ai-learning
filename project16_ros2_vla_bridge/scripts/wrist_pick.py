@@ -21,6 +21,7 @@ import message_filters
 import numpy as np
 import rclpy
 from cv_bridge import CvBridge
+from rclpy.parameter import Parameter
 from rclpy.time import Time as RosTime
 from sensor_msgs.msg import CameraInfo, Image
 
@@ -401,10 +402,20 @@ def main(args=None):
     parser.add_argument("--max-iter", type=int, default=5)
     parser.add_argument("--max-xy-diff-mm", type=float, default=8.0)
     parser.add_argument("--approach-only", action="store_true")
+    parser.add_argument("--place-x", type=float, default=0.40)
+    parser.add_argument("--place-y", type=float, default=0.08)
+    parser.add_argument("--place-z", type=float, default=0.375)
     parsed = parser.parse_args(args)
 
-    rclpy.init()
+    rclpy.init(args=[])
     node = WristPick(parsed)
+    node.set_parameters(
+        [
+            Parameter("place_x", value=parsed.place_x),
+            Parameter("place_y", value=parsed.place_y),
+            Parameter("place_z", value=parsed.place_z),
+        ]
+    )
     try:
         return node.run_wrist()
     except KeyboardInterrupt:
