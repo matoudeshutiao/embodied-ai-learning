@@ -360,7 +360,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;31 | 2026.11.21 | ROS2 周 Day 23：A3 20 次试验、报告自动化、bbox→顶面质心与径向比例诊断 |
 | Day&nbsp;32 | 2026.11.22 | ROS2 周 Day 24：顶面检测回归、K 检查、腕部相机与手眼标定条件 |
 | Day&nbsp;33 | 2026.11.23 | ROS2 周 Day 25：ChArUco 标定板、640×480 腕部相机、纹理 UV 修复、瞄准式姿态采样与 15/15 全板采集 |
-| Day&nbsp;34 | 2026.11.24 | ROS2 周 Day 26：手眼标定冻结、腕部方块检测 2.90 mm、PBVS 5/5 闭环 2.41 mm；[B 站 demo](https://www.bilibili.com/video/BV1Qgyfz1EJd/) |
+| Day&nbsp;34 | 2026.11.24 | ROS2 周 Day 26：手眼标定冻结、腕部方块检测 2.90 mm、PBVS 5/5 闭环 2.41 mm；腕部视觉抓放 5/5，放置 1.0 mm；[B 站 demo](https://www.bilibili.com/video/BV1Qgyfz1EJd/) |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -4892,10 +4892,11 @@ IPPE 分支搜索：5 个 ambiguous 姿态全部保持 solution 0，没有翻转
 
 ---
 
-### 2026.11.24 ｜ 第 34 天 · ROS2 周 Day 26：腕部相机闭环接近
+### 2026.11.24 ｜ 第 34 天 · ROS2 周 Day 26：腕部相机闭环接近与视觉抓放
 
 > 状态：手眼标定冻结；腕部方块检测 2.90 mm；
-> PBVS 5/5 收敛，对真值 mean/max 2.41/2.61 mm。
+> PBVS 5/5 收敛，对真值 mean/max 2.41/2.61 mm；
+> 腕部视觉抓放 5/5，放置 xy 误差 mean/max 1.0/1.6 mm。
 
 #### 34.1 Step 0：冻结手眼标定
 
@@ -5036,6 +5037,46 @@ Demo 没有修改代码、标定或 `config/wrist_hand_eye.json`；
 
 - [raw.md](learning_journal/2026-11-24-day34/raw.md)
 - [notes.md](learning_journal/2026-11-24-day34/notes.md)
+
+#### 34.9 Step 3：腕部视觉抓放 5/5
+
+流程：
+
+```text
+0.30 m PBVS 修正 x/y
+→ 0.20 m 只做一致性校验
+→ 保持 0.30 m 的 x/y
+→ 下降到抓取位、夹取、attach、抬升、放置
+```
+
+5 次随机起点：
+
+```text
+full success 5/5
+grasp 5/5
+place 5/5
+approach err mean/max 1.46 / 2.00 mm
+0.20 m verify diff mean/max 0.55 / 1.24 mm
+place err xy mean/max 1.0 / 1.6 mm
+```
+
+两个关键修复：
+
+```text
+1. 0.20 m 检测前先张开夹爪，避免手指挡住方块
+2. panda_home 改成 MoveIt 规划；
+   零位自碰撞时用直接关节轨迹做一次 bootstrap 恢复
+```
+
+原 `panda_home` 直接发关节轨迹，绕过 MoveIt，会穿桌子但返回成功；
+修复后从放置点回 home 使用 MoveIt，`moveit_code=1`，没有再穿模。
+
+产物：
+
+```text
+output/a3_20261124_233909/summary.csv
+output/a3_20261124_233909/trial_01.log ... trial_05.log
+```
 
 ---
 

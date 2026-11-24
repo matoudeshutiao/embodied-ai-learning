@@ -109,9 +109,36 @@ inliers = 4740
 Demo 没有修改代码、标定或 `config/wrist_hand_eye.json`；
 精度结论仍以首次接受结果为准，视频只用于展示流程。
 
+## Step 3：5/5 腕部视觉抓放
+
+5 次随机起点全部完成：
+
+```text
+full success 5/5
+grasp 5/5
+place 5/5
+approach err mean/max 1.46 / 2.00 mm
+0.20 m verify diff mean/max 0.55 / 1.24 mm
+place err xy mean/max 1.0 / 1.6 mm
+```
+
+关键结论：
+
+1. **0.20 m 可以检测，但不适合再修正一次。**
+   0.20 m 的绝对偏差约 4.7 mm，0.30 m 约 2.4 mm。
+   如果再按 0.20 m 视觉目标闭环，会把机械臂带到更偏的位置。
+   所以 0.30 m 锁 x/y，0.20 m 只检查一致性。
+
+2. **夹爪必须先张开。**
+   第一次 0.20 m 低质量不是算法问题，是手指挡住了方块。
+   张开后 `inliers` 约 11.6k，`diff_xy` 0.2–0.5 mm。
+
+3. **`panda_home` 不能直接发关节轨迹。**
+   直接发 `FollowJointTrajectory` 绕过 MoveIt，会穿桌子但返回成功。
+   改成 MoveIt JointConstraint 后有碰撞检查；零位自碰撞时再用直接关节恢复。
+
 ## 还没想明白
 
-- 0.20 m 抓取前的腕部视角是否能稳定看到方块？
-- 闭环修 x/y 后，下降到 0.20 m 时是否需要再修一次？
 - 手眼 2.4 mm 的系统偏差来自标定、PnP 还是深度？
 - 质量门要不要加绝对 inlier 下限（例如 >= 5000）或时间一致性？
+- 真机上这套 0.30 m 锁 x/y、0.20 m 只校验的策略是否仍然成立？

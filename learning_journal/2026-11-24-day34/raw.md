@@ -171,6 +171,96 @@ start 3 的检测变差：`inliers=4740`，红色点云顶面被部分切掉，
 Demo 没有改代码、没有改标定，也没有覆盖 `config/wrist_hand_eye.json`；
 正式结果仍以首次 2.41/2.61 mm 为准。
 
+## Step 3：腕部视觉抓放 5/5
+
+时间：2026-11-24 23:39
+
+流程：
+
+```text
+0.30 m PBVS 修正 x/y
+→ 下降到 0.20 m 并做一致性校验
+→ 保持 0.30 m 的 x/y
+→ 笛卡尔下降到抓取位
+→ 夹爪闭合、attach、抬升、放置
+```
+
+5 次随机起点结果：
+
+```text
+full success: 5/5 (100%)
+grasp success: 5/5 (100%)
+```
+
+| trial | cube (x, y) | approach_err | verify_diff | place_err xy/z |
+|---|---|---|---|---|
+| 1 | (0.4707, -0.1345) | 0.33 mm | 0.40 mm | 0.8 / 1.0 mm |
+| 2 | (0.4452, -0.1645) | 1.58 mm | 0.31 mm | 0.9 / 1.0 mm |
+| 3 | (0.4507, -0.1557) | 1.90 mm | 1.24 mm | 1.6 / 1.0 mm |
+| 4 | (0.4670, -0.1618) | 2.00 mm | 0.33 mm | 0.9 / 1.0 mm |
+| 5 | (0.4486, -0.1450) | 1.49 mm | 0.47 mm | 1.0 / 1.0 mm |
+
+汇总：
+
+```text
+wrist approach error: mean 1.46 mm, max 2.00 mm
+0.20 m verify diff: mean 0.55 mm, max 1.24 mm
+place error xy: mean 1.0 mm, max 1.6 mm
+```
+
+## Step 3 遇到的两个问题
+
+### 1. 0.20 m 检测低质量
+
+第一次 approach-only 在 0.20 m 报 low-quality，兜底用了 0.30 m 目标。
+
+原因：启动时夹爪没有先张开，0.20 m 视角里手指挡住方块。
+修复：wrist_pick 在 PBVS 前先张开夹爪，并打印 `finger_positions`。
+修复后 0.20 m `inliers` 约 11.6k，`diff_xy` 0.2–0.5 mm。
+
+### 2. panda_home 穿桌子还报成功
+
+原 `panda_home` 直接发 `FollowJointTrajectory`，绕过 MoveIt，
+没有碰撞检查；从放置点回 home 时扫过桌子，但控制器返回 code=0。
+
+改成 MoveIt JointConstraint 规划后，又暴露出零位自碰撞：
+
+```text
+panda_link5 和 panda_link7 自碰撞
+Start state appears to be in collision
+OMPL 无法初始化起始树
+```
+
+最终处理：
+
+```text
+优先 MoveIt 规划 home
+规划失败时，用直接关节轨迹做一次恢复
+恢复只用于“起始态卡在自碰撞”的 bootstrap
+```
+
+从放置点回 home 时，MoveIt 正常成功：
+
+```text
+home result: code=0, moveit_code=1, ok=True
+```
+
+没有触发 `recovery=direct`，也没有再穿桌子。
+
+## Step 3 边界
+
+```text
+真值：随机起点、重置方块、最终评估
+控制：腕部相机 + 手眼标定
+```
+
+## Step 3 产物
+
+```text
+output/a3_20261124_233909/summary.csv
+output/a3_20261124_233909/trial_01.log ... trial_05.log
+```
+
 ## 用户原话
 
 > 第一个，然后从这里开始算day34，

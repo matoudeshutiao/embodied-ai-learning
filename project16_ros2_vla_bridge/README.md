@@ -4099,14 +4099,55 @@ start 3 的平面内点掉到 4740，顶面被部分切掉，但 `inliers/red` �
 Demo 没有修改代码、标定或 `config/wrist_hand_eye.json`；
 精度结论仍以 35.4 的首次接受结果为准。
 
-### 35.6 边界与下一步
+### 35.6 Step 3：腕部视觉抓放 5/5
+
+流程：
 
 ```text
-真值：选初始起点、最终评估
+0.30 m PBVS 修正 x/y
+→ 0.20 m 一致性校验
+→ 保持 0.30 m 的 x/y
+→ 笛卡尔下降到抓取位
+→ 夹取、attach、抬升、放置
+```
+
+5 次随机起点：
+
+```text
+full success 5/5
+grasp success 5/5
+place success 5/5
+approach err mean/max 1.46 / 2.00 mm
+0.20 m verify diff mean/max 0.55 / 1.24 mm
+place err xy mean/max 1.0 / 1.6 mm
+```
+
+两个修复：
+
+```text
+1. 0.20 m 检测前先张开夹爪，避免手指挡住方块
+2. panda_home 从直接关节轨迹改成 MoveIt 规划；
+   零位自碰撞时用直接关节轨迹做一次 bootstrap 恢复
+```
+
+原 `panda_home` 绕过 MoveIt，会穿桌子但返回成功；
+修复后从放置点回 home 使用 MoveIt，`moveit_code=1`，没有再穿模。
+
+产物：
+
+```text
+output/a3_20261124_233909/summary.csv
+output/a3_20261124_233909/trial_01.log ... trial_05.log
+```
+
+### 35.7 边界与下一步
+
+```text
+真值：随机起点、重置方块、最终评估
 控制：腕部相机 + 手眼标定
 ```
 
-Step 3 接进 `panda_pick`：闭环修 x/y 后下降到 0.20 m 抓取，跑 5 次抓放。
+下一步：扩大随机范围、检查不同高度/遮挡、再迁移真机。
 Demo 已上传 B 站，见 35.5；这版没有重跑 15 姿态标定。
 
 - [Day 34 raw](../learning_journal/2026-11-24-day34/raw.md)
