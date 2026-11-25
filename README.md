@@ -123,7 +123,7 @@
 │           ├── synthetic_camera.py
 │           ├── detector_node.py
 │           └── task_node.py
-├── project16_ros2_vla_bridge/ # 第 15–34 天：VLA/真机桥接、队列、安全层、Panda Gazebo、视觉抓放、A3、腕部相机、ChArUco 手眼标定、腕部闭环接近
+├── project16_ros2_vla_bridge/ # 第 15–35 天：VLA/真机桥接、队列、安全层、Panda Gazebo、视觉抓放、A3、腕部相机、ChArUco 手眼标定、腕部视觉抓放与 20 次鲁棒性
 │   ├── README.md
 │   ├── CODE_WALKTHROUGH.md
 │   ├── QUEUE_DAY19.md
@@ -361,6 +361,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;32 | 2026.11.22 | ROS2 周 Day 24：顶面检测回归、K 检查、腕部相机与手眼标定条件 |
 | Day&nbsp;33 | 2026.11.23 | ROS2 周 Day 25：ChArUco 标定板、640×480 腕部相机、纹理 UV 修复、瞄准式姿态采样与 15/15 全板采集 |
 | Day&nbsp;34 | 2026.11.24 | ROS2 周 Day 26：手眼标定冻结、腕部方块检测 2.90 mm、PBVS 5/5 闭环 2.41 mm；腕部视觉抓放 5/5，放置 1.0 mm；[B 站 demo](https://www.bilibili.com/video/BV1Qgyfz1EJd/) |
+| Day&nbsp;35 | 2026.11.25 | ROS2 周 Day 27：腕部视觉抓放扩大范围 20/20，approach 1.99 mm，place 1.1 mm；0.20 m 低质量 3 次由 0.30 m 目标兜底 |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
@@ -5077,6 +5078,65 @@ place err xy mean/max 1.0 / 1.6 mm
 output/a3_20261124_233909/summary.csv
 output/a3_20261124_233909/trial_01.log ... trial_05.log
 ```
+
+---
+
+### 2026.11.25 ｜ 第 35 天 · ROS2 周 Day 27：腕部视觉抓放鲁棒性 20/20
+
+> 状态：扩大随机范围后 20/20 成功；
+> approach mean/max 1.99/2.46 mm，place xy mean/max 1.1/2.4 mm。
+
+#### 35.1 测试范围
+
+```text
+x: 0.40–0.50
+y: -0.20–-0.10
+z: 0.375
+```
+
+命令：
+
+```bash
+python3 scripts/panda_pick_trials.py --wrist --trials 20 --seed 0 \
+  --x-min 0.40 --x-max 0.50 \
+  --y-min -0.20 --y-max -0.10
+```
+
+#### 35.2 结果
+
+```text
+full success 20/20
+grasp 20/20
+place 20/20
+approach err mean/max 1.99 / 2.46 mm
+0.20 m verify diff mean/max 0.39 / 1.20 mm
+place err xy mean/max 1.1 / 2.4 mm
+```
+
+#### 35.3 0.20 m 低质量兜底
+
+trial 1、3、4 的 0.20 m 检测 `cube_z ≈ 0.338`，
+低于质量门 0.36–0.39，没有用于修正 x/y；
+
+```text
+0.30 m 负责定位
+0.20 m 只检查一致性
+0.20 m 不可信时保持 0.30 m 目标
+```
+
+3 次最终都抓取和放置成功。
+
+#### 35.4 边界
+
+20/20 只覆盖当前范围、方块、光照和视角，不等于普遍鲁棒。
+下一步扩大边界找第一个失败点，并复现 0.20 m `cube_z` 偏低。
+真机迁移仍待做。
+
+#### 35.5 原始记录
+
+- [raw.md](learning_journal/2026-11-25-day35/raw.md)
+- [notes.md](learning_journal/2026-11-25-day35/notes.md)
+- [reflection.md](learning_journal/2026-11-25-day35/reflection.md)（待用户填写）
 
 ---
 

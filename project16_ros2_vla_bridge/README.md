@@ -4155,6 +4155,48 @@ Demo 已上传 B 站，见 35.5；这版没有重跑 15 姿态标定。
 
 ---
 
+## 36. Day 35：腕部视觉抓放鲁棒性 20/20
+
+### 36.1 范围
+
+```text
+x: 0.40–0.50
+y: -0.20–-0.10
+z: 0.375
+```
+
+### 36.2 结果
+
+```text
+full success 20/20
+grasp success 20/20
+place success 20/20
+approach err mean/max 1.99 / 2.46 mm
+0.20 m verify diff mean/max 0.39 / 1.20 mm
+place err xy mean/max 1.1 / 2.4 mm
+```
+
+### 36.3 0.20 m 低质量兜底
+
+trial 1、3、4 的 0.20 m 检测 `cube_z ≈ 0.338`，被质量门拒绝；
+没有用它修正 x/y，继续使用 0.30 m 目标，3 次最终都成功。
+
+```text
+0.30 m 负责定位
+0.20 m 只检查一致性
+```
+
+### 36.4 边界
+
+20/20 仅覆盖当前方块、光照和视角。
+下一步扩大边界、复现 0.20 m `cube_z` 偏低，再迁移真机。
+
+- [Day 35 raw](../learning_journal/2026-11-25-day35/raw.md)
+- [Day 35 notes](../learning_journal/2026-11-25-day35/notes.md)
+- [Day 35 reflection](../learning_journal/2026-11-25-day35/reflection.md)（待用户填写）
+
+---
+
 ## 附录：第 15 天的 mock 链路
 
 第 15 天的完整日志仍保留在：
