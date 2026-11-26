@@ -144,6 +144,12 @@
 │           ├── safe_executor.py
 │           ├── queue_probe.py
 │           └── mock_trajectory_server.py
+├── project17_vla_learning/ # 第 36 天起：VLA / Video Action Model 入门
+│   ├── README.md
+│   ├── notes/             # 每周 pipeline / 问题 / 结论
+│   ├── references/        # LingBot-VA、mimic-video 官方入口
+│   ├── toy_idm/           # 相邻帧 → 动作的 CPU/GPU 小实验
+│   └── assets/
 ├── assets/                # 第四天的结果展示图
 ├── 抓娃娃机.py           # 彩蛋：键盘遥控机械臂去夹方块
 ├── requirements.txt
@@ -312,6 +318,7 @@ ros2 run vla_bridge panda_pick
 python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_pick_trials.py \
   --trials 20 --seed 0 --publish
 
+# 第 36 天起：VLA / Video Action Model 入门（先读 project17_vla_learning/README.md）
 python 抓娃娃机.py    # 彩蛋
 ```
 
