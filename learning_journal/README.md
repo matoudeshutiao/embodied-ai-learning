@@ -7,7 +7,7 @@
 ```text
 learning_journal/YYYY-MM-DD-dayN/
 ├── raw.md
-├── reflection.md
+├── reflection.md   # 已有反思保留，不强制新增
 └── assets/
 ```
 
@@ -70,5 +70,4 @@ learning_journal/YYYY-MM-DD-dayN/
 - 原始输出不要先“润色”；
 - 失败和报错优先保留；
 - 截图放在同一天的 `assets/`；
-- Claude 整理后的内容要链接回这里；
-- 没有 `raw.md` 和 `reflection.md` 的一天，不算完整学习记录。
+- Claude 整理后的内容要链接回这里。
