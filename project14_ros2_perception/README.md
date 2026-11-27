@@ -229,7 +229,7 @@ Image Topic: /vision/debug_image
 
 ### 5.1 虚拟相机图像
 
-![虚拟相机图像](assets/camera_image.png)
+![虚拟相机图像](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project14_ros2_perception/assets/camera_image.png)
 
 `/camera/image_raw`：
 
@@ -240,7 +240,7 @@ Image Topic: /vision/debug_image
 
 ### 5.2 检测结果
 
-![检测 debug 图像](assets/debug_detection.png)
+![检测 debug 图像](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project14_ros2_perception/assets/debug_detection.png)
 
 `/vision/debug_image`：
 
@@ -256,7 +256,7 @@ Image Topic: /vision/debug_image
 
 ### 5.3 base_link 下的 3D 目标
 
-![RViz 中的目标 marker](assets/rviz_target.png)
+![RViz 中的目标 marker](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project14_ros2_perception/assets/rviz_target.png)
 
 RViz 里：
 

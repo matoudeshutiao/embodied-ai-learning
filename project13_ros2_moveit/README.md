@@ -150,7 +150,7 @@ Goal State: <random valid>
 | `Plan & Execute` | 计算后立即执行 |
 | `Stop` | 停止执行 |
 
-![Panda 与 MotionPlanning](assets/moveit_rviz.png)
+![Panda 与 MotionPlanning](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project13_ros2_moveit/assets/moveit_rviz.png)
 
 ---
 
@@ -174,7 +174,7 @@ Scene Objects
 
 盒子加入后，MoveIt2 会把它作为 `Collision Object` 放进 PlanningScene。之后规划会绕开它。
 
-![规划轨迹与执行](assets/moveit_plan.png)
+![规划轨迹与执行](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project13_ros2_moveit/assets/moveit_plan.png)
 
 ---
 
@@ -190,7 +190,7 @@ Goal State: <random valid>
 
 点 `Plan`，观察轨迹是否绕开盒子；确认后点 `Execute`。
 
-![碰撞盒与避障轨迹](assets/moveit_avoidance.png)
+![碰撞盒与避障轨迹](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project13_ros2_moveit/assets/moveit_avoidance.png)
 
 截图里：
 

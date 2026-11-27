@@ -388,7 +388,7 @@ Distance: 1.5
 
 ### 6.1 模型成功生成到 Gazebo
 
-![Gazebo 中的 simple_arm](assets/gazebo.png)
+![Gazebo 中的 simple_arm](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project12_ros2_gazebo/assets/gazebo.png)
 
 这一张对应：
 
@@ -402,7 +402,7 @@ Gazebo 终端中也能看到 `GazeboSystem` 硬件接口完成初始化、配置
 
 ### 6.2 轨迹执行成功
 
-![轨迹执行与控制输出](assets/control.png)
+![轨迹执行与控制输出](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project12_ros2_gazebo/assets/control.png)
 
 这张图里包含：
 
@@ -418,7 +418,7 @@ Goal finished with status: SUCCEEDED
 
 ### 6.3 Gazebo 与 RViz 同步
 
-![Gazebo 与 RViz 同步](assets/gazebo_rviz.png)
+![Gazebo 与 RViz 同步](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project12_ros2_gazebo/assets/gazebo_rviz.png)
 
 RViz 里能看到机械臂和 Gazebo 中的姿态一致，说明：
 

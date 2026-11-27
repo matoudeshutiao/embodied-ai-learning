@@ -194,7 +194,7 @@ sudo apt install -y graphviz
 
 ### 4.1 最小静态 TF：先手动造一条边
 
-![静态 TF 与 view_frames](assets/tf.png)
+![静态 TF 与 view_frames](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project11_ros2_tf/assets/tf.png)
 
 这一步没有 URDF，只用 `static_transform_publisher` 手动发布：
 
@@ -213,7 +213,7 @@ Rotation: identity
 
 ### 4.2 RViz 中的完整机械臂
 
-![RViz 中的 simple_arm 与 TF](assets/rviz_model.png)
+![RViz 中的 simple_arm 与 TF](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project11_ros2_tf/assets/rviz_model.png)
 
 RViz 里同时验证了三件事：
 
@@ -223,7 +223,7 @@ RViz 里同时验证了三件事：
 
 ### 4.3 完整 TF 树
 
-![完整 TF 树](assets/tf_tree.png)
+![完整 TF 树](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project11_ros2_tf/assets/tf_tree.png)
 
 `view_frames` 生成的树：
 

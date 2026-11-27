@@ -21,7 +21,7 @@
 速度： 恒定角速度
 ```
 
-![第一版圆](assets/circle_v1.png)
+![第一版圆](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project9_draw_circle/assets/circle_v1.png)
 
 ### 结果
 
@@ -47,7 +47,7 @@
 - **constant**：角度匀速变化；
 - **min-jerk**：角度按五次多项式变化，起停更平滑。
 
-![constant vs min-jerk](assets/circle_timing.png)
+![constant vs min-jerk](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project9_draw_circle/assets/circle_timing.png)
 
 ### 结果
 
@@ -85,7 +85,7 @@ min-jerk 前段慢、中段快、最后非常慢；所以它在中后段领先�
 最低 sigma_min：0.037
 ```
 
-![可操作度与自适应速度](assets/circle_adaptive.png)
+![可操作度与自适应速度](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project9_draw_circle/assets/circle_adaptive.png)
 
 ### 做法
 
@@ -115,7 +115,7 @@ min-jerk 前段慢、中段快、最后非常慢；所以它在中后段领先�
 | min-jerk | 5.12 mm | 2.45 mm | 0.88 rad/s | 5.12 mm | 0.88 rad/s |
 | adaptive | 4.06 mm | 2.45 mm | **0.38 rad/s** | **1.94 mm** | **0.28 rad/s** |
 
-![三条轨迹的末状态](assets/three_trails_final.png)
+![三条轨迹的末状态](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project9_draw_circle/assets/three_trails_final.png)
 
 > 截图说明：这是简化后的**无机械臂**动态对比。  
 > 三个圆分别对应 constant / min-jerk / adaptive；彩色箭头是误差方向，长度放大 20 倍。  

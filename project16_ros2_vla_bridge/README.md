@@ -87,7 +87,7 @@ RViz
 
 ## 2.1 实测结果
 
-![Gazebo 与 RViz 中的真控制器执行](assets/real_controller.png)
+![Gazebo 与 RViz 中的真控制器执行](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/real_controller.png)
 
 截图同时包含：
 
@@ -1902,7 +1902,7 @@ joint1 raw  : flat at +0.0000 rad/s;
               position difference is used instead
 ```
 
-![安全停止的位置与速度曲线](assets/stop_profile.png)
+![安全停止的位置与速度曲线](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/stop_profile.png)
 
 位置曲线在 stop 处是硬拐角。整张图横轴约 9.5 秒，所以 50 ms 的过渡在图上看起来接近垂直。
 
@@ -2006,7 +2006,7 @@ stop distance  : joint1=0.00070 rad, joint2=0.00075 rad
 | 2.00 rad/s² | 39.7 ms | 0.00158 rad |
 | 实测急停 | 52.5 ms | 0.0007 rad |
 
-![实测停止与不同减速度的理想曲线](assets/stop_analysis.png)
+![实测停止与不同减速度的理想曲线](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/stop_analysis.png)
 
 ### 18.4 为什么图上是垂直的
 
@@ -2103,7 +2103,7 @@ stop distance  : joint1=0.00245 rad, joint2=0.00181 rad
 | 低速 | 0.0794 rad/s | 52.5 ms | 1.51 rad/s² | 0.0007 rad |
 | 高速 | 0.2448 rad/s | 51.7 ms | 4.74 rad/s² | 0.00245 rad |
 
-![高速停止与理想减速对比](assets/stop_analysis_high_speed.png)
+![高速停止与理想减速对比](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/stop_analysis_high_speed.png)
 
 速度约 3.1 倍，过渡时间几乎不变，减速度约 3.1 倍。
 
@@ -2384,7 +2384,7 @@ python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_wave.py
 [panda_wave] result: code=0, message=Goal successfully reached!
 ```
 
-![Panda + mock hardware + RViz](assets/panda_mock_hardware.png)
+![Panda + mock hardware + RViz](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/panda_mock_hardware.png)
 
 ### 21.4 这次验证了什么
 
@@ -2728,7 +2728,7 @@ panda_color_detector
 
 误差约 3–5 mm。
 
-![Panda 桌面场景与相机检测](assets/panda_table_scene.png)
+![Panda 桌面场景与相机检测](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/panda_table_scene.png)
 
 ### 23.4 验证链路
 
@@ -3006,7 +3006,7 @@ pick sequence finished
 
 所有 action 都成功，但红方块还在桌上，夹爪抓歪了。
 
-![抓取失败：方块仍在桌上](assets/panda_pick_failed.png)
+![抓取失败：方块仍在桌上](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/panda_pick_failed.png)
 
 根因：
 
@@ -3359,7 +3359,7 @@ GRASP FAILED: cube_dz = -0.0008016
 
 仍然没有抬起来。
 
-![Day 28 抓取失败：effort 闭合后仍未抬起方块](assets/day28_grasp_attempt.png)
+![Day 28 抓取失败：effort 闭合后仍未抬起方块](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/day28_grasp_attempt.png)
 
 ### 28.5 当前状态
 
@@ -3459,7 +3459,7 @@ cube after lift z: 0.5789621069407617
 GRASP SUCCESS
 ```
 
-![Day 29 抓取成功](assets/day29_grasp_success.png)
+![Day 29 抓取成功](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/day29_grasp_success.png)
 
 ### 29.4 和之前抓不起来的关系
 
@@ -3914,9 +3914,9 @@ ros2 run vla_bridge panda_move_to_target
 - 纹理黄黑斜条纹：SDF 只注册了 `.material`，没注册 `materials/textures`；
   两个目录都注册后重启 Gazebo 清材质缓存。
 
-![ChArUco 缺纹理时的黄黑占位](assets/day33_charuco_missing_texture.png)
+![ChArUco 缺纹理时的黄黑占位](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/day33_charuco_missing_texture.png)
 
-![纹理修复后的 ChArUco 标定板](assets/day33_charuco_board_ok.png)
+![纹理修复后的 ChArUco 标定板](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/day33_charuco_board_ok.png)
 - 320×240 下每个 ArUco 数据位约 2.7 px，只检出 10/17 markers；
   腕部相机改 640×480 后 `fx=fy=554.255, cx=320.5, cy=240.5`，
   17/17 markers、24/24 corners。

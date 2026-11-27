@@ -63,7 +63,7 @@ MoveGroup goal accepted
 MoveGroup execution succeeded
 ```
 
-![MoveGroup 闭环执行成功](assets/movegroup_success.png)
+![MoveGroup 闭环执行成功](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project15_ros2_closed_loop/assets/movegroup_success.png)
 
 这张图同时包含：
 

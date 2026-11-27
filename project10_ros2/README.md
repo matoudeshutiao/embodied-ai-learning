@@ -62,7 +62,7 @@ Kali 虚拟机保留，不用于 ROS2；新建一台 Ubuntu 虚拟机。
 两个终端分别运行 `demo_nodes_cpp talker` 和 `demo_nodes_py listener`，
 listener 持续打印 `I heard: [Hello World: ...]`，说明 ROS2 安装与 DDS 通信正常。
 
-![ROS2 talker/listener](assets/talker_listener.png)
+![ROS2 talker/listener](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project10_ros2/assets/talker_listener.png)
 
 ### 2. turtlesim + 自己的节点
 
@@ -70,7 +70,7 @@ listener 持续打印 `I heard: [Hello World: ...]`，说明 ROS2 安装与 DDS 
 - 海龟持续画圆；
 - `turtle_control/pose_listener` 订阅 `/turtle1/pose`，持续打印 `x/y/theta`。
 
-![turtlesim 与自定义发布/订阅节点](assets/turtle_custom_nodes.png)
+![turtlesim 与自定义发布/订阅节点](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project10_ros2/assets/turtle_custom_nodes.png)
 
 ## 第 9 天：从“能通信”升级到“可配置、可控、可一键启动”
 
@@ -149,7 +149,7 @@ ros2 service list
 ros2 run rqt_graph rqt_graph
 ```
 
-![rqt_graph 界面](assets/rqt_graph.png)
+![rqt_graph 界面](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project10_ros2/assets/rqt_graph.png)
 
 `rqt_graph` 显示的是**节点和话题的连接关系**：
 

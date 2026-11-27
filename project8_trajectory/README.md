@@ -47,7 +47,7 @@
 
 用红线画实际轨迹，用绿色虚线画指令轨迹。
 
-![指令轨迹与实际轨迹](assets/step1_tracking.png)
+![指令轨迹与实际轨迹](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step1_tracking.png)
 
 ### 结果
 
@@ -80,8 +80,8 @@
 | 600 | 2.5 s | 6.3 mm | 37.3 ms | 1.11 rad/s |
 | 240 | 1.0 s | 15.6 mm | 36.3 ms | **2.69 rad/s** |
 
-![600 步结果](assets/step2_speed600.png)
-![240 步结果](assets/step2_speed240.png)
+![600 步结果](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step2_speed600.png)
+![240 步结果](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step2_speed240.png)
 
 关键规律：
 
@@ -100,8 +100,8 @@
 - **trapezoid**：加速 → 匀速 → 减速；
 - **min-jerk**：五次多项式，加速度连续、jerk 最小。
 
-![同样总时间的三种曲线](assets/step2_same_time.png)
-![同样峰值速度的三种曲线](assets/step2_same_peak.png)
+![同样总时间的三种曲线](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step2_same_time.png)
+![同样峰值速度的三种曲线](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step2_same_peak.png)
 
 | 方式 | 峰值速度 | 最大加速度 | 最大 jerk | 最大误差 |
 | --- | ---: | ---: | ---: | ---: |
@@ -132,8 +132,8 @@
 
 示例限制：`a_max = 0.5 m/s²`，`j_max = 2.0 m/s³`。这些是教学示例，不是 Franka 官方参数。
 
-![可执行性检查](assets/step2_feasibility.png)
-![三种曲线对比表](assets/step2_visual_table.png)
+![可执行性检查](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step2_feasibility.png)
+![三种曲线对比表](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step2_visual_table.png)
 
 | 曲线 | 加速度/限制 | jerk/限制 | 结果 |
 | --- | ---: | ---: | --- |
@@ -172,8 +172,8 @@
 | 实际路径长度 | 38.99 cm | 40.51 cm |
 | 终点误差 | 0.04 mm | 0.09 mm |
 
-![两种插值空间](assets/step3_interpolation.png)
-![GUI 中的两条末端轨迹](assets/step3_gui.png)
+![两种插值空间](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step3_interpolation.png)
+![GUI 中的两条末端轨迹](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step3_gui.png)
 
 ### 一个关键调试
 
@@ -215,9 +215,9 @@ x_dot = J(q) * q_dot
 - `sigma_min` 是最弱方向的余量；
 - 乘积是椭球体积，但体积大不代表最弱方向安全。
 
-![二连杆速度椭球概念图](assets/step4_ellipsoid_concept.png)
-![safe 与 near 路径的奇异值/关节速度](assets/step4_singularity.png)
-![safe 与 near 的 GUI 轨迹](assets/step4_gui_safe_near.png)
+![二连杆速度椭球概念图](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step4_ellipsoid_concept.png)
+![safe 与 near 路径的奇异值/关节速度](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step4_singularity.png)
+![safe 与 near 的 GUI 轨迹](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step4_gui_safe_near.png)
 
 ### 实验
 
@@ -266,8 +266,8 @@ qdot = J^T * (J * J^T + lambda^2 * I)^(-1) * twist
 `lambda` 是阻尼/正则化系数：它决定对弱方向的“让步程度”。  
 `lambda` 越大，越不愿意为了弱方向使用巨大的关节速度，但末端跟踪误差会变大。
 
-![DLS 阻尼扫描](assets/step5_dls_sweep.png)
-![标准伪逆与 DLS 的 GUI 对比](assets/step5_gui_standard_vs_dls.png)
+![DLS 阻尼扫描](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step5_dls_sweep.png)
+![标准伪逆与 DLS 的 GUI 对比](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project8_trajectory/assets/step5_gui_standard_vs_dls.png)
 
 ### 结果
 

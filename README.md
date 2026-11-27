@@ -529,7 +529,7 @@ python 抓娃娃机.py    # 彩蛋
 
 ### 2026.10.24 ｜ 第 4 天 · 三色方块分拣
 
-![三色方块分拣结果](assets/day4_sorting_result.png)
+![三色方块分拣结果](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/assets/day4_sorting_result.png)
 
 **今天完成**
 
@@ -580,7 +580,7 @@ python 抓娃娃机.py    # 彩蛋
 
 > 这一节主要记录我搞懂的概念、踩过的坑和真正的学习收获，指标放在最后备查。
 
-![第七个项目的训练曲线、验证预测和未见测试结果](project7_yolo/assets/project7_yolo_summary.png)
+![第七个项目的训练曲线、验证预测和未见测试结果](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project7_yolo/assets/project7_yolo_summary.png)
 
 ### 我做了什么
 
@@ -750,11 +750,11 @@ python project7_yolo/第七个项目.py
 
 ### 官方 talker / listener 验证
 
-![ROS2 talker/listener](project10_ros2/assets/talker_listener.png)
+![ROS2 talker/listener](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project10_ros2/assets/talker_listener.png)
 
 ### turtlesim + 自己的节点
 
-![turtlesim 与自定义发布/订阅节点](project10_ros2/assets/turtle_custom_nodes.png)
+![turtlesim 与自定义发布/订阅节点](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project10_ros2/assets/turtle_custom_nodes.png)
 
 ### 遇到的坑
 
@@ -782,7 +782,7 @@ python project7_yolo/第七个项目.py
 
 #### rqt_graph 看什么？
 
-![rqt_graph 界面](project10_ros2/assets/rqt_graph.png)
+![rqt_graph 界面](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project10_ros2/assets/rqt_graph.png)
 
 `rqt_graph` 是 ROS2 的**计算图查看器**，不是数据查看器：
 
@@ -871,7 +871,7 @@ base_link → camera_link
 ros2 run tf2_ros tf2_echo base_link camera_link
 ```
 
-![静态 TF 与 view_frames](project11_ros2_tf/assets/tf.png)
+![静态 TF 与 view_frames](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project11_ros2_tf/assets/tf.png)
 
 这一步理解了：
 
@@ -893,7 +893,7 @@ base_link → link1 → link2 → tool0 → camera_link → camera_optical_frame
 ros2 launch arm_description display.launch.py
 ```
 
-![RViz 中的 simple_arm 与 TF](project11_ros2_tf/assets/rviz_model.png)
+![RViz 中的 simple_arm 与 TF](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project11_ros2_tf/assets/rviz_model.png)
 
 在 RViz 里：
 
@@ -910,7 +910,7 @@ ros2 launch arm_description display.launch.py
 
 #### 3. 完整 TF 树
 
-![完整 TF 树](project11_ros2_tf/assets/tf_tree.png)
+![完整 TF 树](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project11_ros2_tf/assets/tf_tree.png)
 
 `view_frames` 生成：
 
@@ -1081,7 +1081,7 @@ spawn_entity.py
 
 它读取 `/robot_description`，再调用 Gazebo 的 `/spawn_entity` 服务，把 URDF 变成仿真世界里的模型。
 
-![Gazebo 中的 simple_arm](project12_ros2_gazebo/assets/gazebo.png)
+![Gazebo 中的 simple_arm](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project12_ros2_gazebo/assets/gazebo.png)
 
 截图里确认到：
 
@@ -1117,7 +1117,7 @@ trajectory:
 "
 ```
 
-![轨迹执行与控制输出](project12_ros2_gazebo/assets/control.png)
+![轨迹执行与控制输出](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project12_ros2_gazebo/assets/control.png)
 
 截图里确认到：
 
@@ -1132,7 +1132,7 @@ Goal finished with status: SUCCEEDED
 
 #### 3. Gazebo 与 RViz 同步
 
-![Gazebo 与 RViz 同步](project12_ros2_gazebo/assets/gazebo_rviz.png)
+![Gazebo 与 RViz 同步](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project12_ros2_gazebo/assets/gazebo_rviz.png)
 
 RViz 里机械臂的姿态和 Gazebo 一致，说明状态链也通了：
 
@@ -1272,7 +1272,7 @@ RViz Scene Objects
 
 #### 1. 第一次规划与执行
 
-![Panda 与 MotionPlanning](project13_ros2_moveit/assets/moveit_rviz.png)
+![Panda 与 MotionPlanning](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project13_ros2_moveit/assets/moveit_rviz.png)
 
 关键操作：
 
@@ -1288,13 +1288,13 @@ Execute → 执行
 
 #### 2. 加障碍物后的避障规划
 
-![规划轨迹与执行](project13_ros2_moveit/assets/moveit_plan.png)
+![规划轨迹与执行](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project13_ros2_moveit/assets/moveit_plan.png)
 
 在 `Scene Objects` 里加一个 Box，它会成为 PlanningScene 中的 Collision Object。先 Plan 看路径，再 Execute。
 
 #### 3. 碰撞盒与避障结果
 
-![碰撞盒与避障轨迹](project13_ros2_moveit/assets/moveit_avoidance.png)
+![碰撞盒与避障轨迹](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project13_ros2_moveit/assets/moveit_avoidance.png)
 
 截图里：
 
@@ -1494,7 +1494,7 @@ z = 1.0
 /camera/camera_info
 ```
 
-![虚拟相机图像](project14_ros2_perception/assets/camera_image.png)
+![虚拟相机图像](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project14_ros2_perception/assets/camera_image.png)
 
 深度不是普通灰度图，而是 `32FC1` 米制深度：
 
@@ -1524,7 +1524,7 @@ HSV 阈值
 /vision/target_marker    → RViz 红色球
 ```
 
-![检测 debug 图像](project14_ros2_perception/assets/debug_detection.png)
+![检测 debug 图像](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project14_ros2_perception/assets/debug_detection.png)
 
 #### 3. TF 转到 base_link
 
@@ -1540,7 +1540,7 @@ camera_optical_frame
 base_link
 ```
 
-![RViz 中的目标 marker](project14_ros2_perception/assets/rviz_target.png)
+![RViz 中的目标 marker](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project14_ros2_perception/assets/rviz_target.png)
 
 RViz 里同时能看到：
 
@@ -1614,7 +1614,7 @@ RViz 中执行到目标
 
 #### 闭环结果
 
-![感知 → MoveIt2 闭环成功](project15_ros2_closed_loop/assets/movegroup_success.png)
+![感知 → MoveIt2 闭环成功](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project15_ros2_closed_loop/assets/movegroup_success.png)
 
 目标约为：
 
@@ -1808,7 +1808,7 @@ Safe Executor
 Mock Trajectory Server
 ```
 
-![策略到动作接口的完整日志](project16_ros2_vla_bridge/assets/action_chain_logs.png)
+![策略到动作接口的完整日志](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/action_chain_logs.png)
 
 #### 神经系统的类比
 
@@ -2022,7 +2022,7 @@ RViz 与 Gazebo 同步
 
 #### 实测结果
 
-![Gazebo 与 RViz 中的真控制器执行](project16_ros2_vla_bridge/assets/real_controller.png)
+![Gazebo 与 RViz 中的真控制器执行](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/real_controller.png)
 
 两个控制器均为 active：
 
@@ -3026,7 +3026,7 @@ joint1: +0.0693 rad/s → -0.0000 rad/s
 joint2: -0.0772 rad/s → +0.0000 rad/s
 ```
 
-![安全停止的位置与速度曲线](project16_ros2_vla_bridge/assets/stop_profile.png)
+![安全停止的位置与速度曲线](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/stop_profile.png)
 
 位置曲线在 stop 处是硬拐角。整张图横轴约 9.5 秒，所以 50 ms 的过渡在图上看起来接近垂直。
 
@@ -3156,7 +3156,7 @@ stop distance  : joint1=0.00070 rad, joint2=0.00075 rad
 用户要求先检查图对不对，才发现这个绘图方向错误。  
 修正后才放进 README。
 
-![实测停止与不同减速度的理想曲线](project16_ros2_vla_bridge/assets/stop_analysis.png)
+![实测停止与不同减速度的理想曲线](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/stop_analysis.png)
 
 #### 今天学到的
 
@@ -3231,7 +3231,7 @@ stop distance  : joint1=0.00245 rad, joint2=0.00181 rad
 | 低速 | 0.0794 rad/s | 52.5 ms | 1.51 rad/s² | 0.0007 rad |
 | 高速 | 0.2448 rad/s | 51.7 ms | 4.74 rad/s² | 0.00245 rad |
 
-![高速停止分析](project16_ros2_vla_bridge/assets/stop_analysis_high_speed.png)
+![高速停止分析](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/stop_analysis_high_speed.png)
 
 速度变成约 3.1 倍，过渡时间几乎不变，减速度也跟着变成约 3.1 倍。
 
@@ -3412,7 +3412,7 @@ python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_wave.py
 [panda_wave] result: code=0, message=Goal successfully reached!
 ```
 
-![Panda + mock hardware + RViz](project16_ros2_vla_bridge/assets/panda_mock_hardware.png)
+![Panda + mock hardware + RViz](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/panda_mock_hardware.png)
 
 这次验证的是：
 
@@ -3651,7 +3651,7 @@ Gazebo 里加入：
 
 误差约 3–5 mm。
 
-![Panda 桌面场景与相机检测](project16_ros2_vla_bridge/assets/panda_table_scene.png)
+![Panda 桌面场景与相机检测](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/panda_table_scene.png)
 
 这一步验证了：
 
@@ -3925,7 +3925,7 @@ pick sequence finished
 
 所有 action 都返回成功，但红方块还在桌上，夹爪抓歪了。
 
-![抓取失败：方块仍在桌上](project16_ros2_vla_bridge/assets/panda_pick_failed.png)
+![抓取失败：方块仍在桌上](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/panda_pick_failed.png)
 
 问题：
 
@@ -4245,7 +4245,7 @@ GRASP FAILED: cube_dz = -0.0008016
 
 但方块仍然没有被抬起来。
 
-![Day 28 抓取失败：effort 闭合后仍未抬起方块](project16_ros2_vla_bridge/assets/day28_grasp_attempt.png)
+![Day 28 抓取失败：effort 闭合后仍未抬起方块](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/day28_grasp_attempt.png)
 
 #### 当前结论
 
@@ -4312,7 +4312,7 @@ cube z after lift: 0.579
 GRASP SUCCESS
 ```
 
-![Day 29 抓取成功](project16_ros2_vla_bridge/assets/day29_grasp_success.png)
+![Day 29 抓取成功](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/day29_grasp_success.png)
 
 #### 最后这个错误是什么
 
@@ -4754,9 +4754,9 @@ pre-grasp 能看到完整红方块
 `model.sdf` 只注册了 `.material` 脚本，没有注册 `materials/textures` 目录。
 同时注册两个目录后，必须重启 Gazebo 清 OGRE 材质缓存。
 
-![ChArUco 缺纹理时的黄黑占位](project16_ros2_vla_bridge/assets/day33_charuco_missing_texture.png)
+![ChArUco 缺纹理时的黄黑占位](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/day33_charuco_missing_texture.png)
 
-![纹理修复后的 ChArUco 标定板](project16_ros2_vla_bridge/assets/day33_charuco_board_ok.png)
+![纹理修复后的 ChArUco 标定板](https://cdn.jsdelivr.net/gh/matoudeshutiao/embodied-ai-learning@main/project16_ros2_vla_bridge/assets/day33_charuco_board_ok.png)
 
 **坑 2：320×240 下 marker 太小。** 只检出 10/17 markers、9/24 corners；
 每个 ArUco 数据位约 2.7 px。腕部相机提到 640×480 后：
