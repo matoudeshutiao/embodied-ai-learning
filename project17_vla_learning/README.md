@@ -34,21 +34,24 @@
 ```text
 project17_vla_learning/
 ├── README.md
+├── PLAN.md         # 近一个月计划
 ├── notes/          # 每周笔记、问题、pipeline 图
 ├── references/     # 论文和官方仓库入口
 ├── toy_idm/        # CPU/GPU 小实验
 └── assets/         # 截图、图、视频封面
 ```
 
-## 学习线
+## 近一个月计划
 
-| 周 | 时间 | 任务 |
-|---|---:|---|
-| 第 1 周 | 3–4 h | 读 LingBot-VA、mimic-video，画 pipeline |
-| 第 2 周 | 3–5 h | video diffusion / flow matching / IDM 基础 |
-| 第 3 周 | 3–4 h | 读官方代码结构和 LeRobot 数据格式 |
-| 第 4 周 | 4–6 h | GPU toy IDM + frozen encoder + action decoder |
-| 第 5 周 | 2–4 h | README、5 分钟讲解、差距分析 |
+详细版见 [PLAN.md](PLAN.md)。
+
+| 周 | 日期 | 时间 | 交付 |
+|---|---|---:|---|
+| 第 1 周 | 11.25–12.01 | 3–4 h | `notes/01_pipeline.md` |
+| 第 2 周 | 12.02–12.08 | 3–5 h | `notes/02_basics.md` |
+| 第 3 周 | 12.09–12.15 | 3–4 h | `notes/03_code_reading.md` |
+| 第 4 周 | 12.16–12.22 | 4–6 h | `toy_idm/` 代码与结果 |
+| 第 5 周 | 12.23–12.31 | 2–4 h | README、5 分钟讲解、差距分析 |
 
 ## 两个核心参考
 

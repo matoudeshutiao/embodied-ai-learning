@@ -318,7 +318,8 @@ ros2 run vla_bridge panda_pick
 python3 ~/embodied-ai-learning/project16_ros2_vla_bridge/scripts/panda_pick_trials.py \
   --trials 20 --seed 0 --publish
 
-# 第 36 天起：VLA / Video Action Model 入门（先读 project17_vla_learning/README.md）
+# 第 36 天起：VLA / Video Action Model 入门
+# 先读 project17_vla_learning/README.md 和 PLAN.md
 python 抓娃娃机.py    # 彩蛋
 ```
 
