@@ -370,6 +370,7 @@ python 抓娃娃机.py    # 彩蛋
 | Day&nbsp;33 | 2026.11.23 | ROS2 周 Day 25：ChArUco 标定板、640×480 腕部相机、纹理 UV 修复、瞄准式姿态采样与 15/15 全板采集 |
 | Day&nbsp;34 | 2026.11.24 | ROS2 周 Day 26：手眼标定冻结、腕部方块检测 2.90 mm、PBVS 5/5 闭环 2.41 mm；腕部视觉抓放 5/5，放置 1.0 mm；[B 站 demo](https://www.bilibili.com/video/BV1Qgyfz1EJd/) |
 | Day&nbsp;35 | 2026.11.25 | ROS2 周 Day 27：腕部视觉抓放扩大范围 20/20，approach 1.99 mm，place 1.1 mm；0.20 m 低质量 3 次由 0.30 m 目标兜底 |
+| Day&nbsp;36–43 | 2026.11.26–12.03 | VLA 学习周（进行中）：video action model 入门，LingBot-VA / mimic-video pipeline，toy IDM |
 
 ### 2026.10.21 ｜ 第 1 天 · 跑通 Panda 仿真与抓取
 
