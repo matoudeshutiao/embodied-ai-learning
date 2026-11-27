@@ -53,12 +53,12 @@ AI 整理的部分会明确标注，原始记录单独保留。
 
 ## 3. GitHub 结构
 
-每天保留两类内容：
+每天优先保留 raw 记录；有反思就保留，不强制每天写：
 
 ```text
 learning_journal/YYYY-MM-DD-dayN/
 ├── raw.md          # 用户原始记录：命令、日志、截图、困惑
-├── reflection.md   # 用户自己写的三句话/反思
+├── reflection.md   # 用户自己写的三句话/反思（可选）
 └── assets/         # 原始截图
 ```
 
@@ -68,9 +68,10 @@ learning_journal/YYYY-MM-DD-dayN/
 
 ```text
 没有 raw 记录的学习日，不算完成
-没有用户反思的日更，不算完成
-只有 AI 总结的日更，不算完成
+只有 AI 总结、没有 raw 证据的日更，不算完成
 ```
+
+反思保留现有内容，不强制补齐缺失的反思。
 
 ---
 
